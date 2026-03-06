@@ -1,0 +1,272 @@
+version: '3.9'
+
+services:
+  # ===================================
+  # POSTGRESQL DATABASE
+  # ===================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: gamification-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gamification_db}
+      POSTGRES_USER: ${POSTGRES_USER:-gamification_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_secure_password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - gamification-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gamification_user} -d ${POSTGRES_DB:-gamification_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ===================================
+  # REDIS CACHE & MESSAGE BROKER
+  # ===================================
+  redis:
+    image: redis:7-alpine
+    container_name: gamification-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - gamification-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ===================================
+  # API GATEWAY (главная точка входа)
+  # ===================================
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: gamification-api-gateway
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-gamification_user}:${POSTGRES_PASSWORD:-change_me_secure_password}@postgres:5432/${POSTGRES_DB:-gamification_db}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - API_GATEWAY_PORT=8000
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - GAMIFICATION_SERVICE_URL=http://gamification-service:8002
+      - INTEGRATION_SERVICE_URL=http://integration-service:8003
+      - ANALYTICS_SERVICE_URL=http://analytics-service:8004
+    volumes:
+      - ./services/api-gateway/app:/app/app
+      - ./shared:/app/shared
+    ports:
+      - "8000:8000"
+    networks:
+      - gamification-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  # ===================================
+  # AUTH SERVICE (аутентификация)
+  # ===================================
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: gamification-auth-service
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-gamification_user}:${POSTGRES_PASSWORD:-change_me_secure_password}@postgres:5432/${POSTGRES_DB:-gamification_db}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    volumes:
+      - ./services/auth-service/app:/app/app
+      - ./shared:/app/shared
+    ports:
+      - "8001:8001"
+    networks:
+      - gamification-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+    restart: unless-stopped
+
+  # ===================================
+  # GAMIFICATION SERVICE (ядро геймификации)
+  # ===================================
+  gamification-service:
+    build:
+      context: ./services/gamification-service
+      dockerfile: Dockerfile
+    container_name: gamification-gamification-service
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-gamification_user}:${POSTGRES_PASSWORD:-change_me_secure_password}@postgres:5432/${POSTGRES_DB:-gamification_db}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    volumes:
+      - ./services/gamification-service/app:/app/app
+      - ./shared:/app/shared
+    ports:
+      - "8002:8002"
+    networks:
+      - gamification-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8002 --reload
+    restart: unless-stopped
+
+  # ===================================
+  # INTEGRATION SERVICE (GitHub, Jira, Slack)
+  # ===================================
+  integration-service:
+    build:
+      context: ./services/integration-service
+      dockerfile: Dockerfile
+    container_name: gamification-integration-service
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-gamification_user}:${POSTGRES_PASSWORD:-change_me_secure_password}@postgres:5432/${POSTGRES_DB:-gamification_db}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - JIRA_CLIENT_ID=${JIRA_CLIENT_ID}
+      - JIRA_CLIENT_SECRET=${JIRA_CLIENT_SECRET}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    volumes:
+      - ./services/integration-service/app:/app/app
+      - ./shared:/app/shared
+    ports:
+      - "8003:8003"
+    networks:
+      - gamification-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
+    restart: unless-stopped
+
+  # ===================================
+  # ANALYTICS SERVICE (аналитика, метрики)
+  # ===================================
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+      dockerfile: Dockerfile
+    container_name: gamification-analytics-service
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-gamification_user}:${POSTGRES_PASSWORD:-change_me_secure_password}@postgres:5432/${POSTGRES_DB:-gamification_db}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    volumes:
+      - ./services/analytics-service/app:/app/app
+      - ./shared:/app/shared
+    ports:
+      - "8004:8004"
+    networks:
+      - gamification-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8004 --reload
+    restart: unless-stopped
+
+  # ===================================
+  # CELERY WORKER (асинхронные задачи)
+  # ===================================
+  celery-worker:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: gamification-celery-worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-gamification_user}:${POSTGRES_PASSWORD:-change_me_secure_password}@postgres:5432/${POSTGRES_DB:-gamification_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    volumes:
+      - ./services/api-gateway/app:/app/app
+      - ./shared:/app/shared
+    networks:
+      - gamification-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app worker --loglevel=info
+    restart: unless-stopped
+
+  # ===================================
+  # CELERY BEAT (планировщик задач)
+  # ===================================
+  celery-beat:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: gamification-celery-beat
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-gamification_user}:${POSTGRES_PASSWORD:-change_me_secure_password}@postgres:5432/${POSTGRES_DB:-gamification_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    volumes:
+      - ./services/api-gateway/app:/app/app
+      - ./shared:/app/shared
+    networks:
+      - gamification-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app beat --loglevel=info
+    restart: unless-stopped
+
+# ===================================
+# NETWORKS
+# ===================================
+networks:
+  gamification-network:
+    driver: bridge
+    name: gamification-network
+
+# ===================================
+# VOLUMES (persistent data)
+# ===================================
+volumes:
+  postgres_data:
+    name: gamification-postgres-data
+  redis_data:
+    name: gamification-redis-data
