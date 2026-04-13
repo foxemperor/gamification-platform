@@ -26,6 +26,8 @@ from app.config import settings
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.routers import health, auth, users, quests, leaderboard, integrations
+from app.celery_app import process_gamification_event
+
 import logging
 import sys
 
@@ -183,6 +185,32 @@ app.include_router(leaderboard.router, prefix="/api/v1/leaderboard", tags=["Lead
 # Интеграции (GitHub, Jira, Slack)
 app.include_router(integrations.router, prefix="/api/v1/integrations", tags=["Integrations"])
 
+# ===================================
+# CELERY ENDPOINT
+# ===================================
+
+# Эндпоинт: Принимает событие и отправляет в шину (Celery)
+@app.post("/api/v1/events/complete-task", tags=["Events"])
+async def complete_task_event(user_id: int, task_name: str):
+    """
+    Принимает событие о завершении задачи и передает его в шину сообщений.
+    """
+    payload = {
+        "user_id": user_id,
+        "task_name": task_name,
+        "points": 50,  # Базовая награда
+        "status": "pending"
+    }
+
+    # ВЫЗОВ ЗАДАЧИ CELERY (Отправка в шину сообщений)
+    # .delay() отправляет задачу в Redis, не дожидаясь её выполнения
+    task = process_gamification_event.delay(payload)
+
+    return {
+        "message": "Событие отправлено в шину сообщений",
+        "task_id": task.id,
+        "data": payload
+    }
 
 # ===================================
 # ROOT ENDPOINT
@@ -207,6 +235,19 @@ async def root():
         },
     }
 
+# ===================================
+# HEALTHCHECK
+# ===================================
+@app.get("/health", tags=["System"])
+async def health():
+    """
+    Эндпоинт для проверки здоровья сервиса (Healthcheck)
+    """
+    return {
+        "status": "healthy",
+        "service": "api-gateway",
+        "version": "0.1.0"
+    }
 
 # ===================================
 # ENTRYPOINT FOR UVICORN
