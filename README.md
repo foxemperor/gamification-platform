@@ -76,7 +76,7 @@
 #### 1. Клонирование репозитория
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/gamification-platform.git
+git clone https://github.com/foxemperor/gamification-platform.git
 cd gamification-platform
 ```
 
@@ -94,10 +94,10 @@ cp .env.example .env
 make up
 
 # Или вручную:
-docker-compose up -d
+docker compose up -d
 
 # Проверка статуса
-docker-compose ps
+docker compose ps
 ```
 
 #### 4. Инициализация базы данных
@@ -106,16 +106,84 @@ docker-compose ps
 make init-db
 
 # Или вручную:
-docker-compose exec api-gateway python /app/scripts/init_db.py
+docker compose exec api-gateway python /app/scripts/init_db.py
 ```
 
 #### 5. Доступ к сервисам
 
-- **API Gateway**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
-- **Frontend** (после запуска): http://localhost:3000
+| Сервис | URL | Статус |
+|---|---|---|
+| API Gateway | http://localhost:8000 | 🚧 В разработке |
+| **Auth Service** | **http://localhost:8001** | ✅ Готов |
+| Auth Service Swagger UI | http://localhost:8001/docs | ✅ Готов |
+| PostgreSQL | localhost:5432 | ✅ Работает |
+| Redis | localhost:6379 | ✅ Работает |
+| Frontend | http://localhost:3000 | 🚧 В разработке |
+
+---
+
+## 📖 Работа со Swagger UI
+
+Swagger UI — это интерактивная документация API, встроенная в каждый сервис. Она позволяет тестировать все эндпоинты прямо в браузере без сторонних инструментов (Postman, curl).
+
+### Как открыть
+
+После запуска сервиса откройте в браузере:
+- **Auth Service**: http://localhost:8001/docs
+
+### Как выполнить запрос
+
+1. Нажмите на нужный эндпоинт (например, `POST /api/v1/auth/register`) — он раскроется
+2. Нажмите кнопку **"Try it out"** справа
+3. Заполните поле **Request body** своими данными (замените значения `"string"` на реальные)
+4. Нажмите **"Execute"**
+5. Результат появится в блоке **"Server response"** ниже
+
+> ⚠️ **Важно:** не путайте блок **"Server response"** (реальный ответ сервера) с блоком **"Responses"** (это просто справочник возможных кодов ответа из документации).
+
+### Как авторизоваться (для защищённых эндпоинтов)
+
+1. Сначала выполните `POST /api/v1/auth/login` и скопируйте `access_token` из ответа
+2. Нажмите кнопку **🔒 Authorize** в верхней части страницы
+3. Вставьте токен в поле `Value` (только сам токен, без слова `bearer`)
+4. Нажмите **Authorize** → **Close**
+5. Теперь все запросы к защищённым эндпоинтам будут выполняться с вашим токеном
+
+### Пример: регистрация нового пользователя
+
+Откройте `POST /api/v1/auth/register`, нажмите **"Try it out"** и введите:
+
+```json
+{
+  "email": "user@example.com",
+  "username": "my_username",
+  "password": "MyPass123",
+  "full_name": "Иван Иванов"
+}
+```
+
+Требования к паролю: минимум 8 символов, хотя бы одна заглавная буква и одна цифра.
+
+Успешный ответ — **201 Created**:
+
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "username": "my_username",
+    "xp": 0,
+    "level": 1,
+    "coins": 0,
+    "xp_to_next_level": 100
+  },
+  "tokens": {
+    "access_token": "eyJ...",
+    "refresh_token": "eyJ...",
+    "token_type": "bearer"
+  }
+}
+```
 
 ---
 
@@ -125,7 +193,7 @@ docker-compose exec api-gateway python /app/scripts/init_db.py
 gamification-platform/
 ├── services/                    # Микросервисы
 │   ├── api-gateway/            # Основной API Gateway
-│   ├── auth-service/           # Сервис аутентификации
+│   ├── auth-service/           # Сервис аутентификации ✅
 │   ├── gamification-service/   # Ядро геймификации
 │   ├── integration-service/    # Внешние интеграции
 │   └── analytics-service/      # Аналитика
@@ -162,11 +230,11 @@ make clean           # Очистка временных файлов
 #### Backend
 
 ```bash
-cd services/api-gateway
+cd services/auth-service
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8001
 ```
 
 #### Frontend
@@ -184,10 +252,10 @@ npm start
 make test
 
 # Конкретный сервис
-docker-compose exec api-gateway pytest
+docker compose exec auth-service pytest
 
 # С покрытием
-docker-compose exec api-gateway pytest --cov=app --cov-report=html
+docker compose exec auth-service pytest --cov=app --cov-report=html
 ```
 
 ---
@@ -196,25 +264,25 @@ docker-compose exec api-gateway pytest --cov=app --cov-report=html
 
 После запуска сервисов доступна автоматическая документация:
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **OpenAPI Schema**: http://localhost:8000/openapi.json
+| Сервис | Swagger UI | ReDoc |
+|---|---|---|
+| Auth Service | http://localhost:8001/docs | http://localhost:8001/redoc |
+| Gamification Service | http://localhost:8002/docs | http://localhost:8002/redoc |
+| API Gateway | http://localhost:8000/docs | http://localhost:8000/redoc |
 
-### Основные эндпоинты
+### Эндпоинты Auth Service ✅
 
-#### Аутентификация
 ```
-POST   /api/v1/auth/register       # Регистрация
-POST   /api/v1/auth/login          # Вход
-POST   /api/v1/auth/refresh        # Обновление токена
+POST   /api/v1/auth/register    # Регистрация нового пользователя
+POST   /api/v1/auth/login       # Вход, получение токенов
+GET    /api/v1/auth/me          # Данные текущего пользователя
+PATCH  /api/v1/auth/me          # Обновление профиля
+POST   /api/v1/auth/refresh     # Обновление access токена
+POST   /api/v1/auth/logout      # Выход
+GET    /health                  # Проверка доступности сервиса
 ```
 
-#### Пользователи
-```
-GET    /api/v1/users/me            # Текущий пользователь
-GET    /api/v1/users/{id}          # Профиль пользователя
-PATCH  /api/v1/users/me            # Обновление профиля
-```
+### Эндпоинты (планируются)
 
 #### Квесты
 ```
@@ -227,8 +295,8 @@ POST   /api/v1/quests/{id}/complete # Завершить квест
 
 #### Лидерборды
 ```
-GET    /api/v1/leaderboard/xp      # Топ по XP
-GET    /api/v1/leaderboard/coins   # Топ по монетам
+GET    /api/v1/leaderboard/xp        # Топ по XP
+GET    /api/v1/leaderboard/coins     # Топ по монетам
 GET    /api/v1/leaderboard/team/{id} # Командный рейтинг
 ```
 
@@ -269,7 +337,7 @@ GET    /api/v1/leaderboard/team/{id} # Командный рейтинг
 
 - **Логи**: структурированный JSON формат
 - **Metrics**: Prometheus + Grafana (планируется)
-- **Health checks**: `/health` и `/readiness` эндпоинты
+- **Health checks**: `/health` эндпоинт на каждом сервисе
 
 ---
 
@@ -279,10 +347,10 @@ GET    /api/v1/leaderboard/team/{id} # Командный рейтинг
 
 ```bash
 # На сервере
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d
 
 # С Nginx SSL
-docker-compose -f docker-compose.prod.yml --profile nginx up -d
+docker compose -f docker-compose.prod.yml --profile nginx up -d
 ```
 
 ### Kubernetes (планируется)
@@ -319,7 +387,7 @@ Helm chart для деплоя в K8s кластер.
 ### Этап 1: MVP (Март 2026)
 - [x] Архитектура проекта
 - [x] API Gateway
-- [ ] Auth Service
+- [x] Auth Service (регистрация, JWT, профиль)
 - [ ] Gamification Service (базовые квесты, XP)
 - [ ] PostgreSQL схема
 - [ ] Базовый Frontend
@@ -347,4 +415,4 @@ Helm chart для деплоя в K8s кластер.
 
 **Статус проекта**: 🚧 В разработке (MVP)
 
-Последнее обновление: 06.03.2026
+Последнее обновление: 20.04.2026
