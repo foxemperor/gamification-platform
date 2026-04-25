@@ -23,7 +23,6 @@ param(
     [string]$Service = ""
 )
 
-# Console colors
 $GREEN  = "Green"
 $YELLOW = "Yellow"
 $RED    = "Red"
@@ -31,7 +30,6 @@ $CYAN   = "Cyan"
 $GRAY   = "DarkGray"
 $WHITE  = "White"
 
-# Active services (only implemented ones)
 $ACTIVE_SERVICES = @("postgres", "redis", "auth-service", "gamification-service")
 
 $HEALTH_ENDPOINTS = [ordered]@{
@@ -105,7 +103,10 @@ function Invoke-Health {
 function Invoke-Test {
     Write-Header "Quick API Test"
 
+    # --------------------------------------------------
     # Step 1 - Register
+    # Response: { user: {...}, tokens: { access_token, refresh_token } }
+    # --------------------------------------------------
     Write-Info "Step 1: Register..."
     $regBody = '{"username":"devuser","email":"dev@test.com","password":"DevPass123!"}'
     try {
@@ -114,73 +115,102 @@ function Invoke-Test {
             -Body $regBody `
             -ContentType "application/json" `
             -ErrorAction Stop
-        Write-Ok "Registered: $($reg.email)"
+        Write-Ok "Registered: $($reg.user.email)"
     } catch {
         Write-Warn "Register: user may already exist (that's OK)"
     }
 
+    # --------------------------------------------------
     # Step 2 - Login
+    # Response: { user: {...}, tokens: { access_token, refresh_token } }
+    # --------------------------------------------------
     Write-Info "Step 2: Login..."
     $loginBody = '{"email":"dev@test.com","password":"DevPass123!"}'
+    $token = $null
     try {
         $login = Invoke-RestMethod -Method Post `
             -Uri "http://localhost:8001/api/v1/auth/login" `
             -Body $loginBody `
             -ContentType "application/json" `
             -ErrorAction Stop
-        $token = $login.access_token
+        $token = $login.tokens.access_token
         Write-Ok "Token: $($token.Substring(0, [Math]::Min(40, $token.Length)))..."
     } catch {
         Write-Err "Login failed: $($_.Exception.Message)"
         return
     }
 
-    # Step 3 - Quest list
-    Write-Info "Step 3: Quest list..."
+    if (-not $token) {
+        Write-Err "Token is empty - check auth-service logs: .\dev.ps1 logs auth-service"
+        return
+    }
+
+    $headers = @{ Authorization = "Bearer $token" }
+
+    # --------------------------------------------------
+    # Step 3 - Current user  GET /api/v1/auth/me
+    # --------------------------------------------------
+    Write-Info "Step 3: Current user (/api/v1/auth/me)..."
+    $uid = $null
+    try {
+        $me = Invoke-RestMethod `
+            -Uri "http://localhost:8001/api/v1/auth/me" `
+            -Headers $headers `
+            -ErrorAction Stop
+        $uid = $me.id
+        Write-Ok "User: $($me.username), ID: $uid"
+    } catch {
+        Write-Warn "Get me: $($_.Exception.Message)"
+    }
+
+    # --------------------------------------------------
+    # Step 4 - Quest list
+    # --------------------------------------------------
+    Write-Info "Step 4: Quest list..."
     try {
         $quests = Invoke-RestMethod `
             -Uri "http://localhost:8002/api/v1/quests" `
-            -Headers @{ Authorization = "Bearer $token" } `
+            -Headers $headers `
             -ErrorAction Stop
         Write-Ok "Quests in DB: $($quests.total)"
     } catch {
         Write-Err "Quests error: $($_.Exception.Message)"
     }
 
-    # Step 4 - Player profile
-    Write-Info "Step 4: Profile..."
-    try {
-        $me = Invoke-RestMethod `
-            -Uri "http://localhost:8001/api/v1/users/me" `
-            -Headers @{ Authorization = "Bearer $token" } `
-            -ErrorAction Stop
-        $uid = $me.id
-        Write-Ok "User: $($me.username) (ID: $uid)"
-
-        $profile = Invoke-RestMethod `
-            -Uri "http://localhost:8002/api/v1/profile/$uid" `
-            -Headers @{ Authorization = "Bearer $token" } `
-            -ErrorAction Stop
-        Write-Ok "Game profile: Level $($profile.level), XP $($profile.total_xp)"
-    } catch {
-        Write-Warn "Profile: $($_.Exception.Message)"
+    # --------------------------------------------------
+    # Step 5 - Player profile
+    # --------------------------------------------------
+    if ($uid) {
+        Write-Info "Step 5: Game profile..."
+        try {
+            $profile = Invoke-RestMethod `
+                -Uri "http://localhost:8002/api/v1/profile/$uid" `
+                -Headers $headers `
+                -ErrorAction Stop
+            Write-Ok "Level: $($profile.level), XP: $($profile.total_xp), Quests done: $($profile.quests_completed)"
+        } catch {
+            Write-Warn "Profile: $($_.Exception.Message)"
+        }
     }
 
-    # Step 5 - Leaderboard  (& escaped as `& for PS5)
-    Write-Info "Step 5: Leaderboard..."
+    # --------------------------------------------------
+    # Step 6 - Leaderboard
+    # --------------------------------------------------
+    Write-Info "Step 6: Leaderboard..."
     $lbUrl = "http://localhost:8002/api/v1/leaderboard/xp?period=all_time" + "&limit=5"
     try {
         $lb = Invoke-RestMethod `
             -Uri $lbUrl `
-            -Headers @{ Authorization = "Bearer $token" } `
+            -Headers $headers `
             -ErrorAction Stop
-        Write-Ok "Leaderboard all_time: $($lb.total_players) players"
+        Write-Ok "Leaderboard all_time: $($lb.total_players) player(s)"
     } catch {
         Write-Warn "Leaderboard: $($_.Exception.Message)"
     }
 
     Write-Host ""
     Write-Ok "Test scenario done!"
+    Write-Host ""
     Write-Info "Swagger UI:"
     foreach ($url in $SWAGGER_URLS) { Write-Info "  $url" }
 }
