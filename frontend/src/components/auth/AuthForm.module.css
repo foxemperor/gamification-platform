@@ -20,14 +20,17 @@
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 420px) { .row2 { grid-template-columns: 1fr; } }
 
+/* Eye toggle button — SVG-based */
 .eyeBtn {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 16px;
   color: var(--text-faint);
   padding: 0;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color .2s;
 }
 .eyeBtn:hover { color: var(--text-muted); }
 
@@ -73,47 +76,11 @@
 }
 .socialBtn:hover { border-color: var(--border-focus); background: var(--primary-dim); }
 
-.switchLink {
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.switchLink button {
-  background: none;
-  border: none;
-  color: var(--primary);
-  font-weight: 600;
-  font-size: 12px;
-  cursor: pointer;
-  font-family: var(--font-b);
-}
-
 /* Password strength */
 .strengthWrap { display: flex; flex-direction: column; gap: 5px; margin-top: -8px; }
 .strengthSegs { display: flex; gap: 5px; }
 .seg { flex: 1; height: 3px; border-radius: 2px; transition: background .3s; }
 .strengthLbl { font-size: 11px; }
-
-/* Role picker */
-.fieldGroup { display: flex; flex-direction: column; gap: 8px; }
-.fieldLabel { font-size: 12px; font-weight: 600; color: var(--text-muted); }
-
-.rolePick { display: flex; gap: 10px; }
-.roleOpt {
-  flex: 1;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 8px;
-  cursor: pointer;
-  text-align: center;
-  background: var(--surface-alt);
-  transition: all .2s;
-}
-.roleOpt:hover { border-color: var(--border-focus); background: var(--primary-dim); }
-.roleSelected { border-color: var(--primary); background: var(--primary-dim); box-shadow: 0 0 0 2px var(--primary-dim); }
-.roleIco { font-size: 20px; margin-bottom: 4px; }
-.roleName { font-size: 12px; font-weight: 600; color: var(--text); }
-.roleDesc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
 
 /* XP hint */
 .xpHint {
@@ -137,9 +104,15 @@
   color: var(--text-muted);
   cursor: pointer;
 }
-.agreeRow input { width: 16px; height: 16px; margin-top: 1px; flex-shrink: 0; accent-color: var(--primary); }
+.agreeRow input {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
 
-/* Success */
+/* Success state */
 .success {
   display: flex;
   flex-direction: column;
@@ -149,7 +122,21 @@
   text-align: center;
 }
 .successIco { font-size: 52px; animation: pop .4s ease; }
-@keyframes pop { 0%{transform:scale(.5);opacity:0} 80%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
-.successTitle { font-family: var(--font-d); font-size: 20px; font-weight: 700; color: var(--success); }
+@keyframes pop {
+  0%   { transform: scale(.5); opacity: 0; }
+  80%  { transform: scale(1.1); }
+  100% { transform: scale(1);   opacity: 1; }
+}
+.successTitle {
+  font-family: var(--font-d);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--success);
+}
 [data-theme="obsidian"] .successTitle { font-style: italic; font-weight: 400; }
-.successSub { font-size: 13px; color: var(--text-muted); max-width: 280px; line-height: 1.6; }
+.successSub {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 280px;
+  line-height: 1.6;
+}
