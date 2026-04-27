@@ -63,7 +63,8 @@ git clone https://github.com/foxemperor/gamification-platform.git
 cd gamification-platform
 cp .env.example .env
 make up
-make health   # или: curl http://localhost:8001/health
+make ui-install
+make ui-dev    # в отдельном терминале
 ```
 
 ---
@@ -180,47 +181,108 @@ VITE_API_URL=http://localhost:8000
 
 ## 7. Все команды разработки
 
+> 💡 Быструю справку прямо в терминале можно вызвать в любой момент:
+> - **Windows:** `.\dev.ps1 help`
+> - **Linux/macOS:** `make` или `make help`
+
 ### dev.ps1 (Windows)
+
+#### Бэкенд (Docker)
 
 ```powershell
 .\dev.ps1              # = .\dev.ps1 up — запустить бэкенд
-.\dev.ps1 up           # Запустить Docker-сервисы
-.\dev.ps1 down         # Остановить контейнеры
-.\dev.ps1 restart      # Перезапустить всё
-.\dev.ps1 restart auth-service  # Перезапустить конкретный сервис
-.\dev.ps1 health       # HTTP health-check всех сервисов
-.\dev.ps1 logs         # Логи всех сервисов (live)
-.\dev.ps1 logs auth-service     # Логи одного сервиса
-.\dev.ps1 rebuild      # Пересобрать образы без кэша
-.\dev.ps1 db           # Открыть psql (PostgreSQL CLI)
-.\dev.ps1 open         # Открыть Swagger UI в браузере
-.\dev.ps1 test         # Автотест API (6 шагов)
-.\dev.ps1 clean        # Удалить контейнеры + volumes (ОПАСНО: удалит данные БД)
-
-# Фронтенд
-.\dev.ps1 ui:install   # npm install
-.\dev.ps1 ui           # Запустить Vite dev-сервер (фронтенд)
-.\dev.ps1 ui:build     # Production-сборка → frontend/dist/
-.\dev.ps1 dev          # Запустить бэкенд + фронтенд вместе
+.\dev.ps1 up           # Запустить все Docker-сервисы
+.\dev.ps1 stop         # Остановить сервисы (контейнеры остаются)
+.\dev.ps1 restart      # Перезапустить все сервисы
+.\dev.ps1 restart auth-service   # Перезапустить конкретный сервис
+.\dev.ps1 rebuild      # Пересобрать все образы без кэша
+.\dev.ps1 rebuild auth-service   # Пересобрать один сервис
 ```
+
+#### Фронтенд (Node.js / Vite)
+
+```powershell
+.\dev.ps1 ui:install   # npm install в ./frontend
+.\dev.ps1 ui           # Запустить Vite dev-сервер → http://localhost:3000
+.\dev.ps1 ui:build     # Production-сборка → frontend/dist/
+.\dev.ps1 ui:open      # Открыть http://localhost:3000 в браузере
+.\dev.ps1 dev          # Запустить бэкенд + фронтенд вместе (всё в одной команде)
+```
+
+#### Логи и мониторинг
+
+```powershell
+.\dev.ps1 logs                   # Логи всех сервисов (live)
+.\dev.ps1 logs auth-service      # Логи одного сервиса
+.\dev.ps1 health                 # HTTP health-check всех сервисов
+```
+
+#### База данных и утилиты
+
+```powershell
+.\dev.ps1 db           # Открыть psql (PostgreSQL CLI)
+.\dev.ps1 open         # Открыть Swagger UI обоих сервисов в браузере
+.\dev.ps1 test         # Автотест API (6 шагов: register → login → me → quests → profile → leaderboard)
+.\dev.ps1 help         # Показать список всех команд
+.\dev.ps1 clean        # ⚠️  Удалить контейнеры + volumes (уничтожит данные БД!)
+```
+
+---
 
 ### Makefile (Linux / macOS)
 
+#### Бэкенд (Docker)
+
 ```bash
-make up           # Запустить Docker-сервисы
+make up           # Запустить все Docker-сервисы
 make down         # Остановить
-make restart      # Перезапустить
-make health       # Health-check
-make logs         # Все логи
-make logs-api     # Логи API Gateway
-make db-shell     # psql
-make redis-shell  # redis-cli
+make restart      # Перезапустить (= down + up)
+make ps           # Статус всех контейнеров
+```
+
+#### Фронтенд (Node.js / Vite)
+
+```bash
+make ui-install   # npm install в ./frontend
+make ui-dev       # Запустить Vite dev-сервер → http://localhost:3000
+make ui-build     # Production-сборка → frontend/dist/
+```
+
+#### Логи
+
+```bash
+make logs                # Все логи (live)
+make logs-api            # Логи API Gateway
+make logs-auth           # Логи Auth Service
+make logs-gamification   # Логи Gamification Service
+```
+
+#### База данных
+
+```bash
+make db-shell     # Открыть psql (PostgreSQL CLI)
+make redis-shell  # Открыть Redis CLI
+make init-db      # Инициализировать БД
+make migrate      # Применить Alembic-миграции
+```
+
+#### Тестирование и качество кода
+
+```bash
 make test         # pytest
-make test-cov     # pytest + HTML coverage report
+make test-cov     # pytest + HTML coverage report (htmlcov/index.html)
 make lint         # flake8 + mypy
-make format       # black + isort
-make clean        # Удалить __pycache__, .pyc и т.д.
-make clean-all    # Удалить всё включая Docker volumes (ОПАСНО!)
+make format       # black + isort (авто-форматирование)
+```
+
+#### Разработка и очистка
+
+```bash
+make shell        # Bash внутри контейнера API Gateway
+make install      # pip install локально (для IDE)
+make clean        # Удалить __pycache__, .pyc, htmlcov...
+make clean-all    # ⚠️  Удалить всё включая Docker volumes!
+make help         # Показать список всех команд
 ```
 
 ---
@@ -334,7 +396,11 @@ class UserRegister(UserBase):
 
 **Шаг 4** — пересобрать контейнер:
 ```powershell
+# Windows
 .\dev.ps1 rebuild auth-service
+
+# Linux/macOS
+make restart
 ```
 
 ---
@@ -348,7 +414,8 @@ class UserRegister(UserBase):
 docker compose ps
 
 # 2. Посмотреть логи упавшего сервиса
-.\dev.ps1 logs auth-service
+.\dev.ps1 logs auth-service      # Windows
+make logs-auth                   # Linux/macOS
 
 # 3. Частые причины:
 # - PostgreSQL ещё не готов → подождать 5-10 секунд
@@ -367,6 +434,10 @@ npm --version
 cd frontend
 rm -rf node_modules
 npm install
+
+# Или через скрипт:
+.\dev.ps1 ui:install   # Windows
+make ui-install        # Linux/macOS
 ```
 
 ### JWT ошибка 401 от Gamification Service
