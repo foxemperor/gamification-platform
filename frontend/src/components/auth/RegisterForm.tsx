@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
-import { IconUser, IconAtSign, IconMail, IconLock, IconGamepad, IconEye, IconEyeOff } from '../ui/FeatherIcons'
+import { IconUser, IconMail, IconLock, IconGamepad, IconEye, IconEyeOff } from '../ui/FeatherIcons'
 import { useRegister } from '../../hooks/useAuth'
 import styles from './AuthForm.module.css'
 import { useNavigate } from 'react-router-dom'
@@ -15,12 +15,15 @@ interface Fields {
 }
 type FieldErrors = Partial<Fields & { agree: string }>
 
+// RFC-5322 simplified — covers 99.9% of real addresses
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
 function getStrength(p: string): number {
   let s = 0
-  if (p.length >= 8)          s++
-  if (/[A-Z]/.test(p))        s++
-  if (/[0-9]/.test(p))        s++
-  if (/[^A-Za-z0-9]/.test(p)) s++
+  if (p.length >= 8)           s++
+  if (/[A-Z]/.test(p))         s++
+  if (/[0-9]/.test(p))         s++
+  if (/[^\w]/.test(p))         s++
   return s
 }
 
@@ -30,18 +33,20 @@ const STRENGTH_LABELS = ['Очень слабый', 'Слабый', 'Хорош�
 interface Props { onSwitchToLogin?: () => void }
 
 export function RegisterForm(_props: Props) {
-  const [fields, setFields] = useState<Fields>({
+  const [fields,   setFields]   = useState<Fields>({
     first_name: '', last_name: '', email: '', username: '', password: '',
   })
   const [agree,    setAgree]    = useState(false)
   const [errors,   setErrors]   = useState<FieldErrors>({})
   const [showPass, setShowPass] = useState(false)
   const { register, loading, error, success } = useRegister()
-  const navigate = useNavigate()
-  const strength = getStrength(fields.password)
+  const navigate  = useNavigate()
+  const strength  = getStrength(fields.password)
+  const abortRef  = useRef<AbortController | null>(null)
 
-  const abortRef = useRef<AbortController | null>(null)
-  useEffect(() => { return () => { abortRef.current?.abort() } }, [])
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
+  }, [])
 
   const set = (k: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setFields(f => ({ ...f, [k]: e.target.value }))
@@ -50,12 +55,12 @@ export function RegisterForm(_props: Props) {
 
   const validate = (): boolean => {
     const e: FieldErrors = {}
-    if (!fields.first_name.trim())    e.first_name = 'Введите имя'
-    if (!fields.last_name.trim())     e.last_name  = 'Введите фамилию'
-    if (!fields.email.includes('@'))  e.email      = 'Введите корректный email'
-    if (fields.username.length < 3)   e.username   = 'Мин. 3 символа'
-    if (fields.password.length < 8)   e.password   = 'Мин. 8 символов'
-    if (!agree)                       e.agree      = 'Необходимо принять условия'
+    if (!fields.first_name.trim())      e.first_name = 'Введите имя'
+    if (!fields.last_name.trim())       e.last_name  = 'Введите фамилию'
+    if (!EMAIL_RE.test(fields.email))   e.email      = 'Введите корректный email'
+    if (fields.username.length < 3)     e.username   = 'Мин. 3 символа'
+    if (fields.password.length < 8)     e.password   = 'Мин. 8 символов'
+    if (!agree)                         e.agree      = 'Необходимо принять условия'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -63,8 +68,9 @@ export function RegisterForm(_props: Props) {
   const handleSubmit = (ev: React.FormEvent) => {
     ev.preventDefault()
     if (!validate()) return
+    abortRef.current?.abort()           // cancel any previous in-flight request
     abortRef.current = new AbortController()
-    register({ ...fields, role: 'employee' })
+    register({ ...fields, role: 'employee' }, abortRef.current.signal)
   }
 
   if (success) return (
@@ -158,7 +164,8 @@ export function RegisterForm(_props: Props) {
               />
             ))}
           </div>
-          <span className={styles.strengthLbl}
+          <span
+            className={styles.strengthLbl}
             style={{ color: STRENGTH_COLORS[strength - 1] ?? 'var(--text-faint)' }}
           >
             {STRENGTH_LABELS[strength - 1] ?? 'Очень слабый'}

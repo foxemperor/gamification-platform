@@ -15,13 +15,15 @@ interface Fields {
 }
 
 export function LoginForm(_props: Props) {
-  const [fields, setFields] = useState<Fields>({ username: '', password: '' })
-  const [errors, setErrors] = useState<Partial<Fields>>({})
+  const [fields,   setFields]   = useState<Fields>({ username: '', password: '' })
+  const [errors,   setErrors]   = useState<Partial<Fields>>({})
   const [showPass, setShowPass] = useState(false)
   const { login, loading, error } = useLogin()
-
   const abortRef = useRef<AbortController | null>(null)
-  useEffect(() => { return () => { abortRef.current?.abort() } }, [])
+
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
+  }, [])
 
   const validate = (): boolean => {
     const e: Partial<Fields> = {}
@@ -34,8 +36,9 @@ export function LoginForm(_props: Props) {
   const handleSubmit = (ev: React.FormEvent) => {
     ev.preventDefault()
     if (!validate()) return
+    abortRef.current?.abort()             // cancel any previous in-flight request
     abortRef.current = new AbortController()
-    login({ username: fields.username, password: fields.password })
+    login({ username: fields.username, password: fields.password }, abortRef.current.signal)
   }
 
   const setField = (k: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement>) => {
