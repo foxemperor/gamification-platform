@@ -3,6 +3,7 @@ import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 import { IconMail, IconLock, IconEye, IconEyeOff } from '../ui/FeatherIcons'
 import { useLogin } from '../../hooks/useAuth'
+import { useAppToast } from '../../App'
 import styles from './AuthForm.module.css'
 
 interface Props {
@@ -19,6 +20,7 @@ export function LoginForm(_props: Props) {
   const [errors,   setErrors]   = useState<Partial<Fields>>({})
   const [showPass, setShowPass] = useState(false)
   const { login, loading, error } = useLogin()
+  const toast    = useAppToast()
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -36,15 +38,23 @@ export function LoginForm(_props: Props) {
   const handleSubmit = (ev: React.FormEvent) => {
     ev.preventDefault()
     if (!validate()) return
-    abortRef.current?.abort()             // cancel any previous in-flight request
-    abortRef.current = new AbortController()
-    login({ username: fields.username, password: fields.password }, abortRef.current.signal)
+    // —— TEMPORARY: backend auth endpoint not yet updated ——
+    toast('🛠️ Авторизация в разработке. Бэкенд ещё не готов.', 'warning')
+    // TODO: uncomment when Auth Service is updated
+    // abortRef.current?.abort()
+    // abortRef.current = new AbortController()
+    // login({ username: fields.username, password: fields.password }, abortRef.current.signal)
   }
 
   const setField = (k: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setFields(f => ({ ...f, [k]: e.target.value }))
     setErrors(er => ({ ...er, [k]: undefined }))
   }
+
+  // Show API error via toast too (for when login is enabled)
+  useEffect(() => {
+    if (error) toast(error, 'error')
+  }, [error, toast])
 
   return (
     <form className={styles.form} onSubmit={handleSubmit} noValidate>
@@ -86,15 +96,25 @@ export function LoginForm(_props: Props) {
         <a href="#">Забыли пароль?</a>
       </div>
 
-      {error && <p className={styles.apiError}>{error}</p>}
-
       <Button type="submit" loading={loading}>Войти в систему</Button>
 
       <div className={styles.orRow}><span>или</span></div>
 
       <div className={styles.socialRow}>
-        <button type="button" className={styles.socialBtn}>Microsoft</button>
-        <button type="button" className={styles.socialBtn}>SSO</button>
+        <button
+          type="button"
+          className={styles.socialBtn}
+          onClick={() => toast('🔷 Авторизация через Microsoft — в разработке', 'info')}
+        >
+          Microsoft
+        </button>
+        <button
+          type="button"
+          className={styles.socialBtn}
+          onClick={() => toast('🔗 SSO-авторизация — в разработке', 'info')}
+        >
+          SSO
+        </button>
       </div>
     </form>
   )
