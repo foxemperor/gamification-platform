@@ -4,18 +4,23 @@
 # Author: Dmitry Koval
 # ================================================================
 # Usage:
-#   .\dev.ps1             - start services
-#   .\dev.ps1 stop        - stop all
-#   .\dev.ps1 restart     - restart all
-#   .\dev.ps1 restart auth - restart one service
-#   .\dev.ps1 logs        - logs of all services
-#   .\dev.ps1 logs auth   - logs of one service
-#   .\dev.ps1 health      - health check all services
-#   .\dev.ps1 test        - quick API test scenario
-#   .\dev.ps1 clean       - remove containers and volumes
-#   .\dev.ps1 rebuild     - full rebuild without cache
-#   .\dev.ps1 db          - open psql in container
-#   .\dev.ps1 open        - open Swagger UI in browser
+#   .\dev.ps1              - start backend services (= up)
+#   .\dev.ps1 help         - show all available commands
+#   .\dev.ps1 dev          - start backend + frontend together
+#   .\dev.ps1 ui           - start frontend dev server only
+#   .\dev.ps1 ui:install   - npm install in ./frontend
+#   .\dev.ps1 ui:build     - production build -> frontend/dist/
+#   .\dev.ps1 stop         - stop all
+#   .\dev.ps1 restart      - restart all
+#   .\dev.ps1 restart auth-service - restart one service
+#   .\dev.ps1 logs         - logs of all services
+#   .\dev.ps1 logs auth-service    - logs of one service
+#   .\dev.ps1 health       - health check all services
+#   .\dev.ps1 test         - quick API test scenario
+#   .\dev.ps1 clean        - remove containers and volumes
+#   .\dev.ps1 rebuild      - full rebuild without cache
+#   .\dev.ps1 db           - open psql in container
+#   .\dev.ps1 open         - open Swagger UI in browser
 # ================================================================
 
 param(
@@ -58,6 +63,71 @@ function Write-Warn([string]$T) { Write-Host "  [!!] $T" -ForegroundColor $YELLO
 function Write-Err([string]$T)  { Write-Host "  [XX] $T" -ForegroundColor $RED    }
 function Write-Info([string]$T) { Write-Host "   ->  $T" -ForegroundColor $GRAY   }
 
+function Write-Help {
+    Write-Host ""
+    Write-Host "================================================================" -ForegroundColor $CYAN
+    Write-Host "  Gamification Platform  --  dev.ps1" -ForegroundColor $CYAN
+    Write-Host "  Windows 11 / PowerShell 5+" -ForegroundColor $GRAY
+    Write-Host "================================================================" -ForegroundColor $CYAN
+    Write-Host ""
+
+    Write-Host "  BACKEND (Docker)" -ForegroundColor $YELLOW
+    Write-Host "  ----------------------------------------------------------------"
+    Write-Host "  .\dev.ps1                   " -NoNewline; Write-Host "start all backend services (= up)" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 up                " -NoNewline; Write-Host "start all backend services" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 stop              " -NoNewline; Write-Host "stop all services" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 restart           " -NoNewline; Write-Host "restart all services" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 restart <service> " -NoNewline; Write-Host "restart one service (e.g. auth-service)" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 rebuild           " -NoNewline; Write-Host "full rebuild without Docker cache" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 rebuild <service> " -NoNewline; Write-Host "rebuild one service only" -ForegroundColor $GRAY
+    Write-Host ""
+
+    Write-Host "  FRONTEND (Node.js / Vite)" -ForegroundColor $YELLOW
+    Write-Host "  ----------------------------------------------------------------"
+    Write-Host "  .\dev.ps1 ui:install        " -NoNewline; Write-Host "npm install in ./frontend" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 ui               " -NoNewline; Write-Host "start Vite dev server (http://localhost:3000)" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 ui:build          " -NoNewline; Write-Host "production build -> frontend/dist/" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 ui:open           " -NoNewline; Write-Host "open http://localhost:3000 in browser" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 dev               " -NoNewline; Write-Host "start backend + frontend together" -ForegroundColor $GRAY
+    Write-Host ""
+
+    Write-Host "  LOGS & MONITORING" -ForegroundColor $YELLOW
+    Write-Host "  ----------------------------------------------------------------"
+    Write-Host "  .\dev.ps1 logs              " -NoNewline; Write-Host "live logs of all services" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 logs <service>    " -NoNewline; Write-Host "live logs of one service" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 health            " -NoNewline; Write-Host "HTTP health check all services" -ForegroundColor $GRAY
+    Write-Host ""
+
+    Write-Host "  DATABASE" -ForegroundColor $YELLOW
+    Write-Host "  ----------------------------------------------------------------"
+    Write-Host "  .\dev.ps1 db                " -NoNewline; Write-Host "open psql (PostgreSQL CLI)" -ForegroundColor $GRAY
+    Write-Host ""
+
+    Write-Host "  TESTING & UTILS" -ForegroundColor $YELLOW
+    Write-Host "  ----------------------------------------------------------------"
+    Write-Host "  .\dev.ps1 test              " -NoNewline; Write-Host "automated 6-step API test scenario" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 open              " -NoNewline; Write-Host "open Swagger UI in browser" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 help              " -NoNewline; Write-Host "show this help" -ForegroundColor $GRAY
+    Write-Host ""
+
+    Write-Host "  CLEANUP" -ForegroundColor $YELLOW
+    Write-Host "  ----------------------------------------------------------------"
+    Write-Host "  .\dev.ps1 clean             " -NoNewline; Write-Host "remove all containers + volumes (DANGER: deletes DB data)" -ForegroundColor $RED
+    Write-Host ""
+
+    Write-Host "  SERVICES" -ForegroundColor $YELLOW
+    Write-Host "  ----------------------------------------------------------------"
+    Write-Host "  Frontend:             " -NoNewline; Write-Host "http://localhost:3000" -ForegroundColor $CYAN
+    Write-Host "  API Gateway:          " -NoNewline; Write-Host "http://localhost:8000" -ForegroundColor $CYAN
+    Write-Host "  Auth Service:         " -NoNewline; Write-Host "http://localhost:8001" -ForegroundColor $CYAN
+    Write-Host "  Auth Swagger:         " -NoNewline; Write-Host "http://localhost:8001/docs" -ForegroundColor $CYAN
+    Write-Host "  Gamification Service: " -NoNewline; Write-Host "http://localhost:8002" -ForegroundColor $CYAN
+    Write-Host "  Gamification Swagger: " -NoNewline; Write-Host "http://localhost:8002/docs" -ForegroundColor $CYAN
+    Write-Host ""
+    Write-Host "================================================================" -ForegroundColor $CYAN
+    Write-Host ""
+}
+
 function Assert-Docker {
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         Write-Err "Docker not found. Download: https://www.docker.com/products/docker-desktop"
@@ -73,9 +143,26 @@ function Assert-EnvFile {
     }
 }
 
+function Assert-Node {
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        Write-Err "Node.js not found. Download: https://nodejs.org (v18+)"
+        return $false
+    }
+    return $true
+}
+
 function Invoke-Health {
     Write-Header "Health Check"
     $allOk = $true
+
+    # Frontend
+    Write-Info "Checking frontend..."
+    try {
+        $fe = Invoke-WebRequest -Uri "http://localhost:3000" -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+        Write-Ok "[frontend] http://localhost:3000 - $($fe.StatusCode) OK"
+    } catch {
+        Write-Warn "[frontend] http://localhost:3000 - not running (start with: .\dev.ps1 ui)"
+    }
 
     foreach ($entry in $HEALTH_ENDPOINTS.GetEnumerator()) {
         try {
@@ -94,7 +181,7 @@ function Invoke-Health {
 
     Write-Host ""
     if ($allOk) {
-        Write-Ok "All services are up!"
+        Write-Ok "All backend services are up!"
     } else {
         Write-Warn "Some services are down. Check: .\dev.ps1 logs"
     }
@@ -103,10 +190,6 @@ function Invoke-Health {
 function Invoke-Test {
     Write-Header "Quick API Test"
 
-    # --------------------------------------------------
-    # Step 1 - Register
-    # Response: { user: {...}, tokens: { access_token, refresh_token } }
-    # --------------------------------------------------
     Write-Info "Step 1: Register..."
     $regBody = '{"username":"devuser","email":"dev@test.com","password":"DevPass123!"}'
     try {
@@ -120,10 +203,6 @@ function Invoke-Test {
         Write-Warn "Register: user may already exist (that's OK)"
     }
 
-    # --------------------------------------------------
-    # Step 2 - Login
-    # Response: { user: {...}, tokens: { access_token, refresh_token } }
-    # --------------------------------------------------
     Write-Info "Step 2: Login..."
     $loginBody = '{"email":"dev@test.com","password":"DevPass123!"}'
     $token = $null
@@ -141,68 +220,43 @@ function Invoke-Test {
     }
 
     if (-not $token) {
-        Write-Err "Token is empty - check auth-service logs: .\dev.ps1 logs auth-service"
+        Write-Err "Token is empty - check: .\dev.ps1 logs auth-service"
         return
     }
 
     $headers = @{ Authorization = "Bearer $token" }
 
-    # --------------------------------------------------
-    # Step 3 - Current user  GET /api/v1/auth/me
-    # --------------------------------------------------
     Write-Info "Step 3: Current user (/api/v1/auth/me)..."
     $uid = $null
     try {
-        $me = Invoke-RestMethod `
-            -Uri "http://localhost:8001/api/v1/auth/me" `
-            -Headers $headers `
-            -ErrorAction Stop
+        $me = Invoke-RestMethod -Uri "http://localhost:8001/api/v1/auth/me" -Headers $headers -ErrorAction Stop
         $uid = $me.id
         Write-Ok "User: $($me.username), ID: $uid"
     } catch {
         Write-Warn "Get me: $($_.Exception.Message)"
     }
 
-    # --------------------------------------------------
-    # Step 4 - Quest list
-    # --------------------------------------------------
     Write-Info "Step 4: Quest list..."
     try {
-        $quests = Invoke-RestMethod `
-            -Uri "http://localhost:8002/api/v1/quests" `
-            -Headers $headers `
-            -ErrorAction Stop
+        $quests = Invoke-RestMethod -Uri "http://localhost:8002/api/v1/quests" -Headers $headers -ErrorAction Stop
         Write-Ok "Quests in DB: $($quests.total)"
     } catch {
         Write-Err "Quests error: $($_.Exception.Message)"
     }
 
-    # --------------------------------------------------
-    # Step 5 - Player profile
-    # --------------------------------------------------
     if ($uid) {
         Write-Info "Step 5: Game profile..."
         try {
-            $profile = Invoke-RestMethod `
-                -Uri "http://localhost:8002/api/v1/profile/$uid" `
-                -Headers $headers `
-                -ErrorAction Stop
+            $profile = Invoke-RestMethod -Uri "http://localhost:8002/api/v1/profile/$uid" -Headers $headers -ErrorAction Stop
             Write-Ok "Level: $($profile.level), XP: $($profile.total_xp), Quests done: $($profile.quests_completed)"
         } catch {
             Write-Warn "Profile: $($_.Exception.Message)"
         }
     }
 
-    # --------------------------------------------------
-    # Step 6 - Leaderboard
-    # --------------------------------------------------
     Write-Info "Step 6: Leaderboard..."
-    $lbUrl = "http://localhost:8002/api/v1/leaderboard/xp?period=all_time" + "&limit=5"
     try {
-        $lb = Invoke-RestMethod `
-            -Uri $lbUrl `
-            -Headers $headers `
-            -ErrorAction Stop
+        $lb = Invoke-RestMethod -Uri "http://localhost:8002/api/v1/leaderboard/xp?period=all_time&limit=5" -Headers $headers -ErrorAction Stop
         Write-Ok "Leaderboard all_time: $($lb.total_players) player(s)"
     } catch {
         Write-Warn "Leaderboard: $($_.Exception.Message)"
@@ -223,7 +277,10 @@ Assert-Docker
 
 $cmd = $Command.ToLower()
 
-if ($cmd -eq "up" -or $cmd -eq "") {
+if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
+    Write-Help
+
+} elseif ($cmd -eq "up" -or $cmd -eq "") {
     Write-Header "Gamification Platform - Start"
     Assert-EnvFile
     Write-Info "Starting: $($ACTIVE_SERVICES -join ', ')"
@@ -235,9 +292,54 @@ if ($cmd -eq "up" -or $cmd -eq "") {
         Write-Info "  Gamification Service: http://localhost:8002"
         Write-Host ""
         Write-Info "Wait ~10s then run: .\dev.ps1 health"
+        Write-Info "For full stack (backend + frontend): .\dev.ps1 dev"
     } else {
         Write-Err "Startup error. Check: .\dev.ps1 logs"
     }
+
+} elseif ($cmd -eq "dev") {
+    Write-Header "Gamification Platform - Full Stack"
+    Assert-EnvFile
+    if (-not (Assert-Node)) { exit 1 }
+    Write-Info "Step 1/3: Starting backend..."
+    docker compose up $ACTIVE_SERVICES --build -d
+    if ($LASTEXITCODE -ne 0) { Write-Err "Backend failed"; exit 1 }
+    Write-Info "Step 2/3: Waiting 8s for services to be ready..."
+    Start-Sleep -Seconds 8
+    Invoke-Health
+    Write-Host ""
+    Write-Info "Step 3/3: Starting frontend (http://localhost:3000)..."
+    Set-Location frontend
+    npm run dev
+    Set-Location ..
+
+} elseif ($cmd -eq "ui") {
+    if (-not (Assert-Node)) { exit 1 }
+    Write-Header "Frontend Dev Server"
+    Write-Info "Starting Vite at http://localhost:3000 ..."
+    Set-Location frontend
+    npm run dev
+    Set-Location ..
+
+} elseif ($cmd -eq "ui:install") {
+    if (-not (Assert-Node)) { exit 1 }
+    Write-Header "Frontend - npm install"
+    Set-Location frontend
+    npm install
+    Set-Location ..
+    Write-Ok "Dependencies installed"
+
+} elseif ($cmd -eq "ui:build") {
+    if (-not (Assert-Node)) { exit 1 }
+    Write-Header "Frontend - Production Build"
+    Set-Location frontend
+    npm run build
+    Set-Location ..
+    Write-Ok "Build complete -> frontend/dist/"
+
+} elseif ($cmd -eq "ui:open") {
+    Write-Info "Opening http://localhost:3000 ..."
+    Start-Process "http://localhost:3000"
 
 } elseif ($cmd -eq "stop") {
     Write-Header "Stop services"
@@ -293,20 +395,8 @@ if ($cmd -eq "up" -or $cmd -eq "") {
     }
 
 } else {
+    Write-Warn "Unknown command: '$Command'"
     Write-Host ""
-    Write-Host "Gamification Platform - dev.ps1" -ForegroundColor $CYAN
-    Write-Host ""
-    Write-Host "  .\dev.ps1              - start services"         -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 stop         - stop all"               -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 restart      - restart all"            -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 restart auth - restart one service"    -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 logs         - logs all services"      -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 logs auth    - logs one service"       -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 health       - health check"           -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 test         - quick API test"         -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 clean        - remove all + volumes"   -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 rebuild      - rebuild no cache"       -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 db           - open psql"              -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 open         - open Swagger UI"        -ForegroundColor $WHITE
+    Write-Info "Run '.\dev.ps1 help' to see all available commands."
     Write-Host ""
 }
