@@ -1,0 +1,119 @@
+/* ═══════════════════════════════════════════
+   DESIGN TOKENS — Three themes
+   Aurora Cyan | Obsidian Gold | Ivory Bloom
+═══════════════════════════════════════════ */
+
+[data-theme="aurora"] {
+  --bg:             #070B14;
+  --surface:        #0D1321;
+  --surface-alt:    #131C30;
+  --surface-high:   #1A2540;
+  --border:         rgba(34,211,238,.14);
+  --border-focus:   rgba(34,211,238,.55);
+
+  --primary:        #22D3EE;
+  --primary-soft:   #67E8F9;
+  --primary-dim:    rgba(34,211,238,.10);
+  --primary-glow:   0 0 28px rgba(34,211,238,.20);
+
+  --accent:         #A78BFA;
+  --accent-soft:    #C4B5FD;
+  --accent-dim:     rgba(167,139,250,.10);
+
+  --reward:         #FBBF24;
+  --streak:         #F97316;
+
+  --text:           #E8F4F8;
+  --text-muted:     #6B8CA4;
+  --text-faint:     #2A3F52;
+
+  --success:        #34D399;
+  --warning:        #FBBF24;
+  --danger:         #F87171;
+
+  --grad-btn:       linear-gradient(135deg, #22D3EE, #A78BFA);
+  --grad-bg:        radial-gradient(ellipse 80% 60% at 50% -10%,
+                      rgba(34,211,238,.08) 0%, transparent 65%),
+                    radial-gradient(ellipse 50% 40% at 90% 80%,
+                      rgba(167,139,250,.06) 0%, transparent 60%);
+  --shadow-card:    0 0 0 1px rgba(34,211,238,.06), 0 8px 32px rgba(0,0,0,.4);
+
+  --font-d:         'Space Grotesk', sans-serif;
+  --font-b:         'Plus Jakarta Sans', sans-serif;
+}
+
+[data-theme="obsidian"] {
+  --bg:             #0F1117;
+  --surface:        #161B26;
+  --surface-alt:    #1C2333;
+  --surface-high:   #232D40;
+  --border:         rgba(251,191,36,.14);
+  --border-focus:   rgba(251,191,36,.55);
+
+  --primary:        #FBBF24;
+  --primary-soft:   #FCD34D;
+  --primary-dim:    rgba(251,191,36,.10);
+  --primary-glow:   0 0 28px rgba(251,191,36,.18);
+
+  --accent:         #2DD4BF;
+  --accent-soft:    #5EEAD4;
+  --accent-dim:     rgba(45,212,191,.10);
+
+  --reward:         #FBBF24;
+  --streak:         #F97316;
+
+  --text:           #F3F4F6;
+  --text-muted:     #9CA3AF;
+  --text-faint:     #4B5563;
+
+  --success:        #34D399;
+  --warning:        #F59E0B;
+  --danger:         #F87171;
+
+  --grad-btn:       linear-gradient(135deg, #FBBF24, #2DD4BF);
+  --grad-bg:        radial-gradient(ellipse 80% 60% at 50% -10%,
+                      rgba(251,191,36,.07) 0%, transparent 65%),
+                    radial-gradient(ellipse 50% 40% at 90% 80%,
+                      rgba(45,212,191,.05) 0%, transparent 60%);
+  --shadow-card:    0 0 0 1px rgba(251,191,36,.06), 0 8px 32px rgba(0,0,0,.4);
+
+  --font-d:         'Instrument Serif', serif;
+  --font-b:         'Plus Jakarta Sans', sans-serif;
+}
+
+[data-theme="ivory"] {
+  --bg:             #F7F8FC;
+  --surface:        #FFFFFF;
+  --surface-alt:    #EEF0F8;
+  --surface-high:   #E2E5F0;
+  --border:         #D1D5E8;
+  --border-focus:   #4F6EF7;
+
+  --primary:        #4F6EF7;
+  --primary-soft:   #7B96FF;
+  --primary-dim:    rgba(79,110,247,.08);
+  --primary-glow:   0 4px 24px rgba(79,110,247,.18);
+
+  --accent:         #0EA5E9;
+  --accent-soft:    #38BDF8;
+  --accent-dim:     rgba(14,165,233,.08);
+
+  --reward:         #F59E0B;
+  --streak:         #EF4444;
+
+  --text:           #1A1D2E;
+  --text-muted:     #5C6080;
+  --text-faint:     #A0A8C8;
+
+  --success:        #10B981;
+  --warning:        #F59E0B;
+  --danger:         #EF4444;
+
+  --grad-btn:       linear-gradient(135deg, #4F6EF7, #0EA5E9);
+  --grad-bg:        radial-gradient(ellipse 70% 50% at 50% 0%,
+                      rgba(79,110,247,.06) 0%, transparent 65%);
+  --shadow-card:    0 1px 3px rgba(79,110,247,.07), 0 8px 32px rgba(79,110,247,.08);
+
+  --font-d:         'Lora', serif;
+  --font-b:         'Plus Jakarta Sans', sans-serif;
+}
