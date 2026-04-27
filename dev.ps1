@@ -4,7 +4,7 @@
 # Author: Dmitry Koval
 # ================================================================
 # Usage:
-#   .\dev.ps1             - start services
+#   .\dev.ps1             - start backend services
 #   .\dev.ps1 stop        - stop all
 #   .\dev.ps1 restart     - restart all
 #   .\dev.ps1 restart auth - restart one service
@@ -16,6 +16,12 @@
 #   .\dev.ps1 rebuild     - full rebuild without cache
 #   .\dev.ps1 db          - open psql in container
 #   .\dev.ps1 open        - open Swagger UI in browser
+# --- Frontend ---
+#   .\dev.ps1 dev         - start backend + frontend together
+#   .\dev.ps1 ui          - start only frontend dev server
+#   .\dev.ps1 ui:install  - npm install in ./frontend
+#   .\dev.ps1 ui:build    - production build of frontend
+#   .\dev.ps1 ui:open     - open frontend in browser
 # ================================================================
 
 param(
@@ -43,6 +49,9 @@ $SWAGGER_URLS = @(
     "http://localhost:8002/docs"
 )
 
+$FRONTEND_URL = "http://localhost:3000"
+$FRONTEND_DIR = Join-Path $PSScriptRoot "frontend"
+
 # ================================================================
 # HELPERS
 # ================================================================
@@ -62,6 +71,44 @@ function Assert-Docker {
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         Write-Err "Docker not found. Download: https://www.docker.com/products/docker-desktop"
         exit 1
+    }
+}
+
+function Assert-Node {
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        Write-Err "Node.js not found. Download: https://nodejs.org (v18+)"
+        exit 1
+    }
+    $nodeVer = (node --version) -replace "v", ""
+    $major   = [int]($nodeVer.Split(".")[0])
+    if ($major -lt 18) {
+        Write-Warn "Node.js version is $nodeVer - recommended v18+. Some features may not work."
+    } else {
+        Write-Ok "Node.js $nodeVer"
+    }
+}
+
+function Assert-FrontendDeps {
+    $nm = Join-Path $FRONTEND_DIR "node_modules"
+    if (-not (Test-Path $nm)) {
+        Write-Warn "node_modules not found - running npm install..."
+        Push-Location $FRONTEND_DIR
+        npm install
+        Pop-Location
+        Write-Ok "Dependencies installed"
+    }
+}
+
+function Assert-FrontendEnv {
+    $envFile = Join-Path $FRONTEND_DIR ".env"
+    $example = Join-Path $FRONTEND_DIR ".env.example"
+    if (-not (Test-Path $envFile)) {
+        if (Test-Path $example) {
+            Copy-Item $example $envFile
+            Write-Ok "frontend/.env created from .env.example"
+        } else {
+            Write-Warn "frontend/.env not found and no .env.example - create it manually"
+        }
     }
 }
 
@@ -92,9 +139,19 @@ function Invoke-Health {
         }
     }
 
+    # Frontend check
+    Write-Host ""
+    Write-Info "Checking frontend..."
+    try {
+        $fe = Invoke-WebRequest -Uri $FRONTEND_URL -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+        Write-Ok "[frontend] $FRONTEND_URL - $($fe.StatusCode) OK"
+    } catch {
+        Write-Warn "[frontend] $FRONTEND_URL - not running (start with: .\dev.ps1 ui)"
+    }
+
     Write-Host ""
     if ($allOk) {
-        Write-Ok "All services are up!"
+        Write-Ok "All backend services are up!"
     } else {
         Write-Warn "Some services are down. Check: .\dev.ps1 logs"
     }
@@ -105,7 +162,6 @@ function Invoke-Test {
 
     # --------------------------------------------------
     # Step 1 - Register
-    # Response: { user: {...}, tokens: { access_token, refresh_token } }
     # --------------------------------------------------
     Write-Info "Step 1: Register..."
     $regBody = '{"username":"devuser","email":"dev@test.com","password":"DevPass123!"}'
@@ -122,7 +178,6 @@ function Invoke-Test {
 
     # --------------------------------------------------
     # Step 2 - Login
-    # Response: { user: {...}, tokens: { access_token, refresh_token } }
     # --------------------------------------------------
     Write-Info "Step 2: Login..."
     $loginBody = '{"email":"dev@test.com","password":"DevPass123!"}'
@@ -148,7 +203,7 @@ function Invoke-Test {
     $headers = @{ Authorization = "Bearer $token" }
 
     # --------------------------------------------------
-    # Step 3 - Current user  GET /api/v1/auth/me
+    # Step 3 - Current user
     # --------------------------------------------------
     Write-Info "Step 3: Current user (/api/v1/auth/me)..."
     $uid = $null
@@ -216,6 +271,47 @@ function Invoke-Test {
 }
 
 # ================================================================
+# FRONTEND HELPERS
+# ================================================================
+
+function Start-Frontend {
+    Assert-Node
+    Assert-FrontendEnv
+    Assert-FrontendDeps
+    Write-Header "Frontend Dev Server"
+    Write-Info "Starting Vite on $FRONTEND_URL ..."
+    Write-Info "Press Ctrl+C to stop"
+    Push-Location $FRONTEND_DIR
+    npm run dev
+    Pop-Location
+}
+
+function Install-Frontend {
+    Assert-Node
+    Write-Header "Frontend — npm install"
+    Push-Location $FRONTEND_DIR
+    npm install
+    Pop-Location
+    Write-Ok "Done! Start with: .\dev.ps1 ui"
+}
+
+function Build-Frontend {
+    Assert-Node
+    Assert-FrontendEnv
+    Assert-FrontendDeps
+    Write-Header "Frontend — Production Build"
+    Push-Location $FRONTEND_DIR
+    npm run build
+    Pop-Location
+    $dist = Join-Path $FRONTEND_DIR "dist"
+    if (Test-Path $dist) {
+        Write-Ok "Build successful! Output: frontend/dist"
+    } else {
+        Write-Err "Build failed. Check output above."
+    }
+}
+
+# ================================================================
 # MAIN
 # ================================================================
 
@@ -224,25 +320,59 @@ Assert-Docker
 $cmd = $Command.ToLower()
 
 if ($cmd -eq "up" -or $cmd -eq "") {
-    Write-Header "Gamification Platform - Start"
+    Write-Header "Gamification Platform - Start Backend"
     Assert-EnvFile
     Write-Info "Starting: $($ACTIVE_SERVICES -join ', ')"
     docker compose up $ACTIVE_SERVICES --build -d
     if ($LASTEXITCODE -eq 0) {
         Write-Host ""
-        Write-Ok "Services started!"
+        Write-Ok "Backend services started!"
         Write-Info "  Auth Service:         http://localhost:8001"
         Write-Info "  Gamification Service: http://localhost:8002"
         Write-Host ""
-        Write-Info "Wait ~10s then run: .\dev.ps1 health"
+        Write-Info "To also start frontend:  .\dev.ps1 dev"
+        Write-Info "Or frontend only:        .\dev.ps1 ui"
+        Write-Info "Wait ~10s then run:      .\dev.ps1 health"
     } else {
         Write-Err "Startup error. Check: .\dev.ps1 logs"
     }
 
+} elseif ($cmd -eq "dev") {
+    # Start backend in background, then frontend in foreground
+    Write-Header "Gamification Platform - Full Stack Dev"
+    Assert-EnvFile
+    Write-Info "Starting backend services..."
+    docker compose up $ACTIVE_SERVICES --build -d
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Backend failed to start. Aborting."
+        exit 1
+    }
+    Write-Ok "Backend started!"
+    Write-Info "Waiting 8s for services to initialize..."
+    Start-Sleep -Seconds 8
+    Invoke-Health
+    Write-Host ""
+    Start-Frontend
+
+} elseif ($cmd -eq "ui") {
+    Start-Frontend
+
+} elseif ($cmd -eq "ui:install") {
+    Install-Frontend
+
+} elseif ($cmd -eq "ui:build") {
+    Build-Frontend
+
+} elseif ($cmd -eq "ui:open") {
+    Write-Header "Open Frontend"
+    Write-Info $FRONTEND_URL
+    Start-Process $FRONTEND_URL
+
 } elseif ($cmd -eq "stop") {
     Write-Header "Stop services"
     docker compose stop $ACTIVE_SERVICES
-    Write-Ok "Services stopped"
+    Write-Ok "Backend services stopped"
+    Write-Warn "Frontend (if running) must be stopped manually with Ctrl+C in its terminal"
 
 } elseif ($cmd -eq "restart") {
     Write-Header "Restart"
@@ -285,28 +415,38 @@ if ($cmd -eq "up" -or $cmd -eq "") {
     docker compose exec postgres psql -U gamification_user -d gamification_db
 
 } elseif ($cmd -eq "open") {
-    Write-Header "Open Swagger UI"
+    Write-Header "Open Swagger UI + Frontend"
     foreach ($url in $SWAGGER_URLS) {
         Write-Info $url
         Start-Process $url
         Start-Sleep -Milliseconds 500
     }
+    Write-Info $FRONTEND_URL
+    Start-Process $FRONTEND_URL
 
 } else {
     Write-Host ""
     Write-Host "Gamification Platform - dev.ps1" -ForegroundColor $CYAN
     Write-Host ""
-    Write-Host "  .\dev.ps1              - start services"         -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 stop         - stop all"               -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 restart      - restart all"            -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 restart auth - restart one service"    -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 logs         - logs all services"      -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 logs auth    - logs one service"       -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 health       - health check"           -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 test         - quick API test"         -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 clean        - remove all + volumes"   -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 rebuild      - rebuild no cache"       -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 db           - open psql"              -ForegroundColor $WHITE
-    Write-Host "  .\dev.ps1 open         - open Swagger UI"        -ForegroundColor $WHITE
+    Write-Host "  Backend:" -ForegroundColor $YELLOW
+    Write-Host "  .\dev.ps1              - start backend services"     -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 stop         - stop all"                   -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 restart      - restart all"                -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 restart auth - restart one service"        -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 logs         - logs all services"          -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 logs auth    - logs one service"           -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 health       - health check"               -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 test         - quick API test"             -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 clean        - remove all + volumes"       -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 rebuild      - rebuild no cache"           -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 db           - open psql"                  -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 open         - open Swagger + Frontend"    -ForegroundColor $WHITE
+    Write-Host ""
+    Write-Host "  Frontend:" -ForegroundColor $YELLOW
+    Write-Host "  .\dev.ps1 dev          - backend + frontend together" -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 ui           - frontend dev server only"    -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 ui:install   - npm install ./frontend"      -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 ui:build     - production build"            -ForegroundColor $WHITE
+    Write-Host "  .\dev.ps1 ui:open      - open http://localhost:3000"  -ForegroundColor $WHITE
     Write-Host ""
 }

@@ -1,0 +1,142 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.heading { display: flex; flex-direction: column; gap: 4px; }
+
+.title {
+  font-family: var(--font-d);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+[data-theme="obsidian"] .title { font-weight: 400; font-style: italic; }
+
+.sub { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 420px) { .row2 { grid-template-columns: 1fr; } }
+
+/* Eye toggle button — SVG-based */
+.eyeBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-faint);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color .2s;
+}
+.eyeBtn:hover { color: var(--text-muted); }
+
+.forgotRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.apiError {
+  font-size: 12px;
+  color: var(--danger);
+  background: rgba(248,113,113,.08);
+  border: 1px solid rgba(248,113,113,.2);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+
+.orRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.orRow::before, .orRow::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+.socialRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.socialBtn {
+  padding: 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text);
+  font-family: var(--font-b);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.socialBtn:hover { border-color: var(--border-focus); background: var(--primary-dim); }
+
+/* Password strength */
+.strengthWrap { display: flex; flex-direction: column; gap: 5px; margin-top: -8px; }
+.strengthSegs { display: flex; gap: 5px; }
+.seg { flex: 1; height: 3px; border-radius: 2px; transition: background .3s; }
+.strengthLbl { font-size: 11px; }
+
+/* XP hint */
+.xpHint {
+  background: var(--primary-dim);
+  border: 1px solid var(--border-focus);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Agree */
+.agreeRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.agreeRow input {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
+
+/* Success state */
+.success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  text-align: center;
+}
+.successIco { font-size: 52px; animation: pop .4s ease; }
+@keyframes pop {
+  0%   { transform: scale(.5); opacity: 0; }
+  80%  { transform: scale(1.1); }
+  100% { transform: scale(1);   opacity: 1; }
+}
+.successTitle {
+  font-family: var(--font-d);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--success);
+}
+[data-theme="obsidian"] .successTitle { font-style: italic; font-weight: 400; }
+.successSub {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 280px;
+  line-height: 1.6;
+}
