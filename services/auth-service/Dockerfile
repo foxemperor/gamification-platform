@@ -15,6 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем код сервиса
 COPY app/ ./app/
 
+# Копируем Alembic
+COPY alembic/ ./alembic/
+COPY alembic.ini .
+
 # Переменные окружения по умолчанию
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -22,4 +26,4 @@ ENV PYTHONUNBUFFERED=1 \
 
 EXPOSE 8001
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
