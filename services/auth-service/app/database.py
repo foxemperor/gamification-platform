@@ -2,11 +2,17 @@
 Подключение к PostgreSQL (async SQLAlchemy)
 ==========================================
 Автор: Dmitry Koval
+
+Схема: auth  — изолирует таблицы auth-service от gamification-service
+в рамках одной физической БД gamification_db.
 """
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, mapped_column
 from app.config import settings
+
+DB_SCHEMA = "auth"
 
 # Async-движок
 engine = create_async_engine(
@@ -28,8 +34,10 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 class Base(DeclarativeBase):
-    """Базовый класс для всех моделей"""
-    pass
+    """Базовый класс для всех моделей auth-service.
+    Все таблицы создаются в схеме 'auth'.
+    """
+    __table_args__ = {"schema": DB_SCHEMA}
 
 
 async def get_db() -> AsyncSession:
@@ -46,7 +54,11 @@ async def get_db() -> AsyncSession:
 
 
 async def create_tables():
-    """Создание всех таблиц при старте приложения"""
+    """Создаёт схему 'auth' (если нет) и все таблицы при старте."""
     async with engine.begin() as conn:
-        from app import models  # noqa: F401 — нужен для регистрации моделей
+        # Создаём схему если её нет
+        await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{DB_SCHEMA}"'))
+        # Устанавливаем search_path чтобы alembic_version тоже был в схеме
+        await conn.execute(text(f'SET search_path TO "{DB_SCHEMA}", public'))
+        from app import models  # noqa: F401
         await conn.run_sync(Base.metadata.create_all)

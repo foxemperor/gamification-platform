@@ -3,11 +3,15 @@ Gamification Service — подключение к базе данных
 =================================================
 Async SQLAlchemy + PostgreSQL через asyncpg.
 Автор: Dmitry Koval
+
+Схема: gamification — изолирует таблицы gamification-service
+от auth-service в рамках одной физической БД gamification_db.
 """
 
 import logging
 from typing import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -18,6 +22,8 @@ from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 
 logger = logging.getLogger("gamification-service.database")
+
+DB_SCHEMA = "gamification"
 
 # ===================================
 # ДВИЖОК БД
@@ -45,7 +51,10 @@ AsyncSessionLocal = async_sessionmaker(
 # ===================================
 
 class Base(DeclarativeBase):
-    pass
+    """Базовый класс для всех моделей gamification-service.
+    Все таблицы создаются в схеме 'gamification'.
+    """
+    __table_args__ = {"schema": DB_SCHEMA}
 
 
 # ===================================
@@ -53,10 +62,12 @@ class Base(DeclarativeBase):
 # ===================================
 
 async def create_tables() -> None:
-    """Создаёт все таблицы при старте сервиса."""
+    """Создаёт схему 'gamification' (если нет) и все таблицы при старте."""
     async with engine.begin() as conn:
+        await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{DB_SCHEMA}"'))
+        await conn.execute(text(f'SET search_path TO "{DB_SCHEMA}", public'))
         await conn.run_sync(Base.metadata.create_all)
-    logger.info("✅ Таблицы Gamification Service созданы")
+    logger.info("✅ Схема и таблицы Gamification Service готовы")
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
