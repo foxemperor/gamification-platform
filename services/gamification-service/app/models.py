@@ -7,12 +7,11 @@ Gamification Service — модели БД
 """
 
 import uuid
-import math
 from datetime import datetime, timezone
 from enum import Enum as PyEnum
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float, ForeignKey,
+    Boolean, Column, DateTime, ForeignKey,
     Integer, String, Text, Enum, UniqueConstraint, Index,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -21,10 +20,6 @@ from sqlalchemy.orm import relationship
 from app.database import Base, DB_SCHEMA
 from app.config import settings
 
-
-# ===================================
-# ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-# ===================================
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -35,15 +30,19 @@ def new_uuid() -> str:
 
 
 def xp_required_for_level(level: int) -> int:
-    """
-    Формула прогрессии по степенному закону (Power Law):
-        XP(N) = BASE_XP * N ^ XP_MULTIPLIER
-    """
     return int(settings.BASE_XP_PER_LEVEL * (level ** settings.XP_LEVEL_MULTIPLIER))
 
 
+# ── helpers для Enum с правильной схемой ──
+def _enum(*values, name: str) -> Enum:
+    """SQLAlchemy Enum с schema=DB_SCHEMA и create_type=False.
+    Тип уже создан миграцией, поэтому create_type=False.
+    """
+    return Enum(*values, name=name, schema=DB_SCHEMA, create_type=False)
+
+
 # ===================================
-# ENUMS
+# ENUMS (Python)
 # ===================================
 
 class QuestType(str, PyEnum):
@@ -75,13 +74,13 @@ class UserQuestStatus(str, PyEnum):
 
 
 class XPSource(str, PyEnum):
-    QUEST          = "quest"
-    BADGE          = "badge"
-    GITHUB_COMMIT  = "github_commit"
-    GITHUB_PR      = "github_pr"
-    JIRA_TASK      = "jira_task"
-    ADMIN          = "admin"
-    PENALTY        = "penalty"
+    QUEST         = "quest"
+    BADGE         = "badge"
+    GITHUB_COMMIT = "github_commit"
+    GITHUB_PR     = "github_pr"
+    JIRA_TASK     = "jira_task"
+    ADMIN         = "admin"
+    PENALTY       = "penalty"
 
 
 class BadgeRarity(str, PyEnum):
@@ -96,7 +95,6 @@ class BadgeRarity(str, PyEnum):
 # ===================================
 
 class Quest(Base):
-    """Шаблон квеста."""
     __tablename__ = "quests"
     __table_args__ = (
         Index("ix_quests_status", "status"),
@@ -107,14 +105,14 @@ class Quest(Base):
     id          = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
     title       = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
-    quest_type  = Column(Enum(QuestType), nullable=False, default=QuestType.PERSONAL)
-    difficulty  = Column(Enum(QuestDifficulty), nullable=False, default=QuestDifficulty.MEDIUM)
-    status      = Column(Enum(QuestStatus), nullable=False, default=QuestStatus.ACTIVE)
+    quest_type  = Column(_enum("personal","team","daily","skill","integration", name="questtype"), nullable=False, default=QuestType.PERSONAL)
+    difficulty  = Column(_enum("easy","medium","hard","epic", name="questdifficulty"), nullable=False, default=QuestDifficulty.MEDIUM)
+    status      = Column(_enum("draft","active","archived", name="queststatus"), nullable=False, default=QuestStatus.ACTIVE)
     xp_reward   = Column(Integer, nullable=False, default=150)
-    coins_reward= Column(Integer, nullable=False, default=10)
-    time_limit_hours    = Column(Integer, nullable=True)
-    integration_trigger = Column(String(100), nullable=True)
-    integration_target  = Column(Integer, nullable=True)
+    coins_reward = Column(Integer, nullable=False, default=10)
+    time_limit_hours     = Column(Integer, nullable=True)
+    integration_trigger  = Column(String(100), nullable=True)
+    integration_target   = Column(Integer, nullable=True)
     created_by  = Column(UUID(as_uuid=False), nullable=True)
     created_at  = Column(DateTime(timezone=True), default=utcnow)
     updated_at  = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -123,7 +121,6 @@ class Quest(Base):
 
 
 class UserQuest(Base):
-    """Прогресс пользователя по квесту."""
     __tablename__ = "user_quests"
     __table_args__ = (
         UniqueConstraint("user_id", "quest_id", name="uq_user_quest"),
@@ -134,7 +131,7 @@ class UserQuest(Base):
     id       = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
     user_id  = Column(UUID(as_uuid=False), nullable=False, index=True)
     quest_id = Column(UUID(as_uuid=False), ForeignKey(f"{DB_SCHEMA}.quests.id", ondelete="CASCADE"), nullable=False)
-    status   = Column(Enum(UserQuestStatus), nullable=False, default=UserQuestStatus.IN_PROGRESS)
+    status   = Column(_enum("in_progress","completed","failed","abandoned", name="userqueststatus"), nullable=False, default=UserQuestStatus.IN_PROGRESS)
     progress = Column(Integer, nullable=False, default=0)
     target   = Column(Integer, nullable=False, default=1)
     started_at   = Column(DateTime(timezone=True), default=utcnow)
@@ -149,7 +146,6 @@ class UserQuest(Base):
 # ===================================
 
 class Badge(Base):
-    """Шаблон бейджа."""
     __tablename__ = "badges"
     __table_args__ = ({"schema": DB_SCHEMA},)
 
@@ -157,7 +153,7 @@ class Badge(Base):
     name        = Column(String(100), nullable=False, unique=True)
     description = Column(Text, nullable=True)
     icon_url    = Column(String(500), nullable=True)
-    rarity      = Column(Enum(BadgeRarity), nullable=False, default=BadgeRarity.COMMON)
+    rarity      = Column(_enum("common","rare","epic","legendary", name="badgerarity"), nullable=False, default=BadgeRarity.COMMON)
     condition_type  = Column(String(50), nullable=True)
     condition_value = Column(Integer, nullable=True)
     xp_bonus    = Column(Integer, nullable=False, default=0)
@@ -167,7 +163,6 @@ class Badge(Base):
 
 
 class UserBadge(Base):
-    """Бейдж, полученный пользователем."""
     __tablename__ = "user_badges"
     __table_args__ = (
         UniqueConstraint("user_id", "badge_id", name="uq_user_badge"),
@@ -190,7 +185,6 @@ class UserBadge(Base):
 # ===================================
 
 class XPTransaction(Base):
-    """Журнал всех начислений/списаний XP."""
     __tablename__ = "xp_transactions"
     __table_args__ = (
         Index("ix_xp_transactions_user_created", "user_id", "created_at"),
@@ -200,7 +194,7 @@ class XPTransaction(Base):
     id          = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
     user_id     = Column(UUID(as_uuid=False), nullable=False, index=True)
     amount      = Column(Integer, nullable=False)
-    source      = Column(Enum(XPSource), nullable=False)
+    source      = Column(_enum("quest","badge","github_commit","github_pr","jira_task","admin","penalty","character_level", name="xpsource"), nullable=False)
     source_id   = Column(UUID(as_uuid=False), nullable=True)
     description = Column(String(300), nullable=True)
     created_at  = Column(DateTime(timezone=True), default=utcnow, index=True)
@@ -211,7 +205,6 @@ class XPTransaction(Base):
 # ===================================
 
 class LeaderboardSnapshot(Base):
-    """Снимок лидерборда."""
     __tablename__ = "leaderboard_snapshots"
     __table_args__ = (
         Index("ix_leaderboard_period_rank", "period", "rank"),
