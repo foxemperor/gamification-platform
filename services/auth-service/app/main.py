@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers import auth, admin
+from app.database import create_tables
+from app.seed import create_superuser
 
 import logging, sys
 
@@ -26,11 +28,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator:
     logger.info("🚀 Starting Auth Service...")
-    # Создаём таблицы если их нет (безопасно — Alembic приоритетнее в prod)
-    from app.database import create_tables
     await create_tables()
-    # Сеед суперюзера
-    from app.seed import create_superuser
     await create_superuser()
     yield
     logger.info("🛑 Auth Service stopped.")
@@ -52,7 +50,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Роутеры
 app.include_router(auth.router)
 app.include_router(admin.router)
 
