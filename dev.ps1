@@ -224,16 +224,12 @@ function Invoke-DbInit {
     # ── Предлагаем накатить миграции ──
     Write-Host ""
     Write-Warn "One or more schemas/tables are missing."
-
-    if ($Silent) {
-        # В silent-режиме (вызов из 'up') спрашиваем подтверждение
-        Write-Host ""
-        $confirm = Read-Host "  Run migrations now to initialize DB? (Y/n)"
-        if ($confirm -eq "n" -or $confirm -eq "N") {
-            Write-Warn "Skipped. Services may fail until DB is initialized."
-            Write-Info "Run manually: .\dev.ps1 db:init"
-            return $false
-        }
+    Write-Host ""
+    $confirm = Read-Host "  Run migrations now to initialize DB? (Y/n)"
+    if ($confirm -eq "n" -or $confirm -eq "N") {
+        Write-Warn "Skipped. Services may fail until DB is initialized."
+        Write-Info "Run manually: .\dev.ps1 db:init"
+        return $false
     }
 
     Write-Host ""
@@ -244,16 +240,16 @@ function Invoke-DbInit {
     Write-Host "  [auth-service]" -ForegroundColor $YELLOW
     $authContainer = docker ps --filter "name=gamification-auth-service" --filter "status=running" -q
     if ($authContainer) {
-        docker exec gamification-auth-service alembic upgrade head
+        docker exec gamification-auth-service python -m alembic upgrade head
         if ($LASTEXITCODE -eq 0) {
             Write-Ok "  auth-service migrations done"
         } else {
             Write-Err "  auth-service migrations FAILED"
-            Write-Info "  Check logs: .\dev.ps1 logs auth-service"
+            Write-Info "  Check logs: docker logs gamification-auth-service --tail 30"
         }
     } else {
         Write-Warn "  auth-service container not running — starting temporarily..."
-        docker compose run --rm --no-deps auth-service alembic upgrade head
+        docker compose run --rm --no-deps auth-service python -m alembic upgrade head
         if ($LASTEXITCODE -eq 0) {
             Write-Ok "  auth-service migrations done"
         } else {
@@ -267,16 +263,16 @@ function Invoke-DbInit {
     Write-Host "  [gamification-service]" -ForegroundColor $YELLOW
     $gamContainer = docker ps --filter "name=gamification-gamification-service" --filter "status=running" -q
     if ($gamContainer) {
-        docker exec gamification-gamification-service alembic upgrade head
+        docker exec gamification-gamification-service python -m alembic upgrade head
         if ($LASTEXITCODE -eq 0) {
             Write-Ok "  gamification-service migrations done"
         } else {
             Write-Err "  gamification-service migrations FAILED"
-            Write-Info "  Check logs: .\dev.ps1 logs gamification-service"
+            Write-Info "  Check logs: docker logs gamification-gamification-service --tail 30"
         }
     } else {
         Write-Warn "  gamification-service container not running — starting temporarily..."
-        docker compose run --rm --no-deps gamification-service alembic upgrade head
+        docker compose run --rm --no-deps gamification-service python -m alembic upgrade head
         if ($LASTEXITCODE -eq 0) {
             Write-Ok "  gamification-service migrations done"
         } else {
@@ -327,7 +323,7 @@ function Invoke-DbStatus {
         "SELECT table_schema, COUNT(*) as tables FROM information_schema.tables WHERE table_schema IN ('auth','gamification','public') GROUP BY table_schema ORDER BY table_schema;"
 
     Write-Host ""
-    Write-Host "  Alembic version (public.alembic_version):" -ForegroundColor $CYAN
+    Write-Host "  Alembic versions:" -ForegroundColor $CYAN
     docker exec gamification-postgres psql -U gamification_user -d gamification_db -c `
         "SELECT * FROM alembic_version;" 2>$null
     Write-Host ""
@@ -335,14 +331,14 @@ function Invoke-DbStatus {
     $authContainer = docker ps --filter "name=gamification-auth-service" --filter "status=running" -q
     if ($authContainer) {
         Write-Host "  auth-service alembic current:" -ForegroundColor $CYAN
-        docker exec gamification-auth-service alembic current
+        docker exec gamification-auth-service python -m alembic current
     }
 
     $gamContainer = docker ps --filter "name=gamification-gamification-service" --filter "status=running" -q
     if ($gamContainer) {
         Write-Host ""
         Write-Host "  gamification-service alembic current:" -ForegroundColor $CYAN
-        docker exec gamification-gamification-service alembic current
+        docker exec gamification-gamification-service python -m alembic current
     }
 }
 
@@ -354,7 +350,6 @@ function Invoke-Health {
     Write-Header "Health Check"
     $allOk = $true
 
-    # Frontend
     Write-Info "Checking frontend..."
     try {
         $fe = Invoke-WebRequest -Uri "http://localhost:3000" -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
@@ -382,7 +377,7 @@ function Invoke-Health {
     if ($allOk) {
         Write-Ok "All backend services are up!"
     } else {
-        Write-Warn "Some services are down. Check: .\dev.ps1 logs"
+        Write-Warn "Some services are down. Check: docker logs <container-name>"
     }
 }
 
@@ -423,7 +418,7 @@ function Invoke-Test {
     }
 
     if (-not $token) {
-        Write-Err "Token is empty - check: .\dev.ps1 logs auth-service"
+        Write-Err "Token is empty - check: docker logs gamification-auth-service"
         return
     }
 
@@ -494,15 +489,14 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
         Write-Info "  Auth Service:         http://localhost:8001"
         Write-Info "  Gamification Service: http://localhost:8002"
         Write-Host ""
-        Write-Info "Waiting 8s for PostgreSQL to be ready..."
-        Start-Sleep -Seconds 8
-        # Автоматическая проверка и инициализация БД
-        Invoke-DbInit -Silent $true
+        Write-Info "Waiting 10s for services to be ready..."
+        Start-Sleep -Seconds 10
+        Invoke-DbInit -Silent $false
         Write-Host ""
         Write-Info "Run '.\dev.ps1 health' to verify all services are up."
         Write-Info "Run '.\dev.ps1 test'   to run the full API test scenario."
     } else {
-        Write-Err "Startup error. Check: .\dev.ps1 logs"
+        Write-Err "Startup error. Check: docker logs gamification-auth-service"
     }
 
 } elseif ($cmd -eq "dev") {
@@ -512,10 +506,10 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
     Write-Info "Step 1/4: Starting backend..."
     docker compose up $ACTIVE_SERVICES --build -d
     if ($LASTEXITCODE -ne 0) { Write-Err "Backend failed"; exit 1 }
-    Write-Info "Step 2/4: Waiting 8s for services to be ready..."
-    Start-Sleep -Seconds 8
+    Write-Info "Step 2/4: Waiting 10s for services to be ready..."
+    Start-Sleep -Seconds 10
     Write-Info "Step 3/4: Initializing database..."
-    Invoke-DbInit -Silent $true
+    Invoke-DbInit -Silent $false
     Write-Host ""
     Invoke-Health
     Write-Host ""
@@ -564,9 +558,11 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
     Write-Ok "Restarted: $target"
 
 } elseif ($cmd -eq "logs") {
-    $target = if ($Service) { $Service } else { $ACTIVE_SERVICES -join " " }
-    Write-Header "Logs: $target"
-    docker compose logs --tail=100 -f $target
+    if ($Service) {
+        docker compose logs --tail=100 -f $Service
+    } else {
+        docker compose logs --tail=100 -f postgres redis auth-service gamification-service
+    }
 
 } elseif ($cmd -eq "health") {
     Invoke-Health

@@ -12,8 +12,10 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем код сервиса
+# Копируем весь код сервиса включая alembic
 COPY app/ ./app/
+COPY alembic/ ./alembic/
+COPY alembic.ini ./alembic.ini
 
 # Переменные окружения по умолчанию
 ENV PYTHONUNBUFFERED=1 \
@@ -22,4 +24,4 @@ ENV PYTHONUNBUFFERED=1 \
 
 EXPOSE 8001
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
