@@ -6,23 +6,27 @@ export default defineConfig({
 
   server: {
     port: 3000,
+
     proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
+      // Auth service — direct until Gateway proxy is implemented
+      '/api/v1/auth': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+      },
+      // Gamification service — direct until Gateway proxy is implemented
+      '/api/v1': {
+        target: 'http://localhost:8002',
         changeOrigin: true,
       },
     },
+
     headers: {
-      // Content-Security-Policy for dev server
-      // Tightened for production via Nginx — this covers local dev
       'Content-Security-Policy': [
         "default-src 'self'",
-        // Vite HMR WebSocket
-        "connect-src 'self' ws://localhost:3000 http://localhost:8000",
-        // Google Fonts
+        // Vite dev proxy — all API calls go through localhost:3000, no external origins needed
+        "connect-src 'self' ws://localhost:3000",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        // Inline scripts (Vite dev + our anti-flash snippet)
         "script-src 'self' 'unsafe-inline'",
         "img-src 'self' data: https://avatars.githubusercontent.com",
         "frame-ancestors 'none'",
@@ -36,11 +40,9 @@ export default defineConfig({
   },
 
   build: {
-    // Production: strip source maps to avoid leaking source code
     sourcemap: false,
     rollupOptions: {
       output: {
-        // Code splitting: vendor chunk separate from app code
         manualChunks: {
           vendor:  ['react', 'react-dom', 'react-router-dom'],
           state:   ['zustand'],
