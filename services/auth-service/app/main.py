@@ -1,8 +1,6 @@
 """
 Auth Service — точка входа
 ================================
-Zapusk: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
-Автор: Dmitry Koval
 """
 
 import logging
@@ -10,14 +8,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 
 from app.config import settings
-from app.database import create_tables
+from app.database import create_tables, get_db
+from app.models import User
 from app.routers import auth
-
-# ===================================
-# ЛОГИРОВАНИЕ
-# ===================================
+from app.routers import admin
+from app.security import get_password_hash
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -26,37 +24,54 @@ logging.basicConfig(
 logger = logging.getLogger("auth-service")
 
 
-# ===================================
-# LIFESPAN (запуск / остановка)
-# ===================================
+async def seed_superuser() -> None:
+    """
+    Создаёт суперюзера при первом старте если его ещё нет.
+    Данные берутся из .env: SUPERUSER_EMAIL / SUPERUSER_USERNAME / SUPERUSER_PASSWORD
+    """
+    async for db in get_db():
+        result = await db.execute(
+            select(User).where(User.email == settings.SUPERUSER_EMAIL)
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            logger.info(f"ℹ️  Superuser уже существует: {settings.SUPERUSER_EMAIL}")
+            return
+
+        superuser = User(
+            email=settings.SUPERUSER_EMAIL,
+            username=settings.SUPERUSER_USERNAME,
+            hashed_password=get_password_hash(settings.SUPERUSER_PASSWORD),
+            full_name="Администратор",
+            role="admin",
+            is_active=True,
+            is_verified=True,
+            is_superuser=True,
+        )
+        db.add(superuser)
+        await db.commit()
+        logger.info(f"✅ Superuser создан: {settings.SUPERUSER_EMAIL} (username: {settings.SUPERUSER_USERNAME})")
+        return
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Actions on startup and shutdown."""
     logger.info("🚀 Auth Service запускается...")
     await create_tables()
     logger.info("✅ Таблицы БД готовы")
+    await seed_superuser()
     yield
     logger.info("🔴 Auth Service останавливается")
 
 
-# ===================================
-# FASTAPI APP
-# ===================================
-
 app = FastAPI(
     title="Auth Service",
     description="Микросервис аутентификации Gamification Platform",
-    version="1.0.0",
+    version="1.1.0",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
 )
-
-
-# ===================================
-# CORS
-# ===================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -66,24 +81,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ===================================
-# РОУТЕРЫ
-# ===================================
-
 app.include_router(auth.router)
+app.include_router(admin.router)
 
-
-# ===================================
-# СИСТЕМНЫЕ ЭНДПОИНТЫ
-# ===================================
 
 @app.get("/health", tags=["system"], summary="Проверка доступности")
 async def health_check():
     return {
         "status": "ok",
         "service": "auth-service",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "environment": settings.ENVIRONMENT,
     }
 

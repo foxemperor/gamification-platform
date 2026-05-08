@@ -1,7 +1,6 @@
 """
 Конфигурация Auth Service
 =========================
-Автор: Dmitry Koval
 """
 
 from typing import List
@@ -37,6 +36,13 @@ class Settings(BaseSettings):
 
     # Логирование
     LOG_LEVEL: str = Field(default="INFO")
+
+    # ===================================
+    # SUPERUSER (создаётся автоматически при старте)
+    # ===================================
+    SUPERUSER_EMAIL: str = Field(default="admin@gamequest.local")
+    SUPERUSER_USERNAME: str = Field(default="admin")
+    SUPERUSER_PASSWORD: str = Field(default="ChangeMe123!")
 
     class Config:
         env_file = ".env"
