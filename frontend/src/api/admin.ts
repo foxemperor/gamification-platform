@@ -7,6 +7,7 @@ export interface AdminUser {
   full_name: string | null
   department: string | null
   project: string | null
+  position: string | null
   role: 'employee' | 'manager' | 'admin'
   xp: number
   level: number
@@ -33,6 +34,7 @@ export interface AdminUserCreate {
   full_name?: string
   department?: string
   project?: string
+  position?: string
   role: 'employee' | 'manager' | 'admin'
   is_active: boolean
   is_verified: boolean
@@ -45,6 +47,7 @@ export interface AdminUserUpdate {
   password?: string
   department?: string
   project?: string
+  position?: string
   role?: 'employee' | 'manager' | 'admin'
   is_active?: boolean
   is_verified?: boolean

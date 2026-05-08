@@ -8,12 +8,19 @@ export default defineConfig({
     port: 3000,
 
     proxy: {
-      // Auth service — direct until Gateway proxy is implemented
+      // Порядок важен: более специфичные правила выше
+
+      // Auth Service — аутентификация и администрирование пользователями
       '/api/v1/auth': {
         target: 'http://localhost:8001',
         changeOrigin: true,
       },
-      // Gamification service — direct until Gateway proxy is implemented
+      '/api/v1/admin': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+      },
+
+      // Gamification Service — всё остальное
       '/api/v1': {
         target: 'http://localhost:8002',
         changeOrigin: true,
@@ -23,7 +30,6 @@ export default defineConfig({
     headers: {
       'Content-Security-Policy': [
         "default-src 'self'",
-        // Vite dev proxy — all API calls go through localhost:3000, no external origins needed
         "connect-src 'self' ws://localhost:3000",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",

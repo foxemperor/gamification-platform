@@ -1,7 +1,6 @@
 """
 Pydantic схемы Auth Service
 ============================
-Схемы для валидации запросов и формирования ответов API.
 """
 
 import uuid
@@ -10,10 +9,6 @@ from typing import Optional, Literal
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
-# ===================================
-# USER SCHEMAS
-# ===================================
-
 class UserBase(BaseModel):
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$")
@@ -21,7 +16,6 @@ class UserBase(BaseModel):
 
 
 class UserRegister(UserBase):
-    """Schema для регистрации нового пользователя"""
     password: str = Field(..., min_length=8, max_length=128)
 
     @field_validator("password")
@@ -35,20 +29,17 @@ class UserRegister(UserBase):
 
 
 class UserLogin(BaseModel):
-    """Schema для входа в систему"""
     email: EmailStr
     password: str
 
 
 class UserUpdate(BaseModel):
-    """Schema для обновления профиля"""
     full_name: Optional[str] = Field(None, max_length=100)
     bio: Optional[str] = Field(None, max_length=500)
     avatar_url: Optional[str] = None
 
 
 class UserResponse(BaseModel):
-    """Schema ответа с данными пользователя"""
     id: uuid.UUID
     email: EmailStr
     username: str
@@ -57,6 +48,7 @@ class UserResponse(BaseModel):
     bio: Optional[str] = None
     department: Optional[str] = None
     project: Optional[str] = None
+    position: Optional[str] = None
     xp: int
     level: int
     coins: int
@@ -76,33 +68,32 @@ class UserResponse(BaseModel):
 # ===================================
 
 class AdminUserCreate(BaseModel):
-    """Creating a user by admin"""
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$")
     password: str = Field(..., min_length=8, max_length=128)
     full_name: Optional[str] = Field(None, max_length=100)
     department: Optional[str] = Field(None, max_length=100)
     project: Optional[str] = Field(None, max_length=100)
+    position: Optional[str] = Field(None, max_length=100)
     role: Literal["employee", "manager", "admin"] = "employee"
     is_active: bool = True
     is_verified: bool = True
 
 
 class AdminUserUpdate(BaseModel):
-    """Editing a user by admin"""
     email: Optional[EmailStr] = None
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     full_name: Optional[str] = Field(None, max_length=100)
     password: Optional[str] = Field(None, min_length=8, max_length=128)
     department: Optional[str] = Field(None, max_length=100)
     project: Optional[str] = Field(None, max_length=100)
+    position: Optional[str] = Field(None, max_length=100)
     role: Optional[Literal["employee", "manager", "admin"]] = None
     is_active: Optional[bool] = None
     is_verified: Optional[bool] = None
 
 
 class AdminUserResponse(UserResponse):
-    """Extended response for admin"""
     is_superuser: bool
     last_login_at: Optional[datetime] = None
     updated_at: datetime
@@ -111,7 +102,6 @@ class AdminUserResponse(UserResponse):
 
 
 class AdminUsersListResponse(BaseModel):
-    """Paginated user list"""
     total: int
     page: int
     per_page: int

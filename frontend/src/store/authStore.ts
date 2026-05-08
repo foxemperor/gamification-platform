@@ -9,13 +9,13 @@ export interface User {
   role: string
   department: string | null
   project: string | null
+  position: string | null
   xp: number
   level: number
   coins: number
   is_active: boolean
   is_verified: boolean
   is_superuser: boolean
-  // оставляем для обратной совместимости — может отсутствовать
   theme_preference?: string
 }
 
