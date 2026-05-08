@@ -45,14 +45,8 @@ export function RegisterForm(_props: Props) {
   const strength  = getStrength(fields.password)
   const abortRef  = useRef<AbortController | null>(null)
 
-  useEffect(() => {
-    return () => { abortRef.current?.abort() }
-  }, [])
-
-  // Show API error via toast
-  useEffect(() => {
-    if (error) toast(error, 'error')
-  }, [error, toast])
+  useEffect(() => { return () => { abortRef.current?.abort() } }, [])
+  useEffect(() => { if (error) toast(error, 'error') }, [error, toast])
 
   const set = (k: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setFields(f => ({ ...f, [k]: e.target.value }))
@@ -74,12 +68,17 @@ export function RegisterForm(_props: Props) {
   const handleSubmit = (ev: React.FormEvent) => {
     ev.preventDefault()
     if (!validate()) return
-    // —— TEMPORARY: backend register endpoint not yet updated ——
-    toast('🛠️ Регистрация в разработке. Бэкенд ещё не готов.', 'warning')
-    // TODO: uncomment when Auth Service is updated
-    // abortRef.current?.abort()
-    // abortRef.current = new AbortController()
-    // register({ ...fields, role: 'employee' }, abortRef.current.signal)
+    abortRef.current?.abort()
+    abortRef.current = new AbortController()
+    register(
+      {
+        email:     fields.email,
+        username:  fields.username,
+        full_name: `${fields.first_name} ${fields.last_name}`.trim(),
+        password:  fields.password,
+      },
+      abortRef.current.signal
+    )
   }
 
   if (success) return (
@@ -91,7 +90,7 @@ export function RegisterForm(_props: Props) {
         <strong style={{ color: 'var(--primary)' }}>+100 XP</strong>{' '}и{' '}
         <strong style={{ color: 'var(--reward)' }}>🪙 50 монет</strong>
       </p>
-      <Button onClick={() => navigate('/dashboard')}>Перейти на Dashboard</Button>
+      <Button onClick={() => navigate('/')}>Перейти на главную</Button>
     </div>
   )
 
@@ -107,8 +106,8 @@ export function RegisterForm(_props: Props) {
         <Input label="Фамилия" iconNode={<IconUser size={15} />} placeholder="Ваша фамилия" value={fields.last_name}  error={errors.last_name}  onChange={set('last_name')} />
       </div>
 
-      <Input label="Email"   iconNode={<IconMail    size={15} />} type="email"    placeholder="your@company.com"    value={fields.email}    error={errors.email}    onChange={set('email')} />
-      <Input label="Логин"   iconNode={<IconGamepad size={15} />}               placeholder="Придумайте логин"    value={fields.username} error={errors.username} onChange={set('username')} />
+      <Input label="Email"   iconNode={<IconMail    size={15} />} type="email" placeholder="your@company.com" value={fields.email}    error={errors.email}    onChange={set('email')} />
+      <Input label="Логин"   iconNode={<IconGamepad size={15} />}             placeholder="Придумайте логин" value={fields.username} error={errors.username} onChange={set('username')} />
 
       <Input
         label="Пароль"

@@ -11,26 +11,28 @@ interface Props {
 }
 
 interface Fields {
-  username: string
+  email:    string
   password: string
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
 export function LoginForm(_props: Props) {
-  const [fields,   setFields]   = useState<Fields>({ username: '', password: '' })
+  const [fields,   setFields]   = useState<Fields>({ email: '', password: '' })
   const [errors,   setErrors]   = useState<Partial<Fields>>({})
   const [showPass, setShowPass] = useState(false)
   const { login, loading, error } = useLogin()
   const toast    = useAppToast()
   const abortRef = useRef<AbortController | null>(null)
 
-  useEffect(() => {
-    return () => { abortRef.current?.abort() }
-  }, [])
+  useEffect(() => { return () => { abortRef.current?.abort() } }, [])
+
+  useEffect(() => { if (error) toast(error, 'error') }, [error, toast])
 
   const validate = (): boolean => {
     const e: Partial<Fields> = {}
-    if (!fields.username.trim()) e.username = 'Введите email или логин'
-    if (!fields.password)        e.password = 'Введите пароль'
+    if (!EMAIL_RE.test(fields.email)) e.email    = 'Введите корректный email'
+    if (!fields.password)             e.password = 'Введите пароль'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -38,23 +40,15 @@ export function LoginForm(_props: Props) {
   const handleSubmit = (ev: React.FormEvent) => {
     ev.preventDefault()
     if (!validate()) return
-    // —— TEMPORARY: backend auth endpoint not yet updated ——
-    toast('🛠️ Авторизация в разработке. Бэкенд ещё не готов.', 'warning')
-    // TODO: uncomment when Auth Service is updated
-    // abortRef.current?.abort()
-    // abortRef.current = new AbortController()
-    // login({ username: fields.username, password: fields.password }, abortRef.current.signal)
+    abortRef.current?.abort()
+    abortRef.current = new AbortController()
+    login({ email: fields.email, password: fields.password }, abortRef.current.signal)
   }
 
   const setField = (k: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setFields(f => ({ ...f, [k]: e.target.value }))
     setErrors(er => ({ ...er, [k]: undefined }))
   }
-
-  // Show API error via toast too (for when login is enabled)
-  useEffect(() => {
-    if (error) toast(error, 'error')
-  }, [error, toast])
 
   return (
     <form className={styles.form} onSubmit={handleSubmit} noValidate>
@@ -64,12 +58,13 @@ export function LoginForm(_props: Props) {
       </div>
 
       <Input
-        label="Email или логин"
+        label="Email"
         iconNode={<IconMail size={15} />}
-        placeholder="email или логин"
-        value={fields.username}
-        error={errors.username}
-        onChange={setField('username')}
+        type="email"
+        placeholder="your@company.com"
+        value={fields.email}
+        error={errors.email}
+        onChange={setField('email')}
       />
 
       <Input
@@ -101,20 +96,12 @@ export function LoginForm(_props: Props) {
       <div className={styles.orRow}><span>или</span></div>
 
       <div className={styles.socialRow}>
-        <button
-          type="button"
-          className={styles.socialBtn}
+        <button type="button" className={styles.socialBtn}
           onClick={() => toast('🔷 Авторизация через Microsoft — в разработке', 'info')}
-        >
-          Microsoft
-        </button>
-        <button
-          type="button"
-          className={styles.socialBtn}
+        >Microsoft</button>
+        <button type="button" className={styles.socialBtn}
           onClick={() => toast('🔗 SSO-авторизация — в разработке', 'info')}
-        >
-          SSO
-        </button>
+        >SSO</button>
       </div>
     </form>
   )

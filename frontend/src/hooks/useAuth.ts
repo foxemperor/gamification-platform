@@ -5,10 +5,13 @@ import { authApi, type LoginPayload, type RegisterPayload } from '../api/auth'
 import { useAuthStore } from '../store/authStore'
 
 function isAbortError(e: unknown): boolean {
-  // axios wraps AbortError — check both cases
+  return axios.isCancel(e) || (e instanceof Error && e.name === 'AbortError')
+}
+
+function extractError(e: unknown, fallback: string): string {
   return (
-    axios.isCancel(e) ||
-    (e instanceof Error && e.name === 'AbortError')
+    (e as { response?: { data?: { detail?: string } } })
+      ?.response?.data?.detail ?? fallback
   )
 }
 
@@ -23,15 +26,23 @@ export function useLogin() {
     setError(null)
     try {
       const data = await authApi.login(payload, signal)
-      setTokens(data.access_token, data.refresh_token)
-      setUser(data.user)
-      navigate('/dashboard')
+      setTokens(data.tokens.access_token, data.tokens.refresh_token)
+      setUser({
+        id:       data.user.id,
+        username: data.user.username,
+        email:    data.user.email,
+        first_name: data.user.full_name?.split(' ')[0] ?? '',
+        last_name:  data.user.full_name?.split(' ')[1] ?? '',
+        role:     data.user.role,
+        theme_preference: '',
+        xp:     data.user.xp,
+        level:  data.user.level,
+        coins:  data.user.coins,
+      })
+      navigate('/')
     } catch (e: unknown) {
-      if (isAbortError(e)) return   // component unmounted — silently ignore
-      const msg =
-        (e as { response?: { data?: { detail?: string } } })
-          ?.response?.data?.detail ?? 'Неверный логин или пароль'
-      setError(msg)
+      if (isAbortError(e)) return
+      setError(extractError(e, 'Неверный email или пароль'))
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
@@ -51,15 +62,23 @@ export function useRegister() {
     setError(null)
     try {
       const data = await authApi.register(payload, signal)
-      setTokens(data.access_token, data.refresh_token)
-      setUser(data.user)
+      setTokens(data.tokens.access_token, data.tokens.refresh_token)
+      setUser({
+        id:       data.user.id,
+        username: data.user.username,
+        email:    data.user.email,
+        first_name: data.user.full_name?.split(' ')[0] ?? '',
+        last_name:  data.user.full_name?.split(' ')[1] ?? '',
+        role:     data.user.role,
+        theme_preference: '',
+        xp:     data.user.xp,
+        level:  data.user.level,
+        coins:  data.user.coins,
+      })
       setSuccess(true)
     } catch (e: unknown) {
-      if (isAbortError(e)) return   // component unmounted — silently ignore
-      const msg =
-        (e as { response?: { data?: { detail?: string } } })
-          ?.response?.data?.detail ?? 'Ошибка регистрации. Попробуйте снова.'
-      setError(msg)
+      if (isAbortError(e)) return
+      setError(extractError(e, 'Ошибка регистрации. Попробуйте снова.'))
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
