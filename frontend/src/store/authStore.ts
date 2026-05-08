@@ -1,17 +1,22 @@
 import { create } from 'zustand'
 import { useThemeStore, type Theme } from './themeStore'
 
-interface User {
+export interface User {
   id: string
   username: string
   email: string
-  first_name: string
-  last_name: string
+  full_name: string | null
   role: string
-  theme_preference: string
+  department: string | null
+  project: string | null
   xp: number
   level: number
   coins: number
+  is_active: boolean
+  is_verified: boolean
+  is_superuser: boolean
+  // оставляем для обратной совместимости — может отсутствовать
+  theme_preference?: string
 }
 
 interface AuthState {
@@ -32,18 +37,13 @@ export const useAuthStore = create<AuthState>()((set) => ({
   isAuthenticated: false,
 
   setTokens: (accessToken, refreshToken) => {
-    // Tokens stored in memory only — more secure than localStorage
     set({ accessToken, refreshToken, isAuthenticated: true })
   },
 
   setUser: (user) => {
     set({ user })
-    // Sync server theme_preference → override localStorage
     if (user.theme_preference) {
-      useThemeStore.getState().setTheme(
-        user.theme_preference as Theme,
-        false, // already from server, no need to re-sync
-      )
+      useThemeStore.getState().setTheme(user.theme_preference as Theme, false)
     }
   },
 

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { SidebarUser } from './SidebarUser'
 import { SidebarXP } from './SidebarXP'
 import { SidebarTheme } from './SidebarTheme'
+import { useAuthStore } from '../../store/authStore'
 import styles from './Sidebar.module.css'
 
 const STORAGE_KEY = 'sidebar:mini'
@@ -16,10 +17,10 @@ interface NavItemDef {
 }
 
 const NAV_MAIN: NavItemDef[] = [
-  { to: '/',            icon: '📊', label: 'Обзор' },
-  { to: '/quests',      icon: '⚡', label: 'Квесты',      badge: 3, badgeVariant: 'warn' },
-  { to: '/leaderboard', icon: '🏆', label: 'Рейтинг' },
-  { to: '/achievements',icon: '🎖️', label: 'Достижения',  badge: 2 },
+  { to: '/',             icon: '📊', label: 'Обзор' },
+  { to: '/quests',       icon: '⚡', label: 'Квесты',      badge: 3, badgeVariant: 'warn' },
+  { to: '/leaderboard',  icon: '🏆', label: 'Рейтинг' },
+  { to: '/achievements', icon: '🎖️', label: 'Достижения', badge: 2 },
 ]
 
 const NAV_TEAM: NavItemDef[] = [
@@ -31,10 +32,18 @@ const NAV_ACCOUNT: NavItemDef[] = [
   { to: '/settings', icon: '⚙️', label: 'Настройки' },
 ]
 
+const NAV_ADMIN: NavItemDef[] = [
+  { to: '/admin',        icon: '🛡️', label: 'Обзор' },
+  { to: '/admin/users',  icon: '👤', label: 'Пользователи' },
+  { to: '/admin/quests', icon: '⚙️', label: 'Квесты' },
+]
+
 export function Sidebar() {
   const [mini, setMini] = useState<boolean>(() => {
     try { return localStorage.getItem(STORAGE_KEY) === 'true' } catch { return false }
   })
+  const user = useAuthStore(s => s.user)
+  const isAdmin = user?.is_superuser || user?.role === 'admin'
 
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, String(mini)) } catch {}
@@ -44,20 +53,14 @@ export function Sidebar() {
 
   return (
     <aside className={cls}>
-
-      {/* Logo */}
       <div className={styles.logo}>
         <span className={styles.logoIcon}>🎮</span>
         <span className={styles.logoText}>GameQuest</span>
       </div>
 
-      {/* User — сверху */}
       <SidebarUser mini={mini} />
-
-      {/* XP — под юзером */}
       <SidebarXP mini={mini} />
 
-      {/* Nav */}
       <nav className={styles.nav}>
         <NavSection label="Главное" mini={mini}>
           {NAV_MAIN.map(item => <NavItem key={item.to} {...item} mini={mini} />)}
@@ -68,12 +71,17 @@ export function Sidebar() {
         <NavSection label="Аккаунт" mini={mini}>
           {NAV_ACCOUNT.map(item => <NavItem key={item.to} {...item} mini={mini} />)}
         </NavSection>
+
+        {/* Админ-раздел — виден только admin/superuser */}
+        {isAdmin && (
+          <NavSection label="Админ" mini={mini}>
+            {NAV_ADMIN.map(item => <NavItem key={item.to} {...item} mini={mini} />)}
+          </NavSection>
+        )}
       </nav>
 
-      {/* Theme switcher */}
       <SidebarTheme mini={mini} />
 
-      {/* Collapse button */}
       <div className={styles.collapseWrap}>
         <button className={styles.collapseBtn} onClick={() => setMini(p => !p)}>
           <span className={styles.navIcon}>{mini ? '▶' : '◀'}</span>
@@ -84,7 +92,6 @@ export function Sidebar() {
   )
 }
 
-// ── NavSection ──────────────────────────────────────────────────
 function NavSection({ label, mini, children }: { label: string; mini: boolean; children: React.ReactNode }) {
   return (
     <div className={styles.section}>
@@ -94,12 +101,11 @@ function NavSection({ label, mini, children }: { label: string; mini: boolean; c
   )
 }
 
-// ── NavItem ─────────────────────────────────────────────────────
 function NavItem({ to, icon, label, badge, badgeVariant = 'primary', mini }: NavItemDef & { mini: boolean }) {
   return (
     <NavLink
       to={to}
-      end={to === '/'}
+      end={to === '/' || to === '/admin'}
       className={({ isActive }) =>
         [styles.navItem, isActive ? styles.active : ''].filter(Boolean).join(' ')
       }
@@ -114,7 +120,6 @@ function NavItem({ to, icon, label, badge, badgeVariant = 'primary', mini }: Nav
           {badge}
         </span>
       )}
-      {/* Тултип только в mini-режиме */}
       {mini && <span className={styles.tooltip}>{label}</span>}
     </NavLink>
   )

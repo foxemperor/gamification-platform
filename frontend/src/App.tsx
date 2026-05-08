@@ -1,15 +1,16 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { AuthPage }      from './pages/AuthPage'
-import { OverviewPage }  from './pages/OverviewPage'
-import { AppLayout }     from './layouts/AppLayout'
-import { ProtectedRoute } from './components/ProtectedRoute'
-import { ToastContainer } from './components/ui/Toast'
-import { useToast }      from './hooks/useToast'
-import { useThemeStore } from './store/themeStore'
+import { AuthPage }         from './pages/AuthPage'
+import { OverviewPage }     from './pages/OverviewPage'
+import { AdminUsersPage }   from './pages/admin/AdminUsersPage'
+import { AppLayout }        from './layouts/AppLayout'
+import { ProtectedRoute }   from './components/ProtectedRoute'
+import { AdminRoute }       from './components/AdminRoute'
+import { ToastContainer }   from './components/ui/Toast'
+import { useToast }         from './hooks/useToast'
+import { useThemeStore }    from './store/themeStore'
 import { useEffect, createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
 
-// ── Global Toast context ─────────────────────────────────────────
 type ToastFn = (msg: string, variant?: 'info' | 'warning' | 'success' | 'error') => void
 const ToastCtx = createContext<ToastFn>(() => {})
 export const useAppToast = () => useContext(ToastCtx)
@@ -37,25 +38,28 @@ export default function App() {
         {/* Публичные */}
         <Route path="/auth" element={<AuthPage />} />
 
-        {/* Защищённые — все внутри AppLayout */}
+        {/* Защищённые */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          <Route index       element={<OverviewPage />} />
+          <Route index             element={<OverviewPage />} />
           <Route path="/quests"       element={<ComingSoon title="Квесты" />} />
           <Route path="/leaderboard"  element={<ComingSoon title="Рейтинг" />} />
           <Route path="/achievements" element={<ComingSoon title="Достижения" />} />
           <Route path="/members"      element={<ComingSoon title="Участники" />} />
           <Route path="/events"       element={<ComingSoon title="События" />} />
           <Route path="/settings"     element={<ComingSoon title="Настройки" />} />
+
+          {/* Админ-панель */}
+          <Route path="/admin" element={<AdminRoute><ComingSoon title="Админ: Обзор" /></AdminRoute>} />
+          <Route path="/admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+          <Route path="/admin/quests" element={<AdminRoute><ComingSoon title="Админ: Квесты" /></AdminRoute>} />
         </Route>
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ToastProvider>
   )
 }
 
-// Временная заглушка для страниц ещё не реализованных
 function ComingSoon({ title }: { title: string }) {
   return (
     <div style={{ padding: '40px 32px', color: 'var(--text)', fontFamily: 'var(--font-b)' }}>
