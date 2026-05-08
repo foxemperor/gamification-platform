@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import create_tables
+from app.database import ensure_schema, run_migrations
 from app.routers import auth
 
 # ===================================
@@ -32,10 +32,13 @@ logger = logging.getLogger("auth-service")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Actions on startup and shutdown."""
     logger.info("🚀 Auth Service запускается...")
-    await create_tables()
-    logger.info("✅ Таблицы БД готовы")
+    # 1. Создаём схему если её нет (Alembic это не делает)
+    await ensure_schema()
+    # 2. Применяем все миграции (идемпотентно)
+    logger.info("⏳ Применяем миграции...")
+    run_migrations()
+    logger.info("✅ БД готова")
     yield
     logger.info("🔴 Auth Service останавливается")
 

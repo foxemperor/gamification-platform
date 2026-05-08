@@ -9,6 +9,8 @@ Async SQLAlchemy + PostgreSQL через asyncpg.
 """
 
 import logging
+import subprocess
+import sys
 from typing import AsyncGenerator
 
 from sqlalchemy import text
@@ -61,13 +63,23 @@ class Base(DeclarativeBase):
 # ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 # ===================================
 
-async def create_tables() -> None:
-    """Создаёт схему 'gamification' (если нет) и все таблицы при старте."""
+async def ensure_schema() -> None:
+    """Создаёт схему 'gamification' если её нет — Alembic это не делает."""
     async with engine.begin() as conn:
         await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{DB_SCHEMA}"'))
-        await conn.execute(text(f'SET search_path TO "{DB_SCHEMA}", public'))
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("✅ Схема и таблицы Gamification Service готовы")
+    logger.info(f"✅ Схема '{DB_SCHEMA}' готова")
+
+
+def run_migrations() -> None:
+    """Запускает alembic upgrade head синхронно.
+    Идемпотентно: если миграции уже применены — ничего не делает.
+    """
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        capture_output=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("Alembic migrations failed for gamification-service")
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
