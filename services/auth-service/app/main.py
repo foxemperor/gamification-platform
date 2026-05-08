@@ -15,7 +15,7 @@ from app.database import create_tables, get_db
 from app.models import User
 from app.routers import auth
 from app.routers import admin
-from app.security import get_password_hash
+from app.security import hash_password
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -25,10 +25,6 @@ logger = logging.getLogger("auth-service")
 
 
 async def seed_superuser() -> None:
-    """
-    Создаёт суперюзера при первом старте если его ещё нет.
-    Данные берутся из .env: SUPERUSER_EMAIL / SUPERUSER_USERNAME / SUPERUSER_PASSWORD
-    """
     async for db in get_db():
         result = await db.execute(
             select(User).where(User.email == settings.SUPERUSER_EMAIL)
@@ -37,11 +33,10 @@ async def seed_superuser() -> None:
         if existing:
             logger.info(f"ℹ️  Superuser уже существует: {settings.SUPERUSER_EMAIL}")
             return
-
         superuser = User(
             email=settings.SUPERUSER_EMAIL,
             username=settings.SUPERUSER_USERNAME,
-            hashed_password=get_password_hash(settings.SUPERUSER_PASSWORD),
+            hashed_password=hash_password(settings.SUPERUSER_PASSWORD),
             full_name="Администратор",
             role="admin",
             is_active=True,

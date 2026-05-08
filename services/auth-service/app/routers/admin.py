@@ -24,16 +24,12 @@ from app.schemas import (
     AdminUserResponse, AdminUsersListResponse,
     MessageResponse,
 )
-from app.security import get_password_hash, get_current_user
+from app.security import hash_password, get_current_user
 
 logger = logging.getLogger("auth-service.admin")
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
-
-# ===================================
-# DEPENDENCY: проверка прав админа
-# ===================================
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """Разрешает доступ только role=admin или is_superuser."""
@@ -45,10 +41,6 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-# ===================================
-# GET /api/v1/admin/users
-# ===================================
-
 @router.get("/users", response_model=AdminUsersListResponse)
 async def list_users(
     page: int = Query(1, ge=1),
@@ -57,27 +49,19 @@ async def list_users(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    """Список всех пользователей с пагинацией и поиском."""
     query = select(User)
     if search:
         pattern = f"%{search}%"
         query = query.where(
             User.email.ilike(pattern) | User.username.ilike(pattern)
         )
-
     total_result = await db.execute(select(func.count()).select_from(query.subquery()))
     total = total_result.scalar_one()
-
     query = query.offset((page - 1) * per_page).limit(per_page).order_by(User.created_at.desc())
     result = await db.execute(query)
     users = result.scalars().all()
-
     return AdminUsersListResponse(total=total, page=page, per_page=per_page, items=users)
 
-
-# ===================================
-# GET /api/v1/admin/users/{user_id}
-# ===================================
 
 @router.get("/users/{user_id}", response_model=AdminUserResponse)
 async def get_user(
@@ -92,27 +76,21 @@ async def get_user(
     return user
 
 
-# ===================================
-# POST /api/v1/admin/users
-# ===================================
-
 @router.post("/users", response_model=AdminUserResponse, status_code=201)
 async def create_user(
     data: AdminUserCreate,
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    """Создать пользователя (уже verified по умолчанию)."""
     existing = await db.execute(
         select(User).where((User.email == data.email) | (User.username == data.username))
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Email или username уже занят")
-
     user = User(
         email=data.email,
         username=data.username,
-        hashed_password=get_password_hash(data.password),
+        hashed_password=hash_password(data.password),
         full_name=data.full_name,
         role=data.role,
         is_active=data.is_active,
@@ -125,10 +103,6 @@ async def create_user(
     return user
 
 
-# ===================================
-# PATCH /api/v1/admin/users/{user_id}
-# ===================================
-
 @router.patch("/users/{user_id}", response_model=AdminUserResponse)
 async def update_user(
     user_id: uuid.UUID,
@@ -140,23 +114,16 @@ async def update_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
-
     update_data = data.model_dump(exclude_unset=True)
     if "password" in update_data:
-        update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
-
+        update_data["hashed_password"] = hash_password(update_data.pop("password"))
     for field, value in update_data.items():
         setattr(user, field, value)
-
     await db.commit()
     await db.refresh(user)
     logger.info(f"✏️ Admin updated user: {user.username}")
     return user
 
-
-# ===================================
-# DELETE /api/v1/admin/users/{user_id}
-# ===================================
 
 @router.delete("/users/{user_id}", response_model=MessageResponse)
 async def delete_user(
@@ -168,20 +135,16 @@ async def delete_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
-
-    # Суперюзера удалить нельзя
     if user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Суперюзера удалить нельзя",
         )
-    # Сам себя админ удалить не может
     if user.id == current_admin.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Нельзя удалить самого себя",
         )
-
     await db.delete(user)
     await db.commit()
     logger.info(f"🗑️ Admin deleted user: {user.username}")
