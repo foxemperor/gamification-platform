@@ -1,70 +1,46 @@
 """
-Auth Service — точка входа
-================================
+Auth Service — FastAPI application
+====================================
+Автор: Dmitry Koval
 """
 
-import logging
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
 
 from app.config import settings
-from app.database import create_tables, get_db
-from app.models import User
-from app.routers import auth
-from app.routers import admin
-from app.security import hash_password
+from app.routers import auth, admin
+
+import logging, sys
 
 logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    level=getattr(logging, settings.LOG_LEVEL.upper()),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
-logger = logging.getLogger("auth-service")
-
-
-async def seed_superuser() -> None:
-    async for db in get_db():
-        result = await db.execute(
-            select(User).where(User.email == settings.SUPERUSER_EMAIL)
-        )
-        existing = result.scalar_one_or_none()
-        if existing:
-            logger.info(f"ℹ️  Superuser уже существует: {settings.SUPERUSER_EMAIL}")
-            return
-        superuser = User(
-            email=settings.SUPERUSER_EMAIL,
-            username=settings.SUPERUSER_USERNAME,
-            hashed_password=hash_password(settings.SUPERUSER_PASSWORD),
-            full_name="Администратор",
-            role="admin",
-            is_active=True,
-            is_verified=True,
-            is_superuser=True,
-        )
-        db.add(superuser)
-        await db.commit()
-        logger.info(f"✅ Superuser создан: {settings.SUPERUSER_EMAIL} (username: {settings.SUPERUSER_USERNAME})")
-        return
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("🚀 Auth Service запускается...")
+async def lifespan(app: FastAPI) -> AsyncGenerator:
+    logger.info("🚀 Starting Auth Service...")
+    # Создаём таблицы если их нет (безопасно — Alembic приоритетнее в prod)
+    from app.database import create_tables
     await create_tables()
-    logger.info("✅ Таблицы БД готовы")
-    await seed_superuser()
+    # Сеед суперюзера
+    from app.seed import create_superuser
+    await create_superuser()
     yield
-    logger.info("🔴 Auth Service останавливается")
+    logger.info("🛑 Auth Service stopped.")
 
 
 app = FastAPI(
     title="Auth Service",
-    description="Микросервис аутентификации Gamification Platform",
-    version="1.1.0",
-    docs_url="/docs" if settings.DEBUG else None,
-    redoc_url="/redoc" if settings.DEBUG else None,
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
     lifespan=lifespan,
 )
 
@@ -76,20 +52,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Роутеры
 app.include_router(auth.router)
 app.include_router(admin.router)
 
 
-@app.get("/health", tags=["system"], summary="Проверка доступности")
-async def health_check():
-    return {
-        "status": "ok",
-        "service": "auth-service",
-        "version": "1.1.0",
-        "environment": settings.ENVIRONMENT,
-    }
-
-
-@app.get("/", tags=["system"], include_in_schema=False)
-async def root():
-    return {"message": "Auth Service is running. Docs: /docs"}
+@app.get("/health", tags=["System"])
+async def health():
+    return {"status": "healthy", "service": "auth-service"}

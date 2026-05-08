@@ -32,6 +32,10 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Организационная принадлежность
+    department: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    project: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     # Роль: employee | manager | admin
     role: Mapped[str] = mapped_column(String(20), default="employee", nullable=False)
 
@@ -45,7 +49,7 @@ class User(Base):
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    # Временные метки
+    # Темпоральные метки
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

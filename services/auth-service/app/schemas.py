@@ -21,7 +21,7 @@ class UserBase(BaseModel):
 
 
 class UserRegister(UserBase):
-    """Схема для регистрации нового пользователя"""
+    """Schema для регистрации нового пользователя"""
     password: str = Field(..., min_length=8, max_length=128)
 
     @field_validator("password")
@@ -35,26 +35,28 @@ class UserRegister(UserBase):
 
 
 class UserLogin(BaseModel):
-    """Схема для входа в систему"""
+    """Schema для входа в систему"""
     email: EmailStr
     password: str
 
 
 class UserUpdate(BaseModel):
-    """Схема для обновления профиля"""
+    """Schema для обновления профиля"""
     full_name: Optional[str] = Field(None, max_length=100)
     bio: Optional[str] = Field(None, max_length=500)
     avatar_url: Optional[str] = None
 
 
 class UserResponse(BaseModel):
-    """Схема ответа с данными пользователя"""
+    """Schema ответа с данными пользователя"""
     id: uuid.UUID
     email: EmailStr
     username: str
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
     bio: Optional[str] = None
+    department: Optional[str] = None
+    project: Optional[str] = None
     xp: int
     level: int
     coins: int
@@ -74,29 +76,33 @@ class UserResponse(BaseModel):
 # ===================================
 
 class AdminUserCreate(BaseModel):
-    """Создание пользователя администратором"""
+    """Creating a user by admin"""
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_-]+$")
     password: str = Field(..., min_length=8, max_length=128)
     full_name: Optional[str] = Field(None, max_length=100)
+    department: Optional[str] = Field(None, max_length=100)
+    project: Optional[str] = Field(None, max_length=100)
     role: Literal["employee", "manager", "admin"] = "employee"
     is_active: bool = True
     is_verified: bool = True
 
 
 class AdminUserUpdate(BaseModel):
-    """Редактирование пользователя администратором"""
+    """Editing a user by admin"""
     email: Optional[EmailStr] = None
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     full_name: Optional[str] = Field(None, max_length=100)
     password: Optional[str] = Field(None, min_length=8, max_length=128)
+    department: Optional[str] = Field(None, max_length=100)
+    project: Optional[str] = Field(None, max_length=100)
     role: Optional[Literal["employee", "manager", "admin"]] = None
     is_active: Optional[bool] = None
     is_verified: Optional[bool] = None
 
 
 class AdminUserResponse(UserResponse):
-    """Расширенный ответ для admin — включает is_superuser"""
+    """Extended response for admin"""
     is_superuser: bool
     last_login_at: Optional[datetime] = None
     updated_at: datetime
@@ -105,7 +111,7 @@ class AdminUserResponse(UserResponse):
 
 
 class AdminUsersListResponse(BaseModel):
-    """Список пользователей с пагинацией"""
+    """Paginated user list"""
     total: int
     page: int
     per_page: int
@@ -117,38 +123,29 @@ class AdminUsersListResponse(BaseModel):
 # ===================================
 
 class Token(BaseModel):
-    """Ответ с токенами доступа"""
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
 
 
 class TokenPayload(BaseModel):
-    """Данные внутри JWT токена"""
-    sub: str          # user_id
+    sub: str
     email: str
     username: str
     role: Optional[str] = None
     is_superuser: bool = False
     exp: Optional[int] = None
-    type: str = "access"  # access | refresh
+    type: str = "access"
 
 
 class RefreshTokenRequest(BaseModel):
-    """Запрос на обновление токена"""
     refresh_token: str
 
 
-# ===================================
-# ОБЩИЕ СХЕМЫ ОТВЕТОВ
-# ===================================
-
 class MessageResponse(BaseModel):
-    """Простой ответ с сообщением"""
     message: str
 
 
 class AuthResponse(BaseModel):
-    """Ответ при успешной аутентификации"""
     user: UserResponse
     tokens: Token
