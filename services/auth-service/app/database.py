@@ -2,11 +2,19 @@
 Подключение к PostgreSQL (async SQLAlchemy)
 ==========================================
 Автор: Dmitry Koval
+
+Схема: auth  — изолирует таблицы auth-service от gamification-service
+в рамках одной физической БД gamification_db.
 """
 
+import subprocess
+import sys
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
+
+DB_SCHEMA = "auth"
 
 # Async-движок
 engine = create_async_engine(
@@ -28,8 +36,28 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 class Base(DeclarativeBase):
-    """Базовый класс для всех моделей"""
-    pass
+    """Базовый класс для всех моделей auth-service.
+    Все таблицы создаются в схеме 'auth'.
+    """
+    __table_args__ = {"schema": DB_SCHEMA}
+
+
+async def ensure_schema() -> None:
+    """Создаёт схему 'auth' если её нет — Alembic сам схему не создаёт."""
+    async with engine.begin() as conn:
+        await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{DB_SCHEMA}"'))
+
+
+def run_migrations() -> None:
+    """Запускает alembic upgrade head синхронно.
+    Идемпотентно: если миграции уже применены — ничего не делает.
+    """
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        capture_output=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("Alembic migrations failed")
 
 
 async def get_db() -> AsyncSession:
@@ -43,10 +71,3 @@ async def get_db() -> AsyncSession:
             raise
         finally:
             await session.close()
-
-
-async def create_tables():
-    """Создание всех таблиц при старте приложения"""
-    async with engine.begin() as conn:
-        from app import models  # noqa: F401 — нужен для регистрации моделей
-        await conn.run_sync(Base.metadata.create_all)

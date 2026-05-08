@@ -14,13 +14,17 @@ down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+SCHEMA = 'auth'
+
 
 def upgrade() -> None:
+    op.execute(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"')
+
     op.create_table(
         'users',
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column('email', sa.String(255), nullable=False, unique=True, index=True),
-        sa.Column('username', sa.String(50), nullable=False, unique=True, index=True),
+        sa.Column('email', sa.String(255), nullable=False, unique=True),
+        sa.Column('username', sa.String(50), nullable=False, unique=True),
         sa.Column('hashed_password', sa.String(255), nullable=False),
         # Профиль
         sa.Column('full_name', sa.String(100), nullable=True),
@@ -43,14 +47,15 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column('last_login_at', sa.DateTime(timezone=True), nullable=True),
+        schema=SCHEMA,
     )
-    op.create_index('ix_users_email',    'users', ['email'],    unique=True)
-    op.create_index('ix_users_username', 'users', ['username'], unique=True)
-    op.create_index('ix_users_id',       'users', ['id'],       unique=False)
+    op.create_index('ix_users_email',    'users', ['email'],    unique=True,  schema=SCHEMA)
+    op.create_index('ix_users_username', 'users', ['username'], unique=True,  schema=SCHEMA)
+    op.create_index('ix_users_id',       'users', ['id'],       unique=False, schema=SCHEMA)
 
 
 def downgrade() -> None:
-    op.drop_index('ix_users_email',    table_name='users')
-    op.drop_index('ix_users_username', table_name='users')
-    op.drop_index('ix_users_id',       table_name='users')
-    op.drop_table('users')
+    op.drop_index('ix_users_email',    table_name='users', schema=SCHEMA)
+    op.drop_index('ix_users_username', table_name='users', schema=SCHEMA)
+    op.drop_index('ix_users_id',       table_name='users', schema=SCHEMA)
+    op.drop_table('users', schema=SCHEMA)

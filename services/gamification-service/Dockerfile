@@ -2,17 +2,20 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Системные зависимости
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Зависимости Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Копируем весь код сервиса включая alembic
 COPY app/ ./app/
 COPY alembic/ ./alembic/
-COPY alembic.ini .
+COPY alembic.ini ./alembic.ini
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

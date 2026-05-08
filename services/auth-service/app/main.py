@@ -1,46 +1,65 @@
 """
-Auth Service — FastAPI application
-====================================
+Auth Service — точка входа
+================================
+Zapusk: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 Автор: Dmitry Koval
 """
 
+import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, admin
-from app.database import create_tables
-from app.seed import create_superuser
+from app.database import ensure_schema, run_migrations
+from app.routers import auth
 
-import logging, sys
+# ===================================
+# ЛОГИРОВАНИЕ
+# ===================================
 
 logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL.upper()),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
+    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("auth-service")
 
+
+# ===================================
+# LIFESPAN (запуск / остановка)
+# ===================================
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator:
-    logger.info("🚀 Starting Auth Service...")
-    await create_tables()
-    await create_superuser()
+async def lifespan(app: FastAPI):
+    logger.info("🚀 Auth Service запускается...")
+    # 1. Создаём схему если её нет (Alembic это не делает)
+    await ensure_schema()
+    # 2. Применяем все миграции (идемпотентно)
+    logger.info("⏳ Применяем миграции...")
+    run_migrations()
+    logger.info("✅ БД готова")
     yield
-    logger.info("🛑 Auth Service stopped.")
+    logger.info("🔴 Auth Service останавливается")
 
+
+# ===================================
+# FASTAPI APP
+# ===================================
 
 app = FastAPI(
     title="Auth Service",
+    description="Микросервис аутентификации Gamification Platform",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
 )
+
+
+# ===================================
+# CORS
+# ===================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,10 +69,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ===================================
+# РОУТЕРЫ
+# ===================================
+
 app.include_router(auth.router)
-app.include_router(admin.router)
 
 
-@app.get("/health", tags=["System"])
-async def health():
-    return {"status": "healthy", "service": "auth-service"}
+# ===================================
+# СИСТЕМНЫЕ ЭНДПОИНТЫ
+# ===================================
+
+@app.get("/health", tags=["system"], summary="Проверка доступности")
+async def health_check():
+    return {
+        "status": "ok",
+        "service": "auth-service",
+        "version": "1.0.0",
+        "environment": settings.ENVIRONMENT,
+    }
+
+
+@app.get("/", tags=["system"], include_in_schema=False)
+async def root():
+    return {"message": "Auth Service is running. Docs: /docs"}
