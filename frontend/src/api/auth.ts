@@ -1,5 +1,7 @@
 import { api } from './axios'
 
+// axios baseURL already includes /api/v1, so paths start from /auth/...
+
 export interface LoginPayload {
   email:    string
   password: string
@@ -40,16 +42,16 @@ export interface AuthResponse {
 
 export const authApi = {
   login: (payload: LoginPayload, signal?: AbortSignal) =>
-    api.post<AuthResponse>('/api/v1/auth/login', payload, { signal }).then((r) => r.data),
+    api.post<AuthResponse>('/auth/login', payload, { signal }).then((r) => r.data),
 
   register: (payload: RegisterPayload, signal?: AbortSignal) =>
-    api.post<AuthResponse>('/api/v1/auth/register', payload, { signal }).then((r) => r.data),
+    api.post<AuthResponse>('/auth/register', payload, { signal }).then((r) => r.data),
 
   refreshToken: (refresh_token: string) =>
     api.post<{ access_token: string; refresh_token: string; token_type: string }>(
-      '/api/v1/auth/refresh', { refresh_token }
+      '/auth/refresh', { refresh_token }
     ).then((r) => r.data),
 
   getMe: (signal?: AbortSignal) =>
-    api.get<AuthUserResponse>('/api/v1/auth/me', { signal }).then((r) => r.data),
+    api.get<AuthUserResponse>('/auth/me', { signal }).then((r) => r.data),
 }
