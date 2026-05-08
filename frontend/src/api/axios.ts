@@ -1,7 +1,9 @@
 import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+// Empty string = relative URL — requests go through Vite dev proxy
+// In production this will be served from the same origin via Nginx
+const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
 export const api = axios.create({
   baseURL: `${BASE_URL}/api/v1`,
@@ -29,8 +31,8 @@ api.interceptors.response.use(
           `${BASE_URL}/api/v1/auth/refresh`,
           { refresh_token: refreshToken },
         )
-        useAuthStore.getState().setTokens(data.access_token, data.refresh_token)
-        original.headers.Authorization = `Bearer ${data.access_token}`
+        useAuthStore.getState().setTokens(data.tokens.access_token, data.tokens.refresh_token)
+        original.headers.Authorization = `Bearer ${data.tokens.access_token}`
         return api(original)
       } catch {
         useAuthStore.getState().logout()
