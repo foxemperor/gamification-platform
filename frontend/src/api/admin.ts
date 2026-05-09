@@ -70,6 +70,17 @@ export const adminApi = {
 
   deleteUser: (id: string) =>
     api.delete<{ message: string }>(`/admin/users/${id}`),
+
+  /** Системные метрики сервера: CPU, RAM, диск.
+   *  Эндпоинт: GET /api/v1/admin/system-metrics (gamification-service → nginx). */
+  getSystemMetrics: () =>
+    api.get<{
+      cpu_percent: number
+      ram_percent: number
+      ram_used_mb: number
+      ram_total_mb: number
+      disk_percent: number
+    }>('/api/v1/admin/system-metrics'),
 }
 
 
@@ -138,7 +149,7 @@ export interface AdminBadge {
   rarity: BadgeRarity
   condition_type: string | null
   condition_value: number | null
-  xp_bonus: number
+  xp_bonus: int
   created_at: string
 }
 
