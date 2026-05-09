@@ -20,6 +20,7 @@ from app.config import settings
 from app.database import ensure_schema, run_migrations, engine
 from app.routers import quests, leaderboard, admin
 from app.routers import notifications
+from app.routers import system_metrics
 
 # ===================================
 # ЛОГИРОВАНИЕ
@@ -106,6 +107,7 @@ app.include_router(quests.router)
 app.include_router(leaderboard.router)
 app.include_router(admin.router)
 app.include_router(notifications.router)
+app.include_router(system_metrics.router)
 
 
 # ===================================
