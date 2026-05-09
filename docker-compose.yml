@@ -117,6 +117,9 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-gamification_user}:${POSTGRES_PASSWORD:-change_me_secure_password}@postgres:5432/${POSTGRES_DB:-gamification_db}
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      # JWT-секрет должен совпадать с auth-service, иначе админ-запросы вернут 401
+      - JWT_SECRET_KEY=${SECRET_KEY:-your_super_secret_key_change_in_production}
+      - JWT_ALGORITHM=${ALGORITHM:-HS256}
       - ENVIRONMENT=${ENVIRONMENT:-development}
     volumes:
       - ./services/gamification-service/app:/app/app

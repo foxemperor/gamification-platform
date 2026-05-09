@@ -18,27 +18,51 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Auto-refresh on 401
+// Auto-refresh на 401. 403 (Forbidden) НЕ должен сбрасывать сессию —
+// пользователь авторизован, но просто не имеет прав на этот ресурс.
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config
-    if (error.response?.status === 401 && !original._retry) {
-      original._retry = true
-      try {
-        const refreshToken = useAuthStore.getState().refreshToken
-        const { data } = await axios.post(
-          `${BASE_URL}/api/v1/auth/refresh`,
-          { refresh_token: refreshToken },
-        )
-        useAuthStore.getState().setTokens(data.tokens.access_token, data.tokens.refresh_token)
-        original.headers.Authorization = `Bearer ${data.tokens.access_token}`
-        return api(original)
-      } catch {
-        useAuthStore.getState().logout()
-        window.location.href = '/auth'
-      }
+    const status = error.response?.status
+
+    if (status !== 401 || !original || original._retry) {
+      return Promise.reject(error)
     }
-    return Promise.reject(error)
+
+    // Не пытаемся рефрешить ответ самого refresh-эндпоинта — иначе цикл.
+    const url: string = original.url ?? ''
+    if (url.includes('/auth/refresh')) {
+      useAuthStore.getState().logout()
+      window.location.href = '/auth'
+      return Promise.reject(error)
+    }
+
+    original._retry = true
+    const refreshToken = useAuthStore.getState().refreshToken
+    if (!refreshToken) {
+      useAuthStore.getState().logout()
+      window.location.href = '/auth'
+      return Promise.reject(error)
+    }
+
+    try {
+      // Auth-service /auth/refresh возвращает Token напрямую:
+      // { access_token, refresh_token, token_type } — без обёртки tokens.
+      const { data } = await axios.post<{
+        access_token: string
+        refresh_token: string
+        token_type: string
+      }>(`${BASE_URL}/api/v1/auth/refresh`, { refresh_token: refreshToken })
+
+      useAuthStore.getState().setTokens(data.access_token, data.refresh_token)
+      original.headers = original.headers ?? {}
+      original.headers.Authorization = `Bearer ${data.access_token}`
+      return api(original)
+    } catch (refreshErr) {
+      useAuthStore.getState().logout()
+      window.location.href = '/auth'
+      return Promise.reject(refreshErr)
+    }
   },
 )
