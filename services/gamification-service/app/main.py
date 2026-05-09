@@ -19,6 +19,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.database import ensure_schema, run_migrations, engine
 from app.routers import quests, leaderboard, admin
+from app.routers import notifications
 
 # ===================================
 # ЛОГИРОВАНИЕ
@@ -104,6 +105,7 @@ app.add_middleware(
 app.include_router(quests.router)
 app.include_router(leaderboard.router)
 app.include_router(admin.router)
+app.include_router(notifications.router)
 
 
 # ===================================

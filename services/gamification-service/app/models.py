@@ -35,7 +35,7 @@ def xp_required_for_level(level: int) -> int:
 
 # ── helpers для Enum с правильной схемой ──
 def _enum(*values, name: str) -> Enum:
-    """SQLAlchemy Enum с schema=DB_SCHEMA и create_type=False.
+    """СВА Enum с schema=DB_SCHEMA и create_type=False.
     Тип уже создан миграцией, поэтому create_type=False.
     """
     return Enum(*values, name=name, schema=DB_SCHEMA, create_type=False)
@@ -137,6 +137,8 @@ class UserQuest(Base):
     started_at   = Column(DateTime(timezone=True), default=utcnow)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     deadline_at  = Column(DateTime(timezone=True), nullable=True)
+    # Флаг просмотра для уведомлений в sidebar
+    is_viewed = Column(Boolean, nullable=False, default=False, server_default="false")
 
     quest = relationship("Quest", back_populates="user_quests")
 
@@ -176,6 +178,8 @@ class UserBadge(Base):
     granted_by = Column(UUID(as_uuid=False), nullable=True)
     is_revoked = Column(Boolean, nullable=False, default=False)
     revoked_at = Column(DateTime(timezone=True), nullable=True)
+    # Флаг нового/непрочитанного достижения для уведомлений
+    is_new     = Column(Boolean, nullable=False, default=True, server_default="true")
 
     badge = relationship("Badge", back_populates="user_badges")
 
