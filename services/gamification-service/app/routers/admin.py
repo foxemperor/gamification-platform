@@ -14,6 +14,7 @@ Gamification Service — административный роутер
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -28,6 +29,7 @@ from app.models import (
     QuestStatus,
     XPSource,
     XPTransaction,
+    xp_required_for_level,
 )
 from app.schemas import (
     AdminGrantXPRequest,
@@ -48,6 +50,16 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 def _pages(total: int, per_page: int) -> int:
     return max(1, -(-total // per_page)) if total else 1
+
+
+def _compute_level(total_xp: int) -> int:
+    """Вычисляет уровень по суммарному XP."""
+    level = 1
+    xp_acc = 0
+    while xp_acc + xp_required_for_level(level) <= total_xp:
+        xp_acc += xp_required_for_level(level)
+        level += 1
+    return level
 
 
 # ===================================
@@ -273,6 +285,7 @@ async def admin_grant_xp(
     if data.amount < 0 and data.source is None:
         source = XPSource.PENALTY
 
+    # 1. Создаём транзакцию XP
     tx = XPTransaction(
         user_id=data.user_id,
         amount=data.amount,
@@ -281,6 +294,32 @@ async def admin_grant_xp(
         description=data.description,
     )
     db.add(tx)
+
+    # 2. Пересчитываем суммарный XP и уровень пользователя
+    # (XP хранится event-sourcing-ом в xp_transactions, уровень вычисляется на лету)
+    # Обновляем LeaderboardSnapshot если уже есть запись за all_time
+    current_xp_raw = await db.scalar(
+        select(func.coalesce(func.sum(XPTransaction.amount), 0))
+        .where(XPTransaction.user_id == data.user_id)
+    ) or 0
+    new_total_xp = int(current_xp_raw) + data.amount
+    new_level = _compute_level(new_total_xp)
+
+    from app.models import LeaderboardSnapshot
+    snapshot = await db.scalar(
+        select(LeaderboardSnapshot)
+        .where(
+            LeaderboardSnapshot.user_id == data.user_id,
+            LeaderboardSnapshot.period == "all_time",
+        )
+        .order_by(LeaderboardSnapshot.snapshot_at.desc())
+        .limit(1)
+    )
+    if snapshot is not None:
+        snapshot.total_xp = new_total_xp
+        snapshot.level = new_level
+        snapshot.snapshot_at = datetime.now(timezone.utc)
+
     await db.commit()
     await db.refresh(tx)
     return XPTransactionResponse.model_validate(tx)
