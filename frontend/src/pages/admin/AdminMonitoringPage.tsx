@@ -15,11 +15,18 @@ interface ProbeResult {
   error?: string
 }
 
-const POLL_INTERVAL_MS = 7000
+interface SystemMetrics {
+  cpu_percent: number
+  ram_percent: number
+  ram_used_mb: number
+  ram_total_mb: number
+  disk_percent: number
+}
 
-// Используем отдельный axios без общего interceptor:
-// health-проверки публичные, токен подмешивать незачем,
-// и мы не хотим вызывать reload-on-401 ни при каких условиях.
+const POLL_INTERVAL_MS = 7000
+const POLL_SYSTEM_MS = 10000
+
+// Отдельный axios для health-проб (без interceptors)
 const probeClient = axios.create({ timeout: 5000 })
 
 async function probe(url: string): Promise<ProbeResult> {
@@ -46,6 +53,21 @@ async function probe(url: string): Promise<ProbeResult> {
   }
 }
 
+function MetricBar({ value, label }: { value: number; label: string }) {
+  const color = value >= 90 ? '#e74c3c' : value >= 70 ? '#f39c12' : '#2ecc71'
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+        <span>{label}</span>
+        <span style={{ fontWeight: 600, color }}>{value.toFixed(1)}%</span>
+      </div>
+      <div style={{ background: 'var(--border, #333)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
+        <div style={{ width: `${value}%`, background: color, height: '100%', transition: 'width 0.5s' }} />
+      </div>
+    </div>
+  )
+}
+
 export function AdminMonitoringPage() {
   const [authProbe, setAuthProbe] = useState<ProbeResult | null>(null)
   const [gameProbe, setGameProbe] = useState<ProbeResult | null>(null)
@@ -61,9 +83,7 @@ export function AdminMonitoringPage() {
     setGameProbe(g)
   }, [])
 
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  useEffect(() => { refresh() }, [refresh])
 
   useEffect(() => {
     if (paused) return
@@ -74,7 +94,14 @@ export function AdminMonitoringPage() {
     return () => clearInterval(id)
   }, [paused, refresh])
 
-  // Counts с уже существующих admin endpoint'ов.
+  // Системные метрики сервера (через nginx -> gamification-service /admin/system-metrics)
+  const sysQ = useQuery<SystemMetrics>({
+    queryKey: ['mon-sys-metrics', tick],
+    queryFn: () => adminApi.getSystemMetrics().then(r => r.data),
+    refetchInterval: paused ? false : POLL_SYSTEM_MS,
+    retry: 1,
+  })
+
   const usersQ = useQuery({
     queryKey: ['mon-users-count', tick],
     queryFn: () => adminApi.listUsers(1, 1, '').then(r => r.data),
@@ -102,6 +129,8 @@ export function AdminMonitoringPage() {
     return new Date(Math.max(...dates.map(d => new Date(d).getTime())))
   }, [authProbe, gameProbe])
 
+  const sys = sysQ.data
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -115,7 +144,6 @@ export function AdminMonitoringPage() {
           <button
             className={styles.btnSecondary}
             onClick={() => setPaused(p => !p)}
-            title="Поставить опрос на паузу"
           >
             {paused ? '▶ Возобновить' : '⏸ Пауза'}
           </button>
@@ -133,12 +161,34 @@ export function AdminMonitoringPage() {
         </span>
       </div>
 
+      {/* Статусы сервисов */}
       <div className={styles.monitorCards}>
         <ServiceCard title="Auth Service" url="/_monitor/auth" probe={authProbe} />
         <ServiceCard title="Gamification Service" url="/_monitor/gamification" probe={gameProbe} />
       </div>
 
-      <h2 className={styles.title} style={{ fontSize: 18, marginBottom: 12 }}>Счётчики</h2>
+      {/* Нагрузка сервера */}
+      <h2 className={styles.title} style={{ fontSize: 18, margin: '24px 0 12px' }}>
+        🖥️ Нагрузка сервера
+      </h2>
+      <div className={styles.monitorCard} style={{ maxWidth: 480 }}>
+        {sys ? (
+          <>
+            <MetricBar value={sys.cpu_percent} label="CPU" />
+            <MetricBar value={sys.ram_percent} label={`RAM (${sys.ram_used_mb} MB / ${sys.ram_total_mb} MB)`} />
+            <MetricBar value={sys.disk_percent} label="Диск" />
+          </>
+        ) : (
+          <div className={styles.muted}>
+            {sysQ.isError
+              ? '⚠️ Метрики недоступны — убедитесь, что эндпоинт /admin/system-metrics добавлен'
+              : 'Загрузка…'}
+          </div>
+        )}
+      </div>
+
+      {/* Счётчики */}
+      <h2 className={styles.title} style={{ fontSize: 18, margin: '24px 0 12px' }}>Счётчики</h2>
       <div className={styles.statCards}>
         <StatCard label="Пользователей" value={usersQ.data?.total} />
         <StatCard label="Квестов" value={questsQ.data?.total} />
@@ -146,7 +196,8 @@ export function AdminMonitoringPage() {
         <StatCard label="XP-транзакций" value={txQ.data?.total} />
       </div>
 
-      <h2 className={styles.title} style={{ fontSize: 18, marginBottom: 12 }}>Последние XP-транзакции</h2>
+      {/* Последние XP-транзакции */}
+      <h2 className={styles.title} style={{ fontSize: 18, margin: '24px 0 12px' }}>Последние XP-транзакции</h2>
       {!txQ.data?.items?.length ? (
         <div className={styles.empty}>Транзакций нет</div>
       ) : (
