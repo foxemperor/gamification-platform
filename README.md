@@ -157,6 +157,27 @@ gamification-service    running (healthy) 0.0.0.0:8002->8002/tcp
 | 🎮 Gamification Service API | http://localhost:8002/docs |
 | 🚪 API Gateway | http://localhost:8000/docs |
 
+### 🔑 Тестовые учётки (только для local development)
+
+При первом старте `auth-service` автоматически создаёт два пользователя.
+Это поведение работает только когда `ENVIRONMENT=development` (по умолчанию).
+Для production эти учётки **не создаются**, и пароли необходимо менять
+через переменные окружения.
+
+| Роль       | Email             | Username  | Пароль          |
+|------------|-------------------|-----------|-----------------|
+| 👑 Админ    | `admin@gamequest.com` | `admin`   | `ChangeMe123!`  |
+| 👤 Сотрудник | `dev@test.com`    | `devuser` | `DevPass123!`   |
+
+Переопределить можно переменными окружения:
+
+```bash
+SUPERUSER_EMAIL=...        SUPERUSER_USERNAME=...    SUPERUSER_PASSWORD=...
+DEV_USER_EMAIL=...         DEV_USER_USERNAME=...     DEV_USER_PASSWORD=...
+SEED_DEV_USER=false        # отключить создание dev-пользователя
+ENVIRONMENT=production     # отключает seed dev-пользователя автоматически
+```
+
 ---
 
 ## 🧪 Полный тестовый сценарий (шаг за шагом)

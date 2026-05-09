@@ -5,6 +5,7 @@ import {
   type AdminXPGrantInput,
   type XPSource,
 } from '../../api/admin'
+import { UserPicker } from '../../components/admin/UserPicker'
 import { useAppToast } from '../../App'
 import styles from './AdminTools.module.css'
 
@@ -63,12 +64,13 @@ export function AdminXPPage() {
       <div style={{ marginTop: 32 }}>
         <h2 className={styles.title} style={{ fontSize: 18, marginBottom: 12 }}>Журнал XP-транзакций</h2>
         <div className={styles.toolbar}>
-          <input
-            className={styles.input}
-            placeholder="Фильтр: user_id (UUID)"
-            value={userIdFilter}
-            onChange={e => { setUserIdFilter(e.target.value); setPage(1) }}
-          />
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <UserPicker
+              value={userIdFilter}
+              onChange={(id) => { setUserIdFilter(id); setPage(1) }}
+              placeholder="Фильтр по пользователю (email/username/имя)…"
+            />
+          </div>
           <select
             className={styles.select}
             value={sourceFilter}
@@ -149,8 +151,14 @@ function GrantForm({
 
   const submit = () => {
     setError(null)
-    if (!userId.trim()) {
-      setError('Укажите user_id')
+    const id = userId.trim()
+    if (!id) {
+      setError('Выберите пользователя или введите его UUID')
+      return
+    }
+    // Базовая проверка формата UUID — даём подсказку, но не блокируем строго
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      setError('user_id должен быть в формате UUID. Используйте поиск по пользователю.')
       return
     }
     if (amount === 0) {
@@ -158,7 +166,7 @@ function GrantForm({
       return
     }
     onSubmit({
-      user_id: userId.trim(),
+      user_id: id,
       amount,
       description: description || undefined,
       source: source || undefined,
@@ -171,14 +179,16 @@ function GrantForm({
       {error && <div className={styles.error}>{error}</div>}
       <div className={styles.formGrid}>
         <div className={`${styles.formField} ${styles.formFull}`}>
-          <label>User ID (UUID) *</label>
-          <input
-            className={styles.input}
-            data-testid="xp-user-id"
+          <label>Пользователь *</label>
+          <UserPicker
+            id="xp-user-picker"
             value={userId}
-            onChange={e => setUserId(e.target.value)}
-            placeholder="00000000-0000-0000-0000-000000000000"
+            onChange={(id) => setUserId(id)}
+            placeholder="Найти по email, username или имени…"
           />
+          <small style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+            Подсказка: начните вводить email/имя — внизу заполнится UUID. Можно вставить UUID вручную.
+          </small>
         </div>
         <div className={styles.formField}>
           <label>Сумма XP (отрицательная = списание)</label>

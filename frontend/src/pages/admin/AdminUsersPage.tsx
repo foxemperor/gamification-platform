@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '../../api/admin'
 import type { AdminUser, AdminUserCreate, AdminUserUpdate } from '../../api/admin'
@@ -44,6 +44,25 @@ export function AdminUsersPage() {
 
   const handleSearch = () => { setPage(1); setSearch(searchInput) }
 
+  // Уникальные отделы/проекты с текущей страницы — используем для datalist в форме
+  const knownDepartments = useMemo(
+    () => Array.from(new Set((data?.items ?? []).map(u => u.department).filter(Boolean) as string[])).sort(),
+    [data]
+  )
+  const knownProjects = useMemo(
+    () => Array.from(new Set((data?.items ?? []).map(u => u.project).filter(Boolean) as string[])).sort(),
+    [data]
+  )
+
+  const copyId = (id: string) => {
+    try {
+      navigator.clipboard?.writeText(id)
+      toast('User ID скопирован в буфер обмена', 'success')
+    } catch {
+      toast('Не удалось скопировать ID', 'error')
+    }
+  }
+
   const openEdit = useCallback((user: AdminUser) => {
     setSelected(user)
     setModal('edit')
@@ -87,6 +106,7 @@ export function AdminUsersPage() {
               <thead>
                 <tr>
                   <th>Пользователь</th>
+                  <th>ID</th>
                   <th>Роль</th>
                   <th>Отдел</th>
                   <th>Проект</th>
@@ -108,6 +128,17 @@ export function AdminUsersPage() {
                           <div className={styles.userEmail}>{user.email}</div>
                         </div>
                       </div>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className={styles.idCell}
+                        title={`Скопировать ID: ${user.id}`}
+                        onClick={() => copyId(user.id)}
+                      >
+                        <code>{user.id.slice(0, 8)}…</code>
+                        <span className={styles.copyHint}>📋</span>
+                      </button>
                     </td>
                     <td><RoleBadge role={user.role} /></td>
                     <td><span className={styles.muted}>{user.department || '—'}</span></td>
@@ -174,6 +205,8 @@ export function AdminUsersPage() {
         <UserModal
           mode="edit"
           initial={selected}
+          knownDepartments={knownDepartments}
+          knownProjects={knownProjects}
           onClose={() => setModal(null)}
           onSubmit={(data) => updateMutation.mutate({ id: selected.id, data })}
           loading={updateMutation.isPending}
@@ -184,6 +217,8 @@ export function AdminUsersPage() {
       {modal === 'create' && (
         <UserModal
           mode="create"
+          knownDepartments={knownDepartments}
+          knownProjects={knownProjects}
           onClose={() => setModal(null)}
           onSubmit={(data) => createMutation.mutate(data as AdminUserCreate)}
           loading={createMutation.isPending}
@@ -220,12 +255,14 @@ function StatusBadge({ active }: { active: boolean }) {
 interface ModalProps {
   mode: 'create' | 'edit'
   initial?: AdminUser
+  knownDepartments?: string[]
+  knownProjects?: string[]
   onClose: () => void
   onSubmit: (data: AdminUserCreate | AdminUserUpdate) => void
   loading: boolean
 }
 
-function UserModal({ mode, initial, onClose, onSubmit, loading }: ModalProps) {
+function UserModal({ mode, initial, knownDepartments = [], knownProjects = [], onClose, onSubmit, loading }: ModalProps) {
   const [form, setForm] = useState({
     email:      initial?.email      ?? '',
     username:   initial?.username   ?? '',
@@ -282,18 +319,29 @@ function UserModal({ mode, initial, onClose, onSubmit, loading }: ModalProps) {
               <input className={styles.input}
                 value={form.full_name} onChange={e => set('full_name', e.target.value)} />
             </Field>
-            <Field label={mode === 'create' ? 'Пароль *' : 'Новый пароль'}>
+            <Field label={mode === 'create' ? 'Пароль *' : 'Новый пароль (необязательно)'}>
               <input className={styles.input} type="password" required={mode==='create'}
                 value={form.password} onChange={e => set('password', e.target.value)}
-                placeholder={mode === 'edit' ? 'Оставьте пустым чтобы не менять' : ''} />
+                placeholder={mode === 'edit' ? 'Не менять' : 'Минимум 8 символов'} />
+              {mode === 'edit' && (
+                <small className={styles.helpText}>
+                  Оставьте поле пустым, чтобы не менять текущий пароль.
+                </small>
+              )}
             </Field>
             <Field label="Отдел">
-              <input className={styles.input} placeholder="напр. Разработка"
+              <input className={styles.input} list="dep-list" placeholder="напр. Разработка"
                 value={form.department} onChange={e => set('department', e.target.value)} />
+              <datalist id="dep-list">
+                {knownDepartments.map(d => <option key={d} value={d} />)}
+              </datalist>
             </Field>
             <Field label="Проект">
-              <input className={styles.input} placeholder="напр. GameQuest"
+              <input className={styles.input} list="proj-list" placeholder="напр. GameQuest"
                 value={form.project} onChange={e => set('project', e.target.value)} />
+              <datalist id="proj-list">
+                {knownProjects.map(p => <option key={p} value={p} />)}
+              </datalist>
             </Field>
             <Field label="Роль">
               <select className={styles.input}

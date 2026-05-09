@@ -10,6 +10,21 @@ export default defineConfig({
     proxy: {
       // Порядок важен: более специфичные правила выше
 
+      // Health-эндпоинты сервисов для admin monitoring panel.
+      // Бэкенды отдают /health напрямую (без /api/v1), поэтому здесь
+      // мы отдельно проксируем псевдо-пути на правильные сервисы и
+      // переписываем их обратно в /health.
+      '/_monitor/auth': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+        rewrite: (p: string) => p.replace(/^\/_monitor\/auth/, '/health'),
+      },
+      '/_monitor/gamification': {
+        target: 'http://localhost:8002',
+        changeOrigin: true,
+        rewrite: (p: string) => p.replace(/^\/_monitor\/gamification/, '/health'),
+      },
+
       // Auth Service — аутентификация и админка пользователей
       '/api/v1/auth': {
         target: 'http://localhost:8001',
@@ -46,7 +61,8 @@ export default defineConfig({
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "script-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: https://avatars.githubusercontent.com",
+        // Разрешаем preview иконок бейджей с любого https-источника (dev only)
+        "img-src 'self' data: blob: https:",
         "frame-ancestors 'none'",
         "base-uri 'self'",
         "form-action 'self'",

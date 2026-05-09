@@ -6,6 +6,7 @@ import { AdminOverviewPage } from './pages/admin/AdminOverviewPage'
 import { AdminQuestsPage }  from './pages/admin/AdminQuestsPage'
 import { AdminBadgesPage }  from './pages/admin/AdminBadgesPage'
 import { AdminXPPage }      from './pages/admin/AdminXPPage'
+import { AdminMonitoringPage } from './pages/admin/AdminMonitoringPage'
 import { AppLayout }        from './layouts/AppLayout'
 import { ProtectedRoute }   from './components/ProtectedRoute'
 import { AdminRoute }       from './components/AdminRoute'
@@ -99,6 +100,7 @@ export default function App() {
           <Route path="/admin/quests" element={<AdminRoute><AdminQuestsPage /></AdminRoute>} />
           <Route path="/admin/badges" element={<AdminRoute><AdminBadgesPage /></AdminRoute>} />
           <Route path="/admin/xp" element={<AdminRoute><AdminXPPage /></AdminRoute>} />
+          <Route path="/admin/monitoring" element={<AdminRoute><AdminMonitoringPage /></AdminRoute>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

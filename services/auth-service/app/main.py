@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import ensure_schema, run_migrations
 from app.routers import admin, auth
-from app.seed import create_superuser
+from app.seed import create_dev_user, create_superuser
 
 # ===================================
 # ЛОГИРОВАНИЕ
@@ -45,6 +45,11 @@ async def lifespan(app: FastAPI):
         await create_superuser()
     except Exception as e:  # noqa: BLE001
         logger.warning(f"⚠️ Не удалось создать суперюзера: {e}")
+    # 4. Только в development — сидим тестового пользователя (идемпотентно)
+    try:
+        await create_dev_user()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"⚠️ Не удалось создать dev-пользователя: {e}")
     yield
     logger.info("🔴 Auth Service останавливается")
 

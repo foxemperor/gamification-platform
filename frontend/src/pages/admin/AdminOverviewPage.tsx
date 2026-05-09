@@ -31,6 +31,7 @@ export function AdminOverviewPage() {
         <Card label="Квестов" value={questsQ.data} link="/admin/quests" />
         <Card label="Бейджей" value={badgesQ.data} link="/admin/badges" />
         <Card label="XP инструменты" value={undefined} link="/admin/xp" hint="Журнал и ручное начисление" />
+        <Card label="Мониторинг" value={undefined} link="/admin/monitoring" hint="Статус сервисов в реальном времени" />
       </div>
     </div>
   )

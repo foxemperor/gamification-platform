@@ -12,6 +12,27 @@ import styles from './AdminTools.module.css'
 
 const RARITIES: BadgeRarity[] = ['common', 'rare', 'epic', 'legendary']
 
+// Известные шаблоны условий получения бейджа.
+// Backend принимает любой string<=50, но в UI ограничиваем выбор
+// понятными вариантами и плюс "custom" для свободного ввода.
+const CONDITION_TEMPLATES: Array<{
+  value: string
+  label: string
+  hint: string
+  valueHint: string
+}> = [
+  { value: '',                   label: '— не задано —',         hint: 'Бейдж выдаётся вручную или через интеграции',          valueHint: '' },
+  { value: 'manual',             label: 'Ручная выдача',         hint: 'Админ выдаёт бейдж вручную',                            valueHint: 'не используется' },
+  { value: 'xp_threshold',       label: 'Достижение XP',          hint: 'Бейдж выдаётся, когда у пользователя XP ≥ значения',    valueHint: 'например, 1000' },
+  { value: 'level_reached',      label: 'Достижение уровня',      hint: 'Бейдж выдаётся при достижении уровня',                  valueHint: 'например, 5' },
+  { value: 'quest_completed',    label: 'Выполнено квестов',      hint: 'Количество выполненных квестов любого типа',            valueHint: 'например, 10' },
+  { value: 'streak_days',        label: 'Серия дней активности',  hint: 'Подряд активных дней',                                   valueHint: 'например, 7' },
+  { value: 'github_commits',     label: 'GitHub-коммиты',         hint: 'Количество засчитанных коммитов',                       valueHint: 'например, 50' },
+  { value: 'github_pr',          label: 'GitHub-PR',              hint: 'Количество смерженных PR',                              valueHint: 'например, 5' },
+  { value: 'jira_tasks',         label: 'Jira-задачи',            hint: 'Количество завершённых задач',                          valueHint: 'например, 25' },
+  { value: '__custom__',         label: 'Своё значение…',         hint: 'Произвольный строковый ключ условия',                   valueHint: 'число (опционально)' },
+]
+
 export function AdminBadgesPage() {
   const toast = useAppToast()
   const qc = useQueryClient()
@@ -157,11 +178,30 @@ function BadgeFormModal({
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [iconUrl, setIconUrl] = useState(initial?.icon_url ?? '')
+  const [iconError, setIconError] = useState(false)
   const [rarity, setRarity] = useState<BadgeRarity>(initial?.rarity ?? 'common')
-  const [conditionType, setConditionType] = useState(initial?.condition_type ?? '')
+
+  // Стартовое значение: если в БД уже сохранено что-то нестандартное —
+  // открываем форму в режиме custom.
+  const initialCondition = initial?.condition_type ?? ''
+  const isKnownTemplate = CONDITION_TEMPLATES.some(t => t.value === initialCondition && t.value !== '__custom__')
+  const [conditionTemplate, setConditionTemplate] = useState<string>(
+    initialCondition === '' ? '' : isKnownTemplate ? initialCondition : '__custom__'
+  )
+  const [customConditionType, setCustomConditionType] = useState(
+    isKnownTemplate ? '' : initialCondition
+  )
   const [conditionValue, setConditionValue] = useState<number | ''>(initial?.condition_value ?? '')
   const [xpBonus, setXpBonus] = useState<number>(initial?.xp_bonus ?? 0)
   const [error, setError] = useState<string | null>(null)
+
+  const tmpl = CONDITION_TEMPLATES.find(t => t.value === conditionTemplate)
+  const finalConditionType =
+    conditionTemplate === ''
+      ? ''
+      : conditionTemplate === '__custom__'
+        ? customConditionType.trim()
+        : conditionTemplate
 
   const submit = () => {
     setError(null)
@@ -169,12 +209,20 @@ function BadgeFormModal({
       setError('Название должно быть не короче 2 символов')
       return
     }
+    if (conditionTemplate === '__custom__' && !customConditionType.trim()) {
+      setError('Введите свой код условия или выберите шаблон')
+      return
+    }
+    if (finalConditionType.length > 50) {
+      setError('Тип условия слишком длинный (максимум 50 символов)')
+      return
+    }
     onSubmit({
       name: name.trim(),
       description: description || undefined,
       icon_url: iconUrl || undefined,
       rarity,
-      condition_type: conditionType || undefined,
+      condition_type: finalConditionType || undefined,
       condition_value: conditionValue === '' ? undefined : Number(conditionValue),
       xp_bonus: xpBonus,
     })
@@ -196,7 +244,33 @@ function BadgeFormModal({
           </div>
           <div className={`${styles.formField} ${styles.formFull}`}>
             <label>URL иконки</label>
-            <input className={styles.input} value={iconUrl} onChange={e => setIconUrl(e.target.value)} />
+            <div className={styles.iconRow}>
+              <input
+                className={styles.input}
+                value={iconUrl}
+                placeholder="https://… (png/svg/webp) или data:image/…"
+                onChange={e => { setIconUrl(e.target.value); setIconError(false) }}
+              />
+              <div className={styles.iconPreview} aria-label="Предпросмотр иконки">
+                {iconUrl && !iconError ? (
+                  <img
+                    src={iconUrl}
+                    alt="preview"
+                    onError={() => setIconError(true)}
+                    onLoad={() => setIconError(false)}
+                  />
+                ) : (
+                  <span className={styles.iconPlaceholder}>
+                    {iconError ? '⚠️' : '🏅'}
+                  </span>
+                )}
+              </div>
+            </div>
+            {iconError && (
+              <small style={{ color: 'var(--danger, #d44)', fontSize: 12 }}>
+                Не удалось загрузить изображение. Проверьте URL.
+              </small>
+            )}
           </div>
           <div className={styles.formField}>
             <label>Редкость</label>
@@ -208,9 +282,35 @@ function BadgeFormModal({
             <label>XP бонус</label>
             <input className={styles.input} type="number" value={xpBonus} onChange={e => setXpBonus(Number(e.target.value))} />
           </div>
-          <div className={styles.formField}>
+          <div className={`${styles.formField} ${styles.formFull}`}>
             <label>Тип условия</label>
-            <input className={styles.input} value={conditionType} onChange={e => setConditionType(e.target.value)} />
+            <select
+              className={styles.select}
+              value={conditionTemplate}
+              onChange={e => setConditionTemplate(e.target.value)}
+            >
+              {CONDITION_TEMPLATES.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            {tmpl && tmpl.hint && (
+              <small style={{ color: 'var(--text-muted)', fontSize: 12 }}>{tmpl.hint}</small>
+            )}
+            {conditionTemplate === '__custom__' && (
+              <input
+                className={styles.input}
+                style={{ marginTop: 6 }}
+                placeholder="ключ условия (a-z, без пробелов, до 50 символов)"
+                value={customConditionType}
+                onChange={e => setCustomConditionType(e.target.value)}
+                maxLength={50}
+              />
+            )}
+            {finalConditionType && conditionTemplate !== '' && (
+              <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                Будет сохранено как: <code>{finalConditionType}</code>
+              </small>
+            )}
           </div>
           <div className={styles.formField}>
             <label>Значение условия</label>
@@ -218,8 +318,13 @@ function BadgeFormModal({
               className={styles.input}
               type="number"
               value={conditionValue}
+              placeholder={tmpl?.valueHint || 'число (опционально)'}
               onChange={e => setConditionValue(e.target.value === '' ? '' : Number(e.target.value))}
+              disabled={!conditionTemplate || conditionTemplate === 'manual'}
             />
+            {tmpl?.valueHint && (
+              <small style={{ color: 'var(--text-muted)', fontSize: 11 }}>{tmpl.valueHint}</small>
+            )}
           </div>
         </div>
         <div className={styles.modalActions}>

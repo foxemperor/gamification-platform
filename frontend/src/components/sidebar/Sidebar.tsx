@@ -33,11 +33,12 @@ const NAV_ACCOUNT: NavItemDef[] = [
 ]
 
 const NAV_ADMIN: NavItemDef[] = [
-  { to: '/admin',        icon: '🛡️', label: 'Обзор' },
-  { to: '/admin/users',  icon: '👤', label: 'Пользователи' },
-  { to: '/admin/quests', icon: '⚙️', label: 'Квесты' },
-  { to: '/admin/badges', icon: '🏅', label: 'Бейджи' },
-  { to: '/admin/xp',     icon: '✨', label: 'XP' },
+  { to: '/admin',            icon: '🛡️', label: 'Обзор' },
+  { to: '/admin/users',      icon: '👤', label: 'Пользователи' },
+  { to: '/admin/quests',     icon: '⚙️', label: 'Квесты' },
+  { to: '/admin/badges',     icon: '🏅', label: 'Бейджи' },
+  { to: '/admin/xp',         icon: '✨', label: 'XP' },
+  { to: '/admin/monitoring', icon: '📡', label: 'Мониторинг' },
 ]
 
 export function Sidebar() {
