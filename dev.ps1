@@ -548,20 +548,24 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
 
 } elseif ($cmd -eq "stop") {
     Write-Header "Stop services"
-    docker compose stop $ACTIVE_SERVICES
+    docker compose stop @ACTIVE_SERVICES
     Write-Ok "Services stopped"
 
 } elseif ($cmd -eq "restart") {
     Write-Header "Restart"
-    $target = if ($Service) { $Service } else { $ACTIVE_SERVICES -join " " }
-    docker compose restart $target
-    Write-Ok "Restarted: $target"
+    if ($Service) {
+        docker compose restart $Service
+        Write-Ok "Restarted: $Service"
+    } else {
+        docker compose restart @ACTIVE_SERVICES
+        Write-Ok "Restarted: $($ACTIVE_SERVICES -join ', ')"
+    }
 
 } elseif ($cmd -eq "logs") {
     if ($Service) {
         docker compose logs --tail=100 -f $Service
     } else {
-        docker compose logs --tail=100 -f postgres redis auth-service gamification-service
+        docker compose logs --tail=100 -f @ACTIVE_SERVICES
     }
 
 } elseif ($cmd -eq "health") {
@@ -589,10 +593,15 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
 
 } elseif ($cmd -eq "rebuild") {
     Write-Header "Full rebuild (no cache)"
-    $target = if ($Service) { $Service } else { $ACTIVE_SERVICES -join " " }
-    docker compose build --no-cache $target
-    docker compose up $target -d
-    Write-Ok "Rebuilt and started: $target"
+    if ($Service) {
+        docker compose build --no-cache $Service
+        docker compose up $Service -d
+        Write-Ok "Rebuilt and started: $Service"
+    } else {
+        docker compose build --no-cache @ACTIVE_SERVICES
+        docker compose up @ACTIVE_SERVICES -d
+        Write-Ok "Rebuilt and started: $($ACTIVE_SERVICES -join ', ')"
+    }
 
 } elseif ($cmd -eq "db") {
     Write-Header "Connect to psql"

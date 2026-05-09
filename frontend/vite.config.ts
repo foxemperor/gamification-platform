@@ -10,17 +10,29 @@ export default defineConfig({
     proxy: {
       // Порядок важен: более специфичные правила выше
 
-      // Auth Service — аутентификация и администрирование пользователями
+      // Auth Service — аутентификация и админка пользователей
       '/api/v1/auth': {
         target: 'http://localhost:8001',
         changeOrigin: true,
       },
-      '/api/v1/admin': {
+      '/api/v1/admin/users': {
         target: 'http://localhost:8001',
         changeOrigin: true,
       },
 
-      // Gamification Service — всё остальное
+      // Gamification Service — админка квестов/бейджей/XP + остальное
+      '/api/v1/admin/quests': {
+        target: 'http://localhost:8002',
+        changeOrigin: true,
+      },
+      '/api/v1/admin/badges': {
+        target: 'http://localhost:8002',
+        changeOrigin: true,
+      },
+      '/api/v1/admin/xp': {
+        target: 'http://localhost:8002',
+        changeOrigin: true,
+      },
       '/api/v1': {
         target: 'http://localhost:8002',
         changeOrigin: true,

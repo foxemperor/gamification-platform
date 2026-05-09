@@ -2,6 +2,10 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthPage }         from './pages/AuthPage'
 import { OverviewPage }     from './pages/OverviewPage'
 import { AdminUsersPage }   from './pages/admin/AdminUsersPage'
+import { AdminOverviewPage } from './pages/admin/AdminOverviewPage'
+import { AdminQuestsPage }  from './pages/admin/AdminQuestsPage'
+import { AdminBadgesPage }  from './pages/admin/AdminBadgesPage'
+import { AdminXPPage }      from './pages/admin/AdminXPPage'
 import { AppLayout }        from './layouts/AppLayout'
 import { ProtectedRoute }   from './components/ProtectedRoute'
 import { AdminRoute }       from './components/AdminRoute'
@@ -49,9 +53,11 @@ export default function App() {
           <Route path="/settings"     element={<ComingSoon title="Настройки" />} />
 
           {/* Админ-панель */}
-          <Route path="/admin" element={<AdminRoute><ComingSoon title="Админ: Обзор" /></AdminRoute>} />
+          <Route path="/admin" element={<AdminRoute><AdminOverviewPage /></AdminRoute>} />
           <Route path="/admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
-          <Route path="/admin/quests" element={<AdminRoute><ComingSoon title="Админ: Квесты" /></AdminRoute>} />
+          <Route path="/admin/quests" element={<AdminRoute><AdminQuestsPage /></AdminRoute>} />
+          <Route path="/admin/badges" element={<AdminRoute><AdminBadgesPage /></AdminRoute>} />
+          <Route path="/admin/xp" element={<AdminRoute><AdminXPPage /></AdminRoute>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

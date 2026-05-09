@@ -259,3 +259,73 @@ class AwardXPResponse(BaseModel):
     new_level: int
     level_up: bool
     message: str
+
+
+# ===================================
+# АДМИНСКИЕ СХЕМЫ
+# ===================================
+
+class BadgeCreate(BaseModel):
+    """Создание нового бейджа (только админ)."""
+    name: str = Field(..., min_length=2, max_length=100)
+    description: Optional[str] = Field(None, max_length=2000)
+    icon_url: Optional[str] = Field(None, max_length=500)
+    rarity: BadgeRarity = BadgeRarity.COMMON
+    condition_type: Optional[str] = Field(None, max_length=50)
+    condition_value: Optional[int] = Field(None, ge=0)
+    xp_bonus: int = Field(0, ge=0, le=10000)
+
+
+class BadgeUpdate(BaseModel):
+    """Частичное обновление бейджа."""
+    name: Optional[str] = Field(None, min_length=2, max_length=100)
+    description: Optional[str] = Field(None, max_length=2000)
+    icon_url: Optional[str] = Field(None, max_length=500)
+    rarity: Optional[BadgeRarity] = None
+    condition_type: Optional[str] = Field(None, max_length=50)
+    condition_value: Optional[int] = Field(None, ge=0)
+    xp_bonus: Optional[int] = Field(None, ge=0, le=10000)
+
+
+class BadgeListResponse(BaseModel):
+    """Список бейджей с пагинацией."""
+    items: list[BadgeResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+
+class AdminGrantXPRequest(BaseModel):
+    """Админское ручное начисление/списание XP."""
+    user_id: str
+    amount: int = Field(..., ge=-100000, le=100000)
+    description: Optional[str] = Field(None, max_length=300)
+    source: Optional[XPSource] = None
+    source_id: Optional[str] = None
+
+    @field_validator("user_id")
+    @classmethod
+    def validate_uuid(cls, v: str) -> str:
+        import uuid
+        try:
+            uuid.UUID(v)
+        except ValueError:
+            raise ValueError("user_id должен быть валидным UUID")
+        return v
+
+    @field_validator("amount")
+    @classmethod
+    def amount_not_zero(cls, v: int) -> int:
+        if v == 0:
+            raise ValueError("amount не может быть равен 0")
+        return v
+
+
+class XPTransactionListResponse(BaseModel):
+    """Список XP транзакций с пагинацией."""
+    items: list[XPTransactionResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int

@@ -36,6 +36,8 @@ const NAV_ADMIN: NavItemDef[] = [
   { to: '/admin',        icon: '🛡️', label: 'Обзор' },
   { to: '/admin/users',  icon: '👤', label: 'Пользователи' },
   { to: '/admin/quests', icon: '⚙️', label: 'Квесты' },
+  { to: '/admin/badges', icon: '🏅', label: 'Бейджи' },
+  { to: '/admin/xp',     icon: '✨', label: 'XP' },
 ]
 
 export function Sidebar() {

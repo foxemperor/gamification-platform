@@ -79,8 +79,12 @@ async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
     await db.flush()  # получаем id до commit
 
     # Генерируем токены
-    access_token = create_access_token(user.id, user.email, user.username)
-    refresh_token = create_refresh_token(user.id, user.email, user.username)
+    access_token = create_access_token(
+        user.id, user.email, user.username, user.is_superuser, user.role
+    )
+    refresh_token = create_refresh_token(
+        user.id, user.email, user.username, user.is_superuser, user.role
+    )
 
     await db.commit()
     await db.refresh(user)
@@ -125,8 +129,12 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(user)
 
-    access_token = create_access_token(user.id, user.email, user.username)
-    refresh_token = create_refresh_token(user.id, user.email, user.username)
+    access_token = create_access_token(
+        user.id, user.email, user.username, user.is_superuser, user.role
+    )
+    refresh_token = create_refresh_token(
+        user.id, user.email, user.username, user.is_superuser, user.role
+    )
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
@@ -205,8 +213,12 @@ async def refresh_token(
         )
 
     return Token(
-        access_token=create_access_token(user.id, user.email, user.username),
-        refresh_token=create_refresh_token(user.id, user.email, user.username),
+        access_token=create_access_token(
+            user.id, user.email, user.username, user.is_superuser, user.role
+        ),
+        refresh_token=create_refresh_token(
+            user.id, user.email, user.username, user.is_superuser, user.role
+        ),
     )
 
 

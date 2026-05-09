@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import get_current_user_id
+from app.dependencies import get_current_user_id, require_admin
 from app.models import (
     Quest, UserQuest, Badge, UserBadge, XPTransaction,
     QuestStatus, UserQuestStatus, XPSource, BadgeRarity,
@@ -179,13 +179,14 @@ async def list_quests(
 # СОЗДАТЬ КВЕСТ (АДМИН)
 # ===================================
 
-@router.post("/quests", response_model=QuestResponse, status_code=201, summary="Создать квест")
+@router.post("/quests", response_model=QuestResponse, status_code=201, summary="Создать квест (только админ)")
 async def create_quest(
     data: QuestCreate,
-    user_id: str = Depends(get_current_user_id),
+    admin_id: str = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    quest = Quest(**data.model_dump(), created_by=user_id)
+    created_by = admin_id if admin_id != "gateway" else None
+    quest = Quest(**data.model_dump(), created_by=created_by)
     db.add(quest)
     await db.commit()
     await db.refresh(quest)
