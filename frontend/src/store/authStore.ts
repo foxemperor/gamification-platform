@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { useThemeStore, type Theme } from './themeStore'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface User {
   id: string
@@ -16,7 +16,6 @@ export interface User {
   is_active: boolean
   is_verified: boolean
   is_superuser: boolean
-  theme_preference?: string
 }
 
 interface AuthState {
@@ -30,24 +29,35 @@ interface AuthState {
   logout: () => void
 }
 
-export const useAuthStore = create<AuthState>()((set) => ({
-  user: null,
-  accessToken: null,
-  refreshToken: null,
-  isAuthenticated: false,
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      isAuthenticated: false,
 
-  setTokens: (accessToken, refreshToken) => {
-    set({ accessToken, refreshToken, isAuthenticated: true })
-  },
+      setTokens: (accessToken, refreshToken) => {
+        set({ accessToken, refreshToken, isAuthenticated: true })
+      },
 
-  setUser: (user) => {
-    set({ user })
-    if (user.theme_preference) {
-      useThemeStore.getState().setTheme(user.theme_preference as Theme, false)
-    }
-  },
+      setUser: (user) => {
+        set({ user })
+      },
 
-  logout: () => {
-    set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false })
-  },
-}))
+      logout: () => {
+        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false })
+      },
+    }),
+    {
+      name: 'gp-auth',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (s) => ({
+        user: s.user,
+        accessToken: s.accessToken,
+        refreshToken: s.refreshToken,
+        isAuthenticated: s.isAuthenticated,
+      }),
+    },
+  ),
+)

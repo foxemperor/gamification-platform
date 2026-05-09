@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { authApi } from '../api/auth'
 
 export type Theme = 'aurora' | 'obsidian' | 'ivory'
 
@@ -20,22 +19,15 @@ export const useThemeStore = create<ThemeState>()(
     (set) => ({
       theme: 'aurora',
 
-      setTheme: (theme, syncToServer = true) => {
-        // 1. Apply CSS tokens immediately — no flash
+      // syncToServer is accepted for backwards compat; backend has no theme field yet,
+      // so we keep it client-side only.
+      setTheme: (theme, _syncToServer = true) => {
         document.documentElement.setAttribute('data-theme', theme)
-        // 2. Update Zustand + localStorage (via persist)
         set({ theme })
-        // 3. Fire-and-forget sync to server (only when logged in)
-        if (syncToServer) {
-          authApi.updatePreferences(theme).catch(() => {
-            // silently ignore if not authenticated yet
-          })
-        }
       },
     }),
     {
       name: 'gp-theme',
-      // On rehydration — apply theme to DOM
       onRehydrateStorage: () => (state) => {
         if (state) {
           document.documentElement.setAttribute('data-theme', state.theme)

@@ -12,6 +12,8 @@ import { AdminRoute }       from './components/AdminRoute'
 import { ToastContainer }   from './components/ui/Toast'
 import { useToast }         from './hooks/useToast'
 import { useThemeStore }    from './store/themeStore'
+import { useAuthStore }     from './store/authStore'
+import { authApi }          from './api/auth'
 import { useEffect, createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
 
@@ -31,10 +33,49 @@ function ToastProvider({ children }: { children: ReactNode }) {
 
 export default function App() {
   const { theme } = useThemeStore()
+  const accessToken = useAuthStore((s) => s.accessToken)
+  const setUser    = useAuthStore((s) => s.setUser)
+  const logout     = useAuthStore((s) => s.logout)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
+
+  // Refresh user on cold start when token persisted (handles role/superuser changes,
+  // and verifies token is still valid).
+  useEffect(() => {
+    if (!accessToken) return
+    let cancelled = false
+    authApi
+      .getMe()
+      .then((u) => {
+        if (cancelled) return
+        setUser({
+          id:           u.id,
+          username:     u.username,
+          email:        u.email,
+          full_name:    u.full_name,
+          role:         u.role,
+          department:   null,
+          project:      null,
+          position:     null,
+          xp:           u.xp,
+          level:        u.level,
+          coins:        u.coins,
+          is_active:    u.is_active,
+          is_verified:  u.is_verified,
+          is_superuser: u.is_superuser,
+        })
+      })
+      .catch(() => {
+        if (cancelled) return
+        logout()
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <ToastProvider>

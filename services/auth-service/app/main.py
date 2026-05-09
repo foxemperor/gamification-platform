@@ -13,7 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import ensure_schema, run_migrations
-from app.routers import auth
+from app.routers import admin, auth
+from app.seed import create_superuser
 
 # ===================================
 # ЛОГИРОВАНИЕ
@@ -39,6 +40,11 @@ async def lifespan(app: FastAPI):
     logger.info("⏳ Применяем миграции...")
     run_migrations()
     logger.info("✅ БД готова")
+    # 3. Сидим суперюзера (идемпотентно)
+    try:
+        await create_superuser()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"⚠️ Не удалось создать суперюзера: {e}")
     yield
     logger.info("🔴 Auth Service останавливается")
 
@@ -75,6 +81,7 @@ app.add_middleware(
 # ===================================
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 
 
 # ===================================
