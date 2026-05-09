@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { SidebarUser } from './SidebarUser'
 import { SidebarXP } from './SidebarXP'
 import { SidebarTheme } from './SidebarTheme'
 import { useAuthStore } from '../../store/authStore'
+import { api } from '../../api/axios'
 import styles from './Sidebar.module.css'
 
 const STORAGE_KEY = 'sidebar:mini'
@@ -15,13 +17,6 @@ interface NavItemDef {
   badge?: number
   badgeVariant?: 'primary' | 'warn'
 }
-
-const NAV_MAIN: NavItemDef[] = [
-  { to: '/',             icon: '📊', label: 'Обзор' },
-  { to: '/quests',       icon: '⚡', label: 'Квесты',      badge: 3, badgeVariant: 'warn' },
-  { to: '/leaderboard',  icon: '🏆', label: 'Рейтинг' },
-  { to: '/achievements', icon: '🎖️', label: 'Достижения', badge: 2 },
-]
 
 const NAV_TEAM: NavItemDef[] = [
   { to: '/members', icon: '👥', label: 'Участники' },
@@ -35,7 +30,7 @@ const NAV_ACCOUNT: NavItemDef[] = [
 const NAV_ADMIN: NavItemDef[] = [
   { to: '/admin',            icon: '🛡️', label: 'Обзор' },
   { to: '/admin/users',      icon: '👤', label: 'Пользователи' },
-  { to: '/admin/quests',     icon: '⚙️', label: 'Квесты' },
+  { to: '/admin/quests',     icon: '📜', label: 'Квесты' },
   { to: '/admin/badges',     icon: '🏅', label: 'Бейджи' },
   { to: '/admin/xp',         icon: '✨', label: 'XP' },
   { to: '/admin/monitoring', icon: '📡', label: 'Мониторинг' },
@@ -51,6 +46,36 @@ export function Sidebar() {
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, String(mini)) } catch {}
   }, [mini])
+
+  // Динамические badge-счётчики непрочитанных квестов/бейджей
+  const { data: notif } = useQuery({
+    queryKey: ['sidebar-notifications'],
+    queryFn: () =>
+      api.get<{ unread_quests: number; unread_badges: number }>(
+        '/api/v1/me/notifications/unread-counts'
+      ).then(r => r.data),
+    refetchInterval: 30_000,
+    enabled: !!user,
+    staleTime: 10_000,
+  })
+
+  const NAV_MAIN: NavItemDef[] = [
+    { to: '/',             icon: '📊', label: 'Обзор' },
+    {
+      to: '/quests',
+      icon: '⚡',
+      label: 'Квесты',
+      badge: notif?.unread_quests || undefined,
+      badgeVariant: 'warn',
+    },
+    { to: '/leaderboard',  icon: '🏆', label: 'Рейтинг' },
+    {
+      to: '/achievements',
+      icon: '🇆️',
+      label: 'Достижения',
+      badge: notif?.unread_badges || undefined,
+    },
+  ]
 
   const cls = [styles.sidebar, mini ? styles.mini : ''].filter(Boolean).join(' ')
 
@@ -115,7 +140,7 @@ function NavItem({ to, icon, label, badge, badgeVariant = 'primary', mini }: Nav
     >
       <span className={styles.navIcon}>{icon}</span>
       {!mini && <span className={styles.navLabel}>{label}</span>}
-      {badge !== undefined && (
+      {badge !== undefined && badge > 0 && (
         <span className={[
           styles.badge,
           badgeVariant === 'warn' ? styles.badgeWarn : ''
