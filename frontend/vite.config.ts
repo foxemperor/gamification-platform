@@ -11,9 +11,6 @@ export default defineConfig({
       // Порядок важен: более специфичные правила выше
 
       // Health-эндпоинты сервисов для admin monitoring panel.
-      // Бэкенды отдают /health напрямую (без /api/v1), поэтому здесь
-      // мы отдельно проксируем псевдо-пути на правильные сервисы и
-      // переписываем их обратно в /health.
       '/_monitor/auth': {
         target: 'http://localhost:8001',
         changeOrigin: true,
@@ -35,7 +32,7 @@ export default defineConfig({
         changeOrigin: true,
       },
 
-      // Gamification Service — админка квестов/бейджей/XP + остальное
+      // Gamification Service — админка квестов/бейджей/XP + system-metrics + остальное
       '/api/v1/admin/quests': {
         target: 'http://localhost:8002',
         changeOrigin: true,
@@ -45,6 +42,11 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/api/v1/admin/xp': {
+        target: 'http://localhost:8002',
+        changeOrigin: true,
+      },
+      // system-metrics — был пропущен в предыдущей версии, добавляем
+      '/api/v1/admin/system-metrics': {
         target: 'http://localhost:8002',
         changeOrigin: true,
       },

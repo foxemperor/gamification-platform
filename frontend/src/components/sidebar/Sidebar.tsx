@@ -71,7 +71,7 @@ export function Sidebar() {
     { to: '/leaderboard',  icon: '🏆', label: 'Рейтинг' },
     {
       to: '/achievements',
-      icon: '🇆️',
+      icon: '🎖️',
       label: 'Достижения',
       badge: notif?.unread_badges || undefined,
     },
