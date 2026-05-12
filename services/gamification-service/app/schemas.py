@@ -6,7 +6,7 @@ Gamification Service — Pydantic схемы
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.models import (
@@ -181,7 +181,15 @@ class XPHistoryResponse(BaseModel):
 # ===================================
 
 class PlayerProfileResponse(BaseModel):
-    """Игровой профиль пользователя."""
+    """Игровой профиль пользователя.
+
+    Прогрессия рассчитывается по формуле:
+        xp_required_for_level(N) = BASE_XP_PER_LEVEL * N ^ XP_LEVEL_MULTIPLIER
+                                 = 100 * N^1.5  (дефолтные значения из config.py)
+
+    Фронтенд использует xp_to_next_level и xp_progress_percent напрямую —
+    без дублирования формулы на клиенте.
+    """
     user_id: str
     username: str
     full_name: Optional[str]
@@ -201,6 +209,12 @@ class PlayerProfileResponse(BaseModel):
     # Рейтинг
     rank_all_time: Optional[int] = None
     rank_weekly: Optional[int] = None
+
+    # Персонаж пользователя.
+    # Временный placeholder: Optional[dict] до появления отдельной Character-модели.
+    # Когда модель будет готова — заменить на Optional[CharacterResponse].
+    # Фронтенд уже ожидает это поле (см. frontend/src/api/me.ts :: CharacterStub).
+    character: Optional[Any] = None
 
 
 # ===================================
