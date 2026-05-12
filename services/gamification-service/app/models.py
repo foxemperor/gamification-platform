@@ -1,48 +1,45 @@
 """
-Gamification Service — модели БД
-=====================================
-Таблицы: Quest, UserQuest, Badge, UserBadge,
-         XPTransaction, LeaderboardSnapshot
+Gamification Service — SQLAlchemy модели
+=========================================
+Определяет структуру таблиц в схеме `gamification`.
 Автор: Dmitry Koval
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum as PyEnum
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, ForeignKey,
-    Integer, String, Text, Enum, UniqueConstraint, Index,
+    Boolean, Column, DateTime, Float, ForeignKey,
+    Integer, String, Text, UniqueConstraint, func,
 )
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSON, UUID
+from sqlalchemy.orm import DeclarativeBase, relationship
+from sqlalchemy import Enum as SAEnum
 
-from app.database import Base, DB_SCHEMA
-from app.config import settings
-
-
-def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def new_uuid() -> str:
-    return str(uuid.uuid4())
-
-
-def xp_required_for_level(level: int) -> int:
-    return int(settings.BASE_XP_PER_LEVEL * (level ** settings.XP_LEVEL_MULTIPLIER))
-
-
-# ── helpers для Enum с правильной схемой ──
-def _enum(*values, name: str) -> Enum:
-    """СВА Enum с schema=DB_SCHEMA и create_type=False.
-    Тип уже создан миграцией, поэтому create_type=False.
-    """
-    return Enum(*values, name=name, schema=DB_SCHEMA, create_type=False)
+from app.database import DB_SCHEMA
 
 
 # ===================================
-# ENUMS (Python)
+# BASE
+# ===================================
+
+class Base(DeclarativeBase):
+    pass
+
+
+def _uuid() -> str:
+    return str(uuid.uuid4())
+
+
+def _schema_meta(**kw):
+    """Добавляет schema= во все таблицы автоматически."""
+    kw.setdefault("schema", DB_SCHEMA)
+    return kw
+
+
+# ===================================
+# ENUM-ТИПЫ
 # ===================================
 
 class QuestType(str, PyEnum):
@@ -74,13 +71,14 @@ class UserQuestStatus(str, PyEnum):
 
 
 class XPSource(str, PyEnum):
-    QUEST         = "quest"
-    BADGE         = "badge"
-    GITHUB_COMMIT = "github_commit"
-    GITHUB_PR     = "github_pr"
-    JIRA_TASK     = "jira_task"
-    ADMIN         = "admin"
-    PENALTY       = "penalty"
+    QUEST            = "quest"
+    BADGE            = "badge"
+    GITHUB_COMMIT    = "github_commit"
+    GITHUB_PR        = "github_pr"
+    JIRA_TASK        = "jira_task"
+    ADMIN            = "admin"
+    PENALTY          = "penalty"
+    CHARACTER_LEVEL  = "character_level"
 
 
 class BadgeRarity(str, PyEnum):
@@ -90,32 +88,81 @@ class BadgeRarity(str, PyEnum):
     LEGENDARY = "legendary"
 
 
+# --- Персонаж-специфичные Enum ---
+
+class CharacterTypeSlug(str, PyEnum):
+    WARRIOR  = "warrior"
+    MAGE     = "mage"
+    ROGUE    = "rogue"
+    ENGINEER = "engineer"
+
+
+class CosmeticSlot(str, PyEnum):
+    HAIR             = "hair"
+    HEAD             = "head"
+    HEAD_ACCESSORY   = "head_accessory"
+    EYES             = "eyes"
+    FACE_EXPRESSION  = "face_expression"
+    TORSO            = "torso"
+    TORSO_ACCESSORY  = "torso_accessory"
+    LEGS             = "legs"
+    WEAPON_MAIN      = "weapon_main"
+    WEAPON_SECONDARY = "weapon_secondary"
+
+
+class CosmeticVisibility(str, PyEnum):
+    OPEN   = "open"
+    LOCKED = "locked"
+    HIDDEN = "hidden"
+
+
+class UnlockType(str, PyEnum):
+    NONE        = "none"
+    QUEST       = "quest"
+    ACHIEVEMENT = "achievement"
+    LEVEL       = "level"
+    ADMIN       = "admin"
+
+
 # ===================================
-# МОДЕЛИ КВЕСТОВ
+# ВСПОМОГАТЕЛЬНЫЕ ФАБРИКИ SA ENUM
+# (create_type=False — тип уже создан миграцией)
+# ===================================
+
+def _sa_enum(py_enum, name):
+    return SAEnum(
+        py_enum,
+        name=name,
+        schema=DB_SCHEMA,
+        create_type=False,
+    )
+
+
+# ===================================
+# КВЕСТЫ
 # ===================================
 
 class Quest(Base):
     __tablename__ = "quests"
     __table_args__ = (
-        Index("ix_quests_status", "status"),
-        Index("ix_quests_type", "quest_type"),
+        UniqueConstraint("title"),
         {"schema": DB_SCHEMA},
     )
 
-    id          = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    title       = Column(String(200), nullable=False)
+    id         = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    title      = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
-    quest_type  = Column(_enum("personal","team","daily","skill","integration", name="questtype"), nullable=False, default=QuestType.PERSONAL)
-    difficulty  = Column(_enum("easy","medium","hard","epic", name="questdifficulty"), nullable=False, default=QuestDifficulty.MEDIUM)
-    status      = Column(_enum("draft","active","archived", name="queststatus"), nullable=False, default=QuestStatus.ACTIVE)
-    xp_reward   = Column(Integer, nullable=False, default=150)
-    coins_reward = Column(Integer, nullable=False, default=10)
-    time_limit_hours     = Column(Integer, nullable=True)
-    integration_trigger  = Column(String(100), nullable=True)
-    integration_target   = Column(Integer, nullable=True)
+    quest_type = Column(_sa_enum(QuestType, "questtype"), nullable=False, default=QuestType.PERSONAL)
+    difficulty = Column(_sa_enum(QuestDifficulty, "questdifficulty"), nullable=False, default=QuestDifficulty.MEDIUM)
+    status     = Column(_sa_enum(QuestStatus, "queststatus"), nullable=False, default=QuestStatus.ACTIVE)
+    xp_reward      = Column(Integer, nullable=False, default=150)
+    coins_reward   = Column(Integer, nullable=False, default=10)
+    time_limit_hours    = Column(Integer, nullable=True)
+    integration_trigger = Column(String(100), nullable=True)
+    integration_target  = Column(Integer, nullable=True)
     created_by  = Column(UUID(as_uuid=False), nullable=True)
-    created_at  = Column(DateTime(timezone=True), default=utcnow)
-    updated_at  = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at  = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user_quests = relationship("UserQuest", back_populates="quest", cascade="all, delete-orphan")
 
@@ -124,42 +171,43 @@ class UserQuest(Base):
     __tablename__ = "user_quests"
     __table_args__ = (
         UniqueConstraint("user_id", "quest_id", name="uq_user_quest"),
-        Index("ix_user_quests_user_status", "user_id", "status"),
         {"schema": DB_SCHEMA},
     )
 
-    id       = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    user_id  = Column(UUID(as_uuid=False), nullable=False, index=True)
-    quest_id = Column(UUID(as_uuid=False), ForeignKey(f"{DB_SCHEMA}.quests.id", ondelete="CASCADE"), nullable=False)
-    status   = Column(_enum("in_progress","completed","failed","abandoned", name="userqueststatus"), nullable=False, default=UserQuestStatus.IN_PROGRESS)
-    progress = Column(Integer, nullable=False, default=0)
-    target   = Column(Integer, nullable=False, default=1)
-    started_at   = Column(DateTime(timezone=True), default=utcnow)
+    id          = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id     = Column(UUID(as_uuid=False), nullable=False)
+    quest_id    = Column(UUID(as_uuid=False), ForeignKey(f"{DB_SCHEMA}.quests.id", ondelete="CASCADE"), nullable=False)
+    status      = Column(_sa_enum(UserQuestStatus, "userqueststatus"), nullable=False, default=UserQuestStatus.IN_PROGRESS)
+    progress    = Column(Integer, nullable=False, default=0)
+    target      = Column(Integer, nullable=False, default=1)
+    is_viewed   = Column(Boolean, nullable=False, default=False)
+    started_at  = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
     deadline_at  = Column(DateTime(timezone=True), nullable=True)
-    # Флаг просмотра для уведомлений в sidebar
-    is_viewed = Column(Boolean, nullable=False, default=False, server_default="false")
 
     quest = relationship("Quest", back_populates="user_quests")
 
 
 # ===================================
-# МОДЕЛИ БЕЙДЖЕЙ
+# БЕЙДЖИ
 # ===================================
 
 class Badge(Base):
     __tablename__ = "badges"
-    __table_args__ = ({"schema": DB_SCHEMA},)
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_badges_name"),
+        {"schema": DB_SCHEMA},
+    )
 
-    id          = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    name        = Column(String(100), nullable=False, unique=True)
-    description = Column(Text, nullable=True)
-    icon_url    = Column(String(500), nullable=True)
-    rarity      = Column(_enum("common","rare","epic","legendary", name="badgerarity"), nullable=False, default=BadgeRarity.COMMON)
+    id              = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    name            = Column(String(100), nullable=False)
+    description     = Column(Text, nullable=True)
+    icon_url        = Column(String(500), nullable=True)
+    rarity          = Column(_sa_enum(BadgeRarity, "badgerarity"), nullable=False, default=BadgeRarity.COMMON)
     condition_type  = Column(String(50), nullable=True)
     condition_value = Column(Integer, nullable=True)
-    xp_bonus    = Column(Integer, nullable=False, default=0)
-    created_at  = Column(DateTime(timezone=True), default=utcnow)
+    xp_bonus        = Column(Integer, nullable=False, default=0)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
 
     user_badges = relationship("UserBadge", back_populates="badge", cascade="all, delete-orphan")
 
@@ -171,52 +219,44 @@ class UserBadge(Base):
         {"schema": DB_SCHEMA},
     )
 
-    id         = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    user_id    = Column(UUID(as_uuid=False), nullable=False, index=True)
-    badge_id   = Column(UUID(as_uuid=False), ForeignKey(f"{DB_SCHEMA}.badges.id", ondelete="CASCADE"), nullable=False)
-    earned_at  = Column(DateTime(timezone=True), default=utcnow)
-    granted_by = Column(UUID(as_uuid=False), nullable=True)
-    is_revoked = Column(Boolean, nullable=False, default=False)
-    revoked_at = Column(DateTime(timezone=True), nullable=True)
-    # Флаг нового/непрочитанного достижения для уведомлений
-    is_new     = Column(Boolean, nullable=False, default=True, server_default="true")
+    id          = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id     = Column(UUID(as_uuid=False), nullable=False)
+    badge_id    = Column(UUID(as_uuid=False), ForeignKey(f"{DB_SCHEMA}.badges.id", ondelete="CASCADE"), nullable=False)
+    earned_at   = Column(DateTime(timezone=True), server_default=func.now())
+    granted_by  = Column(UUID(as_uuid=False), nullable=True)
+    is_revoked  = Column(Boolean, nullable=False, default=False)
+    is_new      = Column(Boolean, nullable=False, default=True)
+    revoked_at  = Column(DateTime(timezone=True), nullable=True)
 
     badge = relationship("Badge", back_populates="user_badges")
 
 
 # ===================================
-# МОДЕЛЬ XP ТРАНЗАКЦИЙ
+# XP ТРАНЗАКЦИИ
 # ===================================
 
 class XPTransaction(Base):
     __tablename__ = "xp_transactions"
-    __table_args__ = (
-        Index("ix_xp_transactions_user_created", "user_id", "created_at"),
-        {"schema": DB_SCHEMA},
-    )
+    __table_args__ = {"schema": DB_SCHEMA}
 
-    id          = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    user_id     = Column(UUID(as_uuid=False), nullable=False, index=True)
+    id          = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id     = Column(UUID(as_uuid=False), nullable=False)
     amount      = Column(Integer, nullable=False)
-    source      = Column(_enum("quest","badge","github_commit","github_pr","jira_task","admin","penalty","character_level", name="xpsource"), nullable=False)
+    source      = Column(_sa_enum(XPSource, "xpsource"), nullable=False)
     source_id   = Column(UUID(as_uuid=False), nullable=True)
     description = Column(String(300), nullable=True)
-    created_at  = Column(DateTime(timezone=True), default=utcnow, index=True)
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())
 
 
 # ===================================
-# МОДЕЛЬ ЛИДЕРБОРДА
+# ЛИДЕРБОРД
 # ===================================
 
 class LeaderboardSnapshot(Base):
     __tablename__ = "leaderboard_snapshots"
-    __table_args__ = (
-        Index("ix_leaderboard_period_rank", "period", "rank"),
-        Index("ix_leaderboard_user_period", "user_id", "period"),
-        {"schema": DB_SCHEMA},
-    )
+    __table_args__ = {"schema": DB_SCHEMA}
 
-    id               = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    id               = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     user_id          = Column(UUID(as_uuid=False), nullable=False)
     username         = Column(String(50), nullable=False)
     full_name        = Column(String(150), nullable=True)
@@ -227,4 +267,135 @@ class LeaderboardSnapshot(Base):
     badges_count     = Column(Integer, nullable=False, default=0)
     rank             = Column(Integer, nullable=False, default=0)
     period           = Column(String(20), nullable=False)
-    snapshot_at      = Column(DateTime(timezone=True), default=utcnow, index=True)
+    snapshot_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# ===================================
+# ПЕРСОНАЖИ
+# ===================================
+
+class CharacterType(Base):
+    """Архетип персонажа (warrior / mage / rogue / engineer)."""
+    __tablename__ = "character_types"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_character_types_slug"),
+        {"schema": DB_SCHEMA},
+    )
+
+    id                  = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    slug                = Column(
+        _sa_enum(CharacterTypeSlug, "charactertypeslugs"),
+        nullable=False,
+    )
+    name                = Column(String(50), nullable=False)
+    description         = Column(Text, nullable=True)
+    icon_url            = Column(String(500), nullable=True)
+    coin_multiplier_base = Column(Float, nullable=False, default=1.0)
+    xp_multiplier_base  = Column(Float, nullable=False, default=1.0)
+    bonus_description   = Column(String(300), nullable=True)
+    created_at          = Column(DateTime(timezone=True), server_default=func.now())
+
+    characters = relationship("Character", back_populates="character_type")
+
+
+class Character(Base):
+    """Персонаж пользователя — 1:1 с user_id."""
+    __tablename__ = "characters"
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_characters_user_id"),
+        {"schema": DB_SCHEMA},
+    )
+
+    id                  = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id             = Column(UUID(as_uuid=False), nullable=False)
+    character_type_id   = Column(
+        UUID(as_uuid=False),
+        ForeignKey(f"{DB_SCHEMA}.character_types.id"),
+        nullable=False,
+    )
+    level               = Column(Integer, nullable=False, default=1)
+    experience          = Column(Integer, nullable=False, default=0)
+    coin_multiplier     = Column(Float, nullable=False, default=1.0)
+    xp_multiplier       = Column(Float, nullable=False, default=1.0)
+    skin_color          = Column(String(7), nullable=True, default="#F5C5A3")
+    hair_color          = Column(String(7), nullable=True, default="#2C1810")
+    eyes_color          = Column(String(7), nullable=True, default="#4A90D9")
+    created_at          = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at          = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    character_type = relationship("CharacterType", back_populates="characters")
+    equipment      = relationship("CharacterEquipment", back_populates="character", cascade="all, delete-orphan")
+
+
+class CosmeticItem(Base):
+    """Косметический предмет (внешность, одежда, оружие)."""
+    __tablename__ = "cosmetic_items"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_cosmetic_items_slug"),
+        {"schema": DB_SCHEMA},
+    )
+
+    id                      = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    name                    = Column(String(100), nullable=False)
+    slug                    = Column(String(100), nullable=False)
+    description             = Column(Text, nullable=True)
+    preview_url             = Column(String(500), nullable=True)
+    slot                    = Column(_sa_enum(CosmeticSlot, "cosmeticslot"), nullable=False)
+    rarity                  = Column(_sa_enum(BadgeRarity, "badgerarity"), nullable=False, default=BadgeRarity.COMMON)
+    visibility              = Column(_sa_enum(CosmeticVisibility, "cosmeticvisibility"), nullable=False, default=CosmeticVisibility.OPEN)
+    unlock_type             = Column(_sa_enum(UnlockType, "unlocktype"), nullable=False, default=UnlockType.NONE)
+    unlock_ref              = Column(UUID(as_uuid=False), nullable=True)
+    unlock_value            = Column(Integer, nullable=True)
+    allowed_character_types = Column(JSON, nullable=True)
+    created_at              = Column(DateTime(timezone=True), server_default=func.now())
+
+    equipment        = relationship("CharacterEquipment", back_populates="cosmetic_item")
+    unlocked_by_users = relationship("UnlockedCosmetic", back_populates="cosmetic_item")
+
+
+class CharacterEquipment(Base):
+    """Надетый предмет на персонаже (один слот — один предмет)."""
+    __tablename__ = "character_equipment"
+    __table_args__ = (
+        UniqueConstraint("character_id", "slot", name="uq_character_slot"),
+        {"schema": DB_SCHEMA},
+    )
+
+    id               = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    character_id     = Column(
+        UUID(as_uuid=False),
+        ForeignKey(f"{DB_SCHEMA}.characters.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    cosmetic_item_id = Column(
+        UUID(as_uuid=False),
+        ForeignKey(f"{DB_SCHEMA}.cosmetic_items.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    slot        = Column(_sa_enum(CosmeticSlot, "cosmeticslot"), nullable=False)
+    color       = Column(String(7), nullable=True)
+    equipped_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    character    = relationship("Character", back_populates="equipment")
+    cosmetic_item = relationship("CosmeticItem", back_populates="equipment")
+
+
+class UnlockedCosmetic(Base):
+    """Разблокированная косметика пользователя."""
+    __tablename__ = "unlocked_cosmetics"
+    __table_args__ = (
+        UniqueConstraint("user_id", "cosmetic_item_id", name="uq_user_cosmetic"),
+        {"schema": DB_SCHEMA},
+    )
+
+    id               = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id          = Column(UUID(as_uuid=False), nullable=False)
+    cosmetic_item_id = Column(
+        UUID(as_uuid=False),
+        ForeignKey(f"{DB_SCHEMA}.cosmetic_items.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    unlocked_at  = Column(DateTime(timezone=True), server_default=func.now())
+    unlocked_by  = Column(UUID(as_uuid=False), nullable=True)
+
+    cosmetic_item = relationship("CosmeticItem", back_populates="unlocked_by_users")
