@@ -14,28 +14,16 @@ from sqlalchemy import (
     Integer, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import JSON, UUID
-from sqlalchemy.orm import DeclarativeBase, relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy import Enum as SAEnum
 
-from app.database import DB_SCHEMA
-
-
-# ===================================
-# BASE
-# ===================================
-
-class Base(DeclarativeBase):
-    pass
+# Base и DB_SCHEMA импортируем из database.py —
+# единый метадата-объект для всех моделей сервиса.
+from app.database import Base, DB_SCHEMA
 
 
 def _uuid() -> str:
     return str(uuid.uuid4())
-
-
-def _schema_meta(**kw):
-    """Добавляет schema= во все таблицы автоматически."""
-    kw.setdefault("schema", DB_SCHEMA)
-    return kw
 
 
 # ===================================
@@ -126,7 +114,7 @@ class UnlockType(str, PyEnum):
 
 # ===================================
 # ВСПОМОГАТЕЛЬНЫЕ ФАБРИКИ SA ENUM
-# (create_type=False — тип уже создан миграцией)
+# create_type=False — тип уже создан миграцией, не пытаемся создать заново
 # ===================================
 
 def _sa_enum(py_enum, name):
@@ -144,19 +132,17 @@ def _sa_enum(py_enum, name):
 
 class Quest(Base):
     __tablename__ = "quests"
-    __table_args__ = (
-        UniqueConstraint("title"),
-        {"schema": DB_SCHEMA},
-    )
+    # Без UniqueConstraint на title — в миграции 0001 его нет
+    __table_args__ = {"schema": DB_SCHEMA}
 
-    id         = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
-    title      = Column(String(200), nullable=False)
+    id          = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    title       = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
-    quest_type = Column(_sa_enum(QuestType, "questtype"), nullable=False, default=QuestType.PERSONAL)
-    difficulty = Column(_sa_enum(QuestDifficulty, "questdifficulty"), nullable=False, default=QuestDifficulty.MEDIUM)
-    status     = Column(_sa_enum(QuestStatus, "queststatus"), nullable=False, default=QuestStatus.ACTIVE)
-    xp_reward      = Column(Integer, nullable=False, default=150)
-    coins_reward   = Column(Integer, nullable=False, default=10)
+    quest_type  = Column(_sa_enum(QuestType, "questtype"), nullable=False, default=QuestType.PERSONAL)
+    difficulty  = Column(_sa_enum(QuestDifficulty, "questdifficulty"), nullable=False, default=QuestDifficulty.MEDIUM)
+    status      = Column(_sa_enum(QuestStatus, "queststatus"), nullable=False, default=QuestStatus.ACTIVE)
+    xp_reward           = Column(Integer, nullable=False, default=150)
+    coins_reward        = Column(Integer, nullable=False, default=10)
     time_limit_hours    = Column(Integer, nullable=True)
     integration_trigger = Column(String(100), nullable=True)
     integration_target  = Column(Integer, nullable=True)
@@ -174,14 +160,14 @@ class UserQuest(Base):
         {"schema": DB_SCHEMA},
     )
 
-    id          = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
-    user_id     = Column(UUID(as_uuid=False), nullable=False)
-    quest_id    = Column(UUID(as_uuid=False), ForeignKey(f"{DB_SCHEMA}.quests.id", ondelete="CASCADE"), nullable=False)
-    status      = Column(_sa_enum(UserQuestStatus, "userqueststatus"), nullable=False, default=UserQuestStatus.IN_PROGRESS)
-    progress    = Column(Integer, nullable=False, default=0)
-    target      = Column(Integer, nullable=False, default=1)
-    is_viewed   = Column(Boolean, nullable=False, default=False)
-    started_at  = Column(DateTime(timezone=True), server_default=func.now())
+    id           = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id      = Column(UUID(as_uuid=False), nullable=False)
+    quest_id     = Column(UUID(as_uuid=False), ForeignKey(f"{DB_SCHEMA}.quests.id", ondelete="CASCADE"), nullable=False)
+    status       = Column(_sa_enum(UserQuestStatus, "userqueststatus"), nullable=False, default=UserQuestStatus.IN_PROGRESS)
+    progress     = Column(Integer, nullable=False, default=0)
+    target       = Column(Integer, nullable=False, default=1)
+    is_viewed    = Column(Boolean, nullable=False, default=False)
+    started_at   = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
     deadline_at  = Column(DateTime(timezone=True), nullable=True)
 
@@ -219,14 +205,14 @@ class UserBadge(Base):
         {"schema": DB_SCHEMA},
     )
 
-    id          = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
-    user_id     = Column(UUID(as_uuid=False), nullable=False)
-    badge_id    = Column(UUID(as_uuid=False), ForeignKey(f"{DB_SCHEMA}.badges.id", ondelete="CASCADE"), nullable=False)
-    earned_at   = Column(DateTime(timezone=True), server_default=func.now())
-    granted_by  = Column(UUID(as_uuid=False), nullable=True)
-    is_revoked  = Column(Boolean, nullable=False, default=False)
-    is_new      = Column(Boolean, nullable=False, default=True)
-    revoked_at  = Column(DateTime(timezone=True), nullable=True)
+    id         = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id    = Column(UUID(as_uuid=False), nullable=False)
+    badge_id   = Column(UUID(as_uuid=False), ForeignKey(f"{DB_SCHEMA}.badges.id", ondelete="CASCADE"), nullable=False)
+    earned_at  = Column(DateTime(timezone=True), server_default=func.now())
+    granted_by = Column(UUID(as_uuid=False), nullable=True)
+    is_revoked = Column(Boolean, nullable=False, default=False)
+    is_new     = Column(Boolean, nullable=False, default=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
 
     badge = relationship("Badge", back_populates="user_badges")
 
@@ -282,18 +268,15 @@ class CharacterType(Base):
         {"schema": DB_SCHEMA},
     )
 
-    id                  = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
-    slug                = Column(
-        _sa_enum(CharacterTypeSlug, "charactertypeslugs"),
-        nullable=False,
-    )
-    name                = Column(String(50), nullable=False)
-    description         = Column(Text, nullable=True)
-    icon_url            = Column(String(500), nullable=True)
+    id                   = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    slug                 = Column(_sa_enum(CharacterTypeSlug, "charactertypeslugs"), nullable=False)
+    name                 = Column(String(50), nullable=False)
+    description          = Column(Text, nullable=True)
+    icon_url             = Column(String(500), nullable=True)
     coin_multiplier_base = Column(Float, nullable=False, default=1.0)
-    xp_multiplier_base  = Column(Float, nullable=False, default=1.0)
-    bonus_description   = Column(String(300), nullable=True)
-    created_at          = Column(DateTime(timezone=True), server_default=func.now())
+    xp_multiplier_base   = Column(Float, nullable=False, default=1.0)
+    bonus_description    = Column(String(300), nullable=True)
+    created_at           = Column(DateTime(timezone=True), server_default=func.now())
 
     characters = relationship("Character", back_populates="character_type")
 
@@ -306,22 +289,22 @@ class Character(Base):
         {"schema": DB_SCHEMA},
     )
 
-    id                  = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
-    user_id             = Column(UUID(as_uuid=False), nullable=False)
-    character_type_id   = Column(
+    id                = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id           = Column(UUID(as_uuid=False), nullable=False)
+    character_type_id = Column(
         UUID(as_uuid=False),
         ForeignKey(f"{DB_SCHEMA}.character_types.id"),
         nullable=False,
     )
-    level               = Column(Integer, nullable=False, default=1)
-    experience          = Column(Integer, nullable=False, default=0)
-    coin_multiplier     = Column(Float, nullable=False, default=1.0)
-    xp_multiplier       = Column(Float, nullable=False, default=1.0)
-    skin_color          = Column(String(7), nullable=True, default="#F5C5A3")
-    hair_color          = Column(String(7), nullable=True, default="#2C1810")
-    eyes_color          = Column(String(7), nullable=True, default="#4A90D9")
-    created_at          = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at          = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    level           = Column(Integer, nullable=False, default=1)
+    experience      = Column(Integer, nullable=False, default=0)
+    coin_multiplier = Column(Float, nullable=False, default=1.0)
+    xp_multiplier   = Column(Float, nullable=False, default=1.0)
+    skin_color      = Column(String(7), nullable=True, default="#F5C5A3")
+    hair_color      = Column(String(7), nullable=True, default="#2C1810")
+    eyes_color      = Column(String(7), nullable=True, default="#4A90D9")
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     character_type = relationship("CharacterType", back_populates="characters")
     equipment      = relationship("CharacterEquipment", back_populates="character", cascade="all, delete-orphan")
@@ -349,7 +332,7 @@ class CosmeticItem(Base):
     allowed_character_types = Column(JSON, nullable=True)
     created_at              = Column(DateTime(timezone=True), server_default=func.now())
 
-    equipment        = relationship("CharacterEquipment", back_populates="cosmetic_item")
+    equipment         = relationship("CharacterEquipment", back_populates="cosmetic_item")
     unlocked_by_users = relationship("UnlockedCosmetic", back_populates="cosmetic_item")
 
 
@@ -376,7 +359,7 @@ class CharacterEquipment(Base):
     color       = Column(String(7), nullable=True)
     equipped_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    character    = relationship("Character", back_populates="equipment")
+    character     = relationship("Character", back_populates="equipment")
     cosmetic_item = relationship("CosmeticItem", back_populates="equipment")
 
 

@@ -149,6 +149,7 @@ class UserBadgeResponse(OrmBase):
     id: str
     user_id: str
     earned_at: datetime
+    is_new: bool
     badge: BadgeResponse
 
 
