@@ -7,6 +7,7 @@ import {
 } from '../../api/admin'
 import { UserPicker } from '../../components/admin/UserPicker'
 import { useAppToast } from '../../App'
+import { useAuthStore } from '../../store/authStore'
 import styles from './AdminTools.module.css'
 
 const SOURCES: XPSource[] = [
@@ -22,6 +23,7 @@ const SOURCES: XPSource[] = [
 export function AdminXPPage() {
   const toast = useAppToast()
   const qc = useQueryClient()
+  const currentUserId = useAuthStore(s => s.user?.id)
 
   const [page, setPage] = useState(1)
   const [userIdFilter, setUserIdFilter] = useState('')
@@ -37,11 +39,25 @@ export function AdminXPPage() {
     }).then(r => r.data),
   })
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['admin-xp-tx'] })
+  const invalidate = (grantedUserId?: string) => {
+    qc.invalidateQueries({ queryKey: ['admin-xp-tx'] })
+    // Инвалидируем xp-profile чтобы SidebarXP обновился мгновенно.
+    // Инвалидируем как свой профиль (currentUser), так и того, кому начислили.
+    qc.invalidateQueries({ queryKey: ['xp-profile'] })
+    if (grantedUserId) {
+      qc.invalidateQueries({ queryKey: ['xp-profile', grantedUserId] })
+    }
+    if (currentUserId) {
+      qc.invalidateQueries({ queryKey: ['xp-profile', currentUserId] })
+    }
+  }
 
   const grantM = useMutation({
     mutationFn: (input: AdminXPGrantInput) => adminXPApi.grant(input),
-    onSuccess: () => { toast('XP операция выполнена', 'success'); invalidate() },
+    onSuccess: (_data, variables) => {
+      toast('XP операция выполнена', 'success')
+      invalidate(variables.user_id)
+    },
     onError: (e: any) => toast(e?.response?.data?.detail || 'Не удалось начислить XP', 'error'),
   })
 
@@ -156,7 +172,6 @@ function GrantForm({
       setError('Выберите пользователя или введите его UUID')
       return
     }
-    // Базовая проверка формата UUID — даём подсказку, но не блокируем строго
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
       setError('user_id должен быть в формате UUID. Используйте поиск по пользователю.')
       return

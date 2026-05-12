@@ -13,6 +13,8 @@ interface ProbeResult {
   payload: unknown
   checkedAt: string
   error?: string
+  /** Человекочитаемая причина ошибки на русском */
+  errorHint?: string
 }
 
 interface SystemMetrics {
@@ -26,29 +28,57 @@ interface SystemMetrics {
 const POLL_INTERVAL_MS = 7000
 const POLL_SYSTEM_MS = 10000
 
-// Отдельный axios для health-проб (без interceptors)
+// Отдельный axios для health-проб (без interceptors авторизации)
 const probeClient = axios.create({ timeout: 5000 })
+
+/**
+ * Возвращает человекочитаемый hint по тексту ошибки axios.
+ * Probe ходит через Vite proxy: /_monitor/auth → localhost:8001/health
+ *                               /_monitor/gamification → localhost:8002/health
+ * «Network Error» означает, что сервис не отвечает на порту — не запущен или упал.
+ */
+function getErrorHint(message: string): string {
+  const m = message.toLowerCase()
+  if (m.includes('network error') || m.includes('err_connection_refused')) {
+    return 'Сервис не отвечает. Убедитесь, что docker-compose запущен: docker compose up -d'
+  }
+  if (m.includes('timeout') || m.includes('etimedout')) {
+    return 'Таймаут ожидания (>5с). Сервис перегружен или не готов.'
+  }
+  if (m.includes('econnreset')) {
+    return 'Соединение сброшено сервисом. Проверьте логи контейнера.'
+  }
+  if (m.includes('404')) {
+    return 'Эндпоинт /health не найден в сервисе — проверьте роутер.'
+  }
+  return message
+}
 
 async function probe(url: string): Promise<ProbeResult> {
   const t0 = performance.now()
   try {
     const r = await probeClient.get(url, { validateStatus: () => true })
     const latency = Math.round(performance.now() - t0)
+    const isUp = r.status >= 200 && r.status < 300
     return {
-      status: r.status >= 200 && r.status < 300 ? 'up' : 'down',
+      status: isUp ? 'up' : 'down',
       latency,
       httpCode: r.status,
       payload: r.data,
       checkedAt: new Date().toISOString(),
+      error: isUp ? undefined : `HTTP ${r.status}`,
+      errorHint: isUp ? undefined : getErrorHint(`${r.status}`),
     }
   } catch (e: any) {
+    const msg: string = e?.message ?? 'network error'
     return {
       status: 'down',
       latency: null,
       httpCode: null,
       payload: null,
       checkedAt: new Date().toISOString(),
-      error: e?.message ?? 'network error',
+      error: msg,
+      errorHint: getErrorHint(msg),
     }
   }
 }
@@ -94,7 +124,6 @@ export function AdminMonitoringPage() {
     return () => clearInterval(id)
   }, [paused, refresh])
 
-  // Системные метрики сервера (через nginx -> gamification-service /admin/system-metrics)
   const sysQ = useQuery<SystemMetrics>({
     queryKey: ['mon-sys-metrics', tick],
     queryFn: () => adminApi.getSystemMetrics().then(r => r.data),
@@ -181,7 +210,7 @@ export function AdminMonitoringPage() {
         ) : (
           <div className={styles.muted}>
             {sysQ.isError
-              ? '⚠️ Метрики недоступны — убедитесь, что эндпоинт /admin/system-metrics добавлен'
+              ? '⚠️ Метрики недоступны — убедитесь, что gamification-service запущен и эндпоинт /admin/system-metrics зарегистрирован'
               : 'Загрузка…'}
           </div>
         )}
@@ -254,7 +283,14 @@ function ServiceCard({ title, url, probe }: { title: string; url: string; probe:
           <span>Проверено: {new Date(probe.checkedAt).toLocaleTimeString()}</span>
         )}
         {probe?.error && (
-          <span style={{ color: 'var(--danger, #d44)' }}>Ошибка: {probe.error}</span>
+          <span style={{ color: 'var(--danger, #d44)' }}>
+            Ошибка: {probe.error}
+          </span>
+        )}
+        {probe?.errorHint && probe.error && (
+          <span style={{ color: 'var(--text-muted, #888)', fontSize: 12, fontStyle: 'italic' }}>
+            💡 {probe.errorHint}
+          </span>
         )}
       </div>
     </div>
