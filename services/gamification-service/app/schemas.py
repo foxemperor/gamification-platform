@@ -30,7 +30,7 @@ class OrmBase(BaseModel):
 # ===================================
 
 class QuestCreate(BaseModel):
-    """Создание нового квеста (только для администраторов)."""
+    """Создание нового квеста."""
     title: str = Field(..., min_length=3, max_length=200)
     description: Optional[str] = Field(None, max_length=2000)
     quest_type: QuestType = QuestType.PERSONAL
@@ -70,7 +70,7 @@ class QuestResponse(OrmBase):
 
 class QuestListResponse(BaseModel):
     """Список квестов с пагинацией."""
-    items: list[QuestResponse]
+    items: List[QuestResponse]
     total: int
     page: int
     per_page: int
@@ -123,7 +123,7 @@ class CompleteQuestResponse(BaseModel):
     coins_earned: int
     new_level: Optional[int] = None
     level_up: bool = False
-    badges_earned: list[str] = []
+    badges_earned: List[str] = []
     message: str
 
 
@@ -142,6 +142,15 @@ class BadgeResponse(OrmBase):
     condition_value: Optional[int]
     xp_bonus: int
     created_at: datetime
+
+
+class BadgeListResponse(BaseModel):
+    """Список бейджей с пагинацией (админ)."""
+    items: List[BadgeResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int
 
 
 class UserBadgeResponse(OrmBase):
@@ -168,9 +177,18 @@ class XPTransactionResponse(OrmBase):
     created_at: datetime
 
 
+class XPTransactionListResponse(BaseModel):
+    """Список XP-транзакций с пагинацией (админ)."""
+    items: List[XPTransactionResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+
 class XPHistoryResponse(BaseModel):
     """История XP пользователя с пагинацией."""
-    items: list[XPTransactionResponse]
+    items: List[XPTransactionResponse]
     total: int
     total_xp_earned: int
     total_xp_spent: int
@@ -268,31 +286,20 @@ class PlayerProfileResponse(BaseModel):
     Прогрессия рассчитывается по формуле:
         xp_required_for_level(N) = BASE_XP_PER_LEVEL * N ^ XP_LEVEL_MULTIPLIER
                                  = 100 * N^1.5  (дефолтные значения из config.py)
-
-    Фронтенд использует xp_to_next_level и xp_progress_percent напрямую —
-    без дублирования формулы на клиенте.
     """
     user_id: str
     username: str
     full_name: Optional[str]
-
-    # Прогрессия
     total_xp: int
     level: int
     xp_to_next_level: int
     xp_progress_percent: float
     total_coins: int
-
-    # Статистика
     quests_completed: int
     quests_in_progress: int
     badges_count: int
-
-    # Рейтинг
     rank_all_time: Optional[int] = None
     rank_weekly: Optional[int] = None
-
-    # Персонаж — None если ещё не создан
     character: Optional[CharacterResponse] = None
 
 
@@ -316,7 +323,7 @@ class LeaderboardEntryResponse(BaseModel):
 class LeaderboardResponse(BaseModel):
     """Лидерборд с метаданными периода."""
     period: str
-    entries: list[LeaderboardEntryResponse]
+    entries: List[LeaderboardEntryResponse]
     total_players: int
     updated_at: datetime
 
@@ -359,7 +366,7 @@ class AwardXPResponse(BaseModel):
 # ===================================
 
 class BadgeCreate(BaseModel):
-    """Создание нового бейджа (только админ)."""
+    """Создание нового бейджа."""
     name: str = Field(..., min_length=2, max_length=100)
     description: Optional[str] = Field(None, max_length=2000)
     icon_url: Optional[str] = Field(None, max_length=500)
@@ -381,14 +388,23 @@ class BadgeUpdate(BaseModel):
 
 
 class AdminGrantXPRequest(BaseModel):
-    """Ручное начисление XP администратором."""
+    """Ручное начисление/списание XP администратором.
+
+    При положительном amount — начисление (source по умолчанию ADMIN).
+    При отрицательном amount — штраф (source по умолчанию PENALTY).
+    """
     user_id: str
-    amount: int = Field(..., ge=1, le=50000)
+    amount: int = Field(..., ge=-50000, le=50000)
     description: Optional[str] = Field(None, max_length=300)
+    source: Optional[XPSource] = Field(
+        None,
+        description="Если None — автоматически ADMIN или PENALTY в зависимости от знака amount",
+    )
+    source_id: Optional[str] = Field(None, description="UUID источника, если есть")
 
 
 class AdminRevokeXPRequest(BaseModel):
-    """Ручное снятие XP администратором (штраф)."""
+    """Устарело — используйте AdminGrantXPRequest с отрицательным amount."""
     user_id: str
     amount: int = Field(..., ge=1, le=50000)
     description: Optional[str] = Field(None, max_length=300)

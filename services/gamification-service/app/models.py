@@ -20,10 +20,37 @@ from sqlalchemy import Enum as SAEnum
 # Base и DB_SCHEMA импортируем из database.py —
 # единый метадата-объект для всех моделей сервиса.
 from app.database import Base, DB_SCHEMA
+from app.config import settings
 
 
 def _uuid() -> str:
     return str(uuid.uuid4())
+
+
+# ===================================
+# XP ФОРМУЛА ПРОГРЕССИИ (здесь, чтобы импорт из models работал)
+# ===================================
+
+def xp_required_for_level(level: int) -> int:
+    """
+    Возвращает количество XP, необходимое чтобы пройти `level`-ый уровень.
+
+    Формула степенного закона (Power Law):
+        XP(N) = BASE_XP_PER_LEVEL * N ^ XP_LEVEL_MULTIPLIER
+
+    Значения по умолчанию (из config.py):
+        BASE_XP_PER_LEVEL = 100
+        XP_LEVEL_MULTIPLIER = 1.5
+
+    Примеры:
+        level 1 → 100 XP
+        level 2 → 283 XP
+        level 5 → 1118 XP
+        level 10 → 3162 XP
+    """
+    return int(
+        settings.BASE_XP_PER_LEVEL * (level ** settings.XP_LEVEL_MULTIPLIER)
+    )
 
 
 # ===================================
@@ -114,7 +141,7 @@ class UnlockType(str, PyEnum):
 
 # ===================================
 # ВСПОМОГАТЕЛЬНЫЕ ФАБРИКИ SA ENUM
-# create_type=False — тип уже создан миграцией, не пытаемся создать заново
+# create_type=False — тип уже создан миграцией
 # ===================================
 
 def _sa_enum(py_enum, name):
@@ -132,7 +159,6 @@ def _sa_enum(py_enum, name):
 
 class Quest(Base):
     __tablename__ = "quests"
-    # Без UniqueConstraint на title — в миграции 0001 его нет
     __table_args__ = {"schema": DB_SCHEMA}
 
     id          = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)

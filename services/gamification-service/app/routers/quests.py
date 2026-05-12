@@ -1,7 +1,7 @@
 """
 Gamification Service — роутер квестов
 ============================================
-Эндпоинты: список, создание, принятие, завершение, профиль.
+Эндпойнты: список, создание, принятие, завершение, профиль.
 Автор: Dmitry Koval
 """
 
@@ -46,14 +46,12 @@ async def _award_xp(
     Начисляет XP пользователю и проверяет level up.
     Возвращает: {total_xp, level, level_up, new_level}
     """
-    # Считаем текущий XP пользователя
     result = await db.execute(
         select(func.coalesce(func.sum(XPTransaction.amount), 0))
         .where(XPTransaction.user_id == user_id)
     )
     current_xp = result.scalar()
 
-    # Сохраняем транзакцию
     tx = XPTransaction(
         user_id=user_id,
         amount=amount,
@@ -65,14 +63,12 @@ async def _award_xp(
 
     new_xp = current_xp + amount
 
-    # Вычисляем старый уровень
     old_level = 1
     xp_acc = 0
     while xp_acc + xp_required_for_level(old_level) <= current_xp:
         xp_acc += xp_required_for_level(old_level)
         old_level += 1
 
-    # Вычисляем новый уровень
     new_level = 1
     xp_acc = 0
     while xp_acc + xp_required_for_level(new_level) <= new_xp:
@@ -94,7 +90,6 @@ async def _check_badges(db: AsyncSession, user_id: str) -> list[str]:
     """
     earned = []
 
-    # Статистика пользователя
     completed_count = await db.scalar(
         select(func.count(UserQuest.id))
         .where(UserQuest.user_id == user_id)
@@ -105,13 +100,11 @@ async def _check_badges(db: AsyncSession, user_id: str) -> list[str]:
         .where(XPTransaction.user_id == user_id)
     )
 
-    # Уже полученные бейджи
     existing = await db.execute(
         select(UserBadge.badge_id).where(UserBadge.user_id == user_id)
     )
     existing_ids = {row[0] for row in existing.all()}
 
-    # Все доступные бейджи
     badges_result = await db.execute(select(Badge))
     badges = badges_result.scalars().all()
 
@@ -129,7 +122,6 @@ async def _check_badges(db: AsyncSession, user_id: str) -> list[str]:
             ub = UserBadge(user_id=user_id, badge_id=badge.id)
             db.add(ub)
             earned.append(badge.name)
-            # Бонус XP за бейдж
             if badge.xp_bonus > 0:
                 await _award_xp(
                     db, user_id, badge.xp_bonus,
@@ -141,7 +133,7 @@ async def _check_badges(db: AsyncSession, user_id: str) -> list[str]:
 
 
 # ===================================
-# ГЕТ СПИСОК КВЕСТОВ
+# СПИСОК КВЕСТОВ
 # ===================================
 
 @router.get("/quests", response_model=QuestListResponse, summary="Список активных квестов")
@@ -176,6 +168,30 @@ async def list_quests(
 
 
 # ===================================
+# МОИ КВЕСТЫ — ДО /quests/{quest_id} чтобы избежать перекрытия путей
+# ===================================
+
+@router.get("/quests/my", response_model=list[UserQuestResponse], summary="Мои квесты")
+async def my_quests(
+    status: Optional[str] = Query(None),
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    q = (
+        select(UserQuest)
+        .where(UserQuest.user_id == user_id)
+        .options(selectinload(UserQuest.quest))
+        .order_by(UserQuest.started_at.desc())
+    )
+    if status:
+        q = q.where(UserQuest.status == status)
+
+    result = await db.execute(q)
+    uqs = result.scalars().all()
+    return [UserQuestResponse.model_validate(uq) for uq in uqs]
+
+
+# ===================================
 # СОЗДАТЬ КВЕСТ (АДМИН)
 # ===================================
 
@@ -194,7 +210,7 @@ async def create_quest(
 
 
 # ===================================
-# ДЕТАЛИ КВЕСТА
+# ДЕТАЛИ КВЕСТА — ПОСЛЕ /quests/my
 # ===================================
 
 @router.get("/quests/{quest_id}", response_model=QuestResponse, summary="Детали квеста")
@@ -222,7 +238,6 @@ async def accept_quest(
     if not quest or quest.status != QuestStatus.ACTIVE:
         raise HTTPException(status_code=404, detail="Квест недоступен")
 
-    # Проверяем не взял ли уже
     existing = await db.scalar(
         select(UserQuest)
         .where(UserQuest.user_id == user_id)
@@ -264,7 +279,6 @@ async def complete_quest(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    # Ищем прогресс пользователя
     uq = await db.scalar(
         select(UserQuest)
         .where(UserQuest.user_id == user_id)
@@ -275,27 +289,23 @@ async def complete_quest(
     if not uq:
         raise HTTPException(status_code=404, detail="Активный квест не найден")
 
-    # Проверяем дедлайн
     if uq.deadline_at and datetime.now(timezone.utc) > uq.deadline_at:
         uq.status = UserQuestStatus.FAILED
         await db.commit()
         raise HTTPException(status_code=400, detail="Время квеста истекло")
 
-    # Отмечаем как выполненный
     uq.status = UserQuestStatus.COMPLETED
     uq.progress = uq.target
     uq.completed_at = datetime.now(timezone.utc)
 
     quest = uq.quest
 
-    # Начисляем XP
     xp_result = await _award_xp(
         db, user_id, quest.xp_reward,
         XPSource.QUEST, quest.id,
         f"Квест: {quest.title}",
     )
 
-    # Проверяем бейджи
     badges = await _check_badges(db, user_id)
 
     await db.commit()
@@ -314,30 +324,6 @@ async def complete_quest(
         badges_earned=badges,
         message=msg,
     )
-
-
-# ===================================
-# МОИ КВЕСТЫ
-# ===================================
-
-@router.get("/quests/my", response_model=list[UserQuestResponse], summary="Мои квесты")
-async def my_quests(
-    status: Optional[str] = Query(None),
-    user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
-):
-    q = (
-        select(UserQuest)
-        .where(UserQuest.user_id == user_id)
-        .options(selectinload(UserQuest.quest))
-        .order_by(UserQuest.started_at.desc())
-    )
-    if status:
-        q = q.where(UserQuest.status == status)
-
-    result = await db.execute(q)
-    uqs = result.scalars().all()
-    return [UserQuestResponse.model_validate(uq) for uq in uqs]
 
 
 # ===================================
@@ -408,8 +394,14 @@ async def xp_history(
 @router.get("/profile/{user_id}", response_model=PlayerProfileResponse, summary="Профиль игрока")
 async def player_profile(
     user_id: str,
+    username: Optional[str] = Query(None, description="Логин пользователя из клиента / API Gateway"),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Возвращает игровой профиль пользователя.
+    username передаётся как query-параметр из API Gateway или фронтенда,
+    так как gamification-service не имеет прямого доступа к auth-service.
+    """
     total_xp = await db.scalar(
         select(func.coalesce(func.sum(XPTransaction.amount), 0))
         .where(XPTransaction.user_id == user_id)
@@ -432,7 +424,7 @@ async def player_profile(
         .where(UserBadge.user_id == user_id)
     ) or 0
 
-    # Вычисляем уровень
+    # Вычисляем уровень и прогресс
     level = 1
     xp_acc = 0
     while xp_acc + xp_required_for_level(level) <= total_xp:
@@ -445,13 +437,13 @@ async def player_profile(
 
     return PlayerProfileResponse(
         user_id=user_id,
-        username="",  # будет заполнено через Auth Service
+        username=username or "",
         full_name=None,
         total_xp=total_xp,
         level=level,
         xp_to_next_level=xp_for_next - xp_in_level,
         xp_progress_percent=progress_pct,
-        total_coins=0,  # будет добавлено в coins-сервисе
+        total_coins=0,
         quests_completed=quests_completed,
         quests_in_progress=quests_in_progress,
         badges_count=badges_count,
