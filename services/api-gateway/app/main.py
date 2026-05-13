@@ -2,13 +2,6 @@
 API Gateway - Главная точка входа для Gamification Platform
 ============================================================
 
-Этот модуль создаёт FastAPI приложение, которое:
-- Принимает все входящие HTTP запросы
-- Маршрутизирует запросы к соответствующим микросервисам
-- Обеспечивает аутентификацию и авторизацию
-- Логирует все запросы
-- Предоставляет WebSocket для real-time уведомлений
-
 Author: Dmitry Koval
 Date: 06.03.2026
 """
@@ -25,7 +18,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.config import settings
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
-from app.routers import health, auth, users, quests, leaderboard, integrations
+
+# Прямые импорты роутеров (без __init__.py, иначе circular import)
+from app.routers.health import router as health_router
+from app.routers.auth import router as auth_router
+from app.routers.users import router as users_router
+from app.routers.quests import router as quests_router
+from app.routers.leaderboard import router as leaderboard_router
+from app.routers.integrations import router as integrations_router
 from app.celery_app import process_gamification_event
 
 import logging
@@ -50,25 +50,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator:
-    """
-    Управление жизненным циклом приложения:
-    - Startup: подключение к БД, Redis, инициализация сервисов
-    - Shutdown: закрытие соединений
-    """
     logger.info("🚀 Starting Gamification Platform API Gateway...")
     logger.info(f"📍 Environment: {settings.ENVIRONMENT}")
     logger.info(f"🔧 Debug mode: {settings.DEBUG}")
-    
-    # TODO: Инициализация подключений к БД и Redis
-    # await database.connect()
-    # await redis.connect()
-    
     yield
-    
     logger.info("🛑 Shutting down API Gateway...")
-    # TODO: Закрытие подключений
-    # await database.disconnect()
-    # await redis.disconnect()
 
 
 # ===================================
@@ -94,7 +80,6 @@ app = FastAPI(
 # MIDDLEWARE
 # ===================================
 
-# CORS - разрешаем запросы с фронтенда
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -103,10 +88,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Кастомное логирование запросов
 app.add_middleware(LoggingMiddleware)
 
-# Rate limiting для защиты от DDoS
 if settings.ENVIRONMENT == "production":
     app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
 
@@ -117,41 +100,24 @@ if settings.ENVIRONMENT == "production":
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    """
-    Обработчик HTTP исключений
-    """
     logger.error(f"HTTP Exception: {exc.status_code} - {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "error": True,
-            "message": exc.detail,
-            "status_code": exc.status_code,
-        },
+        content={"error": True, "message": exc.detail, "status_code": exc.status_code},
     )
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """
-    Обработчик ошибок валидации Pydantic
-    """
     logger.error(f"Validation Error: {exc.errors()}")
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "error": True,
-            "message": "Ошибка валидации данных",
-            "details": exc.errors(),
-        },
+        content={"error": True, "message": "Ошибка валидации данных", "details": exc.errors()},
     )
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    """
-    Обработчик всех остальных исключений
-    """
     logger.exception(f"Unhandled exception: {str(exc)}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -167,50 +133,25 @@ async def general_exception_handler(request: Request, exc: Exception):
 # РОУТЕРЫ
 # ===================================
 
-# Health check эндпоинты
-app.include_router(health.router, tags=["Health"])
+app.include_router(health_router, tags=["Health"])
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
+app.include_router(quests_router, prefix="/api/v1/quests", tags=["Quests"])
+app.include_router(leaderboard_router, prefix="/api/v1/leaderboard", tags=["Leaderboard"])
+app.include_router(integrations_router, prefix="/api/v1/integrations", tags=["Integrations"])
 
-# Аутентификация (проксирует на auth-service)
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-
-# Пользователи
-app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
-
-# Квесты и геймификация
-app.include_router(quests.router, prefix="/api/v1/quests", tags=["Quests"])
-
-# Лидерборды
-app.include_router(leaderboard.router, prefix="/api/v1/leaderboard", tags=["Leaderboard"])
-
-# Интеграции (GitHub, Jira, Slack)
-app.include_router(integrations.router, prefix="/api/v1/integrations", tags=["Integrations"])
 
 # ===================================
 # CELERY ENDPOINT
 # ===================================
 
-# Эндпоинт: Принимает событие и отправляет в шину (Celery)
 @app.post("/api/v1/events/complete-task", tags=["Events"])
 async def complete_task_event(user_id: int, task_name: str):
-    """
-    Принимает событие о завершении задачи и передает его в шину сообщений.
-    """
-    payload = {
-        "user_id": user_id,
-        "task_name": task_name,
-        "points": 50,  # Базовая награда
-        "status": "pending"
-    }
-
-    # ВЫЗОВ ЗАДАЧИ CELERY (Отправка в шину сообщений)
-    # .delay() отправляет задачу в Redis, не дожидаясь её выполнения
+    """Принимает событие о завершении задачи и передаёт в Celery."""
+    payload = {"user_id": user_id, "task_name": task_name, "points": 50, "status": "pending"}
     task = process_gamification_event.delay(payload)
+    return {"message": "Событие отправлено в шину сообщений", "task_id": task.id, "data": payload}
 
-    return {
-        "message": "Событие отправлено в шину сообщений",
-        "task_id": task.id,
-        "data": payload
-    }
 
 # ===================================
 # ROOT ENDPOINT
@@ -218,9 +159,6 @@ async def complete_task_event(user_id: int, task_name: str):
 
 @app.get("/", tags=["Root"])
 async def root():
-    """
-    Корневой эндпоинт с информацией об API
-    """
     return {
         "message": "🎮 Gamification Platform API Gateway",
         "version": "0.1.0",
@@ -235,19 +173,6 @@ async def root():
         },
     }
 
-# ===================================
-# HEALTHCHECK
-# ===================================
-@app.get("/health", tags=["System"])
-async def health():
-    """
-    Эндпоинт для проверки здоровья сервиса (Healthcheck)
-    """
-    return {
-        "status": "healthy",
-        "service": "api-gateway",
-        "version": "0.1.0"
-    }
 
 # ===================================
 # ENTRYPOINT FOR UVICORN
@@ -255,7 +180,6 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(
         "app.main:app",
         host=settings.API_GATEWAY_HOST,
