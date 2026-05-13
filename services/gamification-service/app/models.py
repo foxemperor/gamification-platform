@@ -17,8 +17,6 @@ from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy import Enum as SAEnum
 
-# Base и DB_SCHEMA импортируем из database.py —
-# единый метадата-объект для всех моделей сервиса.
 from app.database import Base, DB_SCHEMA
 from app.config import settings
 
@@ -28,24 +26,18 @@ def _uuid() -> str:
 
 
 # ===================================
-# XP ФОРМУЛА ПРОГРЕССИИ (здесь, чтобы импорт из models работал)
+# XP ФОРМУЛА ПРОГРЕССИИ
 # ===================================
 
 def xp_required_for_level(level: int) -> int:
     """
-    Возвращает количество XP, необходимое чтобы пройти `level`-ый уровень.
+    Возвращает количество XP для прохождения `level`-го уровня.
 
-    Формула степенного закона (Power Law):
-        XP(N) = BASE_XP_PER_LEVEL * N ^ XP_LEVEL_MULTIPLIER
-
-    Значения по умолчанию (из config.py):
-        BASE_XP_PER_LEVEL = 100
-        XP_LEVEL_MULTIPLIER = 1.5
-
-    Примеры:
-        level 1 → 100 XP
-        level 2 → 283 XP
-        level 5 → 1118 XP
+    Формула: XP(N) = BASE_XP_PER_LEVEL * N ^ XP_LEVEL_MULTIPLIER
+    Примеры (дефолт: base=100, mult=1.5):
+        level 1  → 100 XP
+        level 2  → 283 XP
+        level 5  → 1118 XP
         level 10 → 3162 XP
     """
     return int(
@@ -86,14 +78,14 @@ class UserQuestStatus(str, PyEnum):
 
 
 class XPSource(str, PyEnum):
-    QUEST            = "quest"
-    BADGE            = "badge"
-    GITHUB_COMMIT    = "github_commit"
-    GITHUB_PR        = "github_pr"
-    JIRA_TASK        = "jira_task"
-    ADMIN            = "admin"
-    PENALTY          = "penalty"
-    CHARACTER_LEVEL  = "character_level"
+    QUEST           = "quest"
+    BADGE           = "badge"
+    GITHUB_COMMIT   = "github_commit"
+    GITHUB_PR       = "github_pr"
+    JIRA_TASK       = "jira_task"
+    ADMIN           = "admin"
+    PENALTY         = "penalty"
+    CHARACTER_LEVEL = "character_level"
 
 
 class BadgeRarity(str, PyEnum):
@@ -102,8 +94,6 @@ class BadgeRarity(str, PyEnum):
     EPIC      = "epic"
     LEGENDARY = "legendary"
 
-
-# --- Персонаж-специфичные Enum ---
 
 class CharacterTypeSlug(str, PyEnum):
     WARRIOR  = "warrior"
@@ -140,8 +130,10 @@ class UnlockType(str, PyEnum):
 
 
 # ===================================
-# ВСПОМОГАТЕЛЬНЫЕ ФАБРИКИ SA ENUM
-# create_type=False — тип уже создан миграцией
+# ВСПОМОГАТЕЛЬНАЯ ФАБРИКА SA ENUM
+# values_callable — берём .value (нижний регистр),
+# а не .name (верхний), чтобы совпадало с PostgreSQL enum.
+# create_type=False — тип уже создан миграцией.
 # ===================================
 
 def _sa_enum(py_enum, name):
@@ -150,6 +142,7 @@ def _sa_enum(py_enum, name):
         name=name,
         schema=DB_SCHEMA,
         create_type=False,
+        values_callable=lambda e: [x.value for x in e],
     )
 
 
