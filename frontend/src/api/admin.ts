@@ -80,7 +80,7 @@ export const adminApi = {
       ram_used_mb: number
       ram_total_mb: number
       disk_percent: number
-    }>('/api/v1/admin/system-metrics'),
+    }>('/admin/system-metrics'),
 }
 
 
@@ -149,7 +149,7 @@ export interface AdminBadge {
   rarity: BadgeRarity
   condition_type: string | null
   condition_value: number | null
-  xp_bonus: int
+  xp_bonus: number
   created_at: string
 }
 
