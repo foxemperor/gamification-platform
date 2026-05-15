@@ -101,23 +101,29 @@ export function OverviewPage() {
   const user = useAuthStore(st => st.user)
   const [profile, setProfile] = useState<PlayerProfile | null>(null)
   const [myQuests, setMyQuests] = useState<UserQuest[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [questsLoading, setQuestsLoading] = useState(true)
+  const [questsError, setQuestsError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user?.id) return
 
-    setLoading(true)
-    Promise.all([
-      meApi.getProfile(user.id),
-      questsApi.getMy(),
-    ])
-      .then(([prof, quests]) => {
-        setProfile(prof)
-        setMyQuests(quests.filter(q => q.status === 'in_progress').slice(0, 4))
+    // Профиль — независимый запрос
+    setProfileLoading(true)
+    meApi.getProfile(user.id)
+      .then(prof => setProfile(prof))
+      .catch(() => {/* профиль недоступен — покажем данные из authStore */})
+      .finally(() => setProfileLoading(false))
+
+    // Квесты — независимый запрос, не ломает профиль при 404
+    setQuestsLoading(true)
+    questsApi.getMy()
+      .then(quests => {
+        const list = Array.isArray(quests) ? quests : []
+        setMyQuests(list.filter(q => q.status === 'in_progress').slice(0, 4))
       })
-      .catch(() => setError('Не удалось загрузить данные. Проверьте соединение.'))
-      .finally(() => setLoading(false))
+      .catch(() => setQuestsError('Квесты временно недоступны'))
+      .finally(() => setQuestsLoading(false))
   }, [user?.id])
 
   const displayName = profile?.full_name ?? user?.username ?? '—'
@@ -135,7 +141,7 @@ export function OverviewPage() {
 
       {/* Статистика */}
       <section className={s.statsGrid}>
-        {loading ? (
+        {profileLoading ? (
           <>
             <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
           </>
@@ -162,11 +168,19 @@ export function OverviewPage() {
               }
             />
           </>
-        ) : null}
+        ) : (
+          // Фоллбэк на данные из authStore если /profile недоступен
+          <>
+            <StatCard label="Уровень" value={user?.level ?? 1} sub="игрока" accent />
+            <StatCard label="Всего XP" value={(user?.xp ?? 0).toLocaleString()} sub="опыта" />
+            <StatCard label="Монеты" value={(user?.coins ?? 0).toLocaleString()} sub="🪙 на балансе" />
+            <StatCard label="Бейджи" value="—" sub="Нет данных" />
+          </>
+        )}
       </section>
 
       {/* XP-прогресс */}
-      {profile && !loading && (
+      {profile && !profileLoading && (
         <section className={s.section}>
           <h2 className={s.sectionTitle}>Прогресс до уровня {profile.level + 1}</h2>
           <XPBar
@@ -184,9 +198,11 @@ export function OverviewPage() {
           <a href="/quests" className={s.sectionLink}>Все квесты →</a>
         </div>
 
-        {error && <p className={s.errorMsg}>{error}</p>}
+        {questsError && !questsLoading && (
+          <p className={s.warnMsg}>{questsError}</p>
+        )}
 
-        {loading ? (
+        {questsLoading ? (
           <div className={s.questsGrid}>
             {[...Array(3)].map((_, i) => (
               <div key={i} className={`${s.questCard} ${s.skeleton}`} style={{ height: 110 }} />
