@@ -83,7 +83,8 @@ function PodiumCard({ entry, isSelf }: { entry: LeaderboardEntry; isSelf: boolea
 
 function PlayerChips({ entry }: { entry: LeaderboardEntry }) {
   const dept    = entry.department
-  const project = entry.project
+  // используем project_name (поле из LeaderboardEntry), а не entry.project
+  const project = entry.project_name
   if (!dept && !project) return null
   return (
     <div className={s.chipRow}>
