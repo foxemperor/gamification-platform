@@ -1,47 +1,86 @@
-/* OverviewPage — использует токены из tokens.css */
+/* OverviewPage — токены из tokens.css */
+
 .page {
-  padding: 32px 28px 48px;
+  padding: 28px 28px 56px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  max-width: 960px;
+  gap: 28px;
+  max-width: 980px;
 }
 
 /* ── Header ── */
-.pageHeader {
+.header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
+}
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary-dim);
+  border: 2px solid var(--border-focus);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-d);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--primary);
+  flex-shrink: 0;
 }
 .greeting {
   font-family: var(--font-d);
-  font-size: clamp(1.4rem, 2vw, 1.9rem);
+  font-size: clamp(1.3rem, 2vw, 1.75rem);
   color: var(--text);
-  margin: 0 0 4px;
+  margin: 0 0 3px;
   line-height: 1.2;
 }
 .greetingSub {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-muted);
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rankBadge {
+  display: inline-flex;
+  align-items: center;
+  background: var(--primary-dim);
+  border: 1px solid var(--border-focus);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 99px;
+  letter-spacing: 0.04em;
 }
 
-/* ── Stats grid ── */
-.statsGrid {
+/* ── Stats row (bento) ── */
+.statsRow {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+@media (max-width: 700px) {
+  .statsRow { grid-template-columns: 1fr 1fr; }
 }
 .statCard {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px 20px;
+  border-radius: 14px;
+  padding: 16px 18px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 12px;
   box-shadow: var(--shadow-card);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
 .statCard:hover {
   transform: translateY(-2px);
@@ -51,62 +90,90 @@
   border-color: var(--border-focus);
   background: var(--primary-dim);
 }
+.statIcon {
+  font-size: 1.4rem;
+  line-height: 1;
+  margin-top: 2px;
+}
+.statBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
 .statLabel {
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  font-family: var(--font-b);
 }
 .statValue {
   font-family: var(--font-d);
-  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
   color: var(--primary);
-  line-height: 1;
+  line-height: 1.1;
+  font-weight: 700;
 }
 .statSub {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
+  margin-top: 1px;
 }
 
 /* ── XP Bar ── */
-.xpBarWrapper {
+.xpSection {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 22px;
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
-.xpBarLabels {
+.xpHeader {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  color: var(--text-muted);
+  align-items: baseline;
 }
-.xpBarTrack {
-  height: 10px;
+.xpTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.xpPct {
+  font-family: var(--font-d);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+.xpTrack {
+  height: 8px;
   background: var(--surface-alt);
   border-radius: 99px;
   overflow: hidden;
   border: 1px solid var(--border);
 }
-.xpBarFill {
+.xpFill {
   height: 100%;
-  background: var(--grad-btn);
+  background: var(--primary);
   border-radius: 99px;
-  transition: width 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 700ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-.xpBarPercent {
+.xpFooter {
+  display: flex;
+  justify-content: space-between;
   font-size: 11px;
-  color: var(--text-faint);
-  text-align: right;
+  color: var(--text-muted);
 }
 
 /* ── Section ── */
 .section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
-.sectionRow {
+.sectionHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -114,12 +181,12 @@
 .sectionTitle {
   font-family: var(--font-d);
   font-size: 1rem;
+  font-weight: 600;
   color: var(--text);
   margin: 0;
-  font-weight: 600;
 }
 .sectionLink {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--primary);
   text-decoration: none;
   opacity: 0.8;
@@ -130,121 +197,137 @@
 /* ── Quest cards ── */
 .questsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
 }
 .questCard {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 16px 18px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   box-shadow: var(--shadow-card);
-  transition: transform 180ms ease;
+  transition: transform 160ms ease, border-color 160ms ease;
 }
-.questCard:hover { transform: translateY(-2px); }
-.questCardHeader {
+.questCard:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-focus);
+}
+.questTop {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
-.questTitle {
-  font-size: 14px;
+.questName {
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  line-height: 1.3;
+  line-height: 1.35;
   flex: 1;
 }
 .diffBadge {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 9px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  padding: 2px 7px;
+  padding: 2px 6px;
   border-radius: 99px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
-.diffEasy   { background: rgba(52, 211, 153, .15); color: #34D399; }
-.diffMedium { background: rgba(251, 191, 36, .15);  color: #FBBF24; }
-.diffHard   { background: rgba(248, 113, 113, .15); color: #F87171; }
+.diffEasy   { background: rgba(52,211,153,.15); color: #34D399; }
+.diffMedium { background: rgba(251,191,36,.15);  color: #FBBF24; }
+.diffHard   { background: rgba(248,113,113,.15); color: #F87171; }
 
-.questProgress { display: flex; flex-direction: column; gap: 4px; }
-.questProgressTrack {
-  height: 6px;
+.questBar {
+  height: 5px;
   background: var(--surface-alt);
   border-radius: 99px;
   overflow: hidden;
 }
-.questProgressFill {
+.questBarFill {
   height: 100%;
-  background: var(--grad-btn);
+  background: var(--primary);
   border-radius: 99px;
   transition: width 500ms ease;
 }
-.questProgressLabel {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.questRewards {
+.questBottom {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-}
-.rewardXp {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--primary);
-}
-.rewardCoins {
-  font-size: 12px;
-  color: var(--reward);
-}
-.deadline {
   font-size: 11px;
   color: var(--text-muted);
-  margin-left: auto;
 }
+.questProg { flex: 1; }
+.questReward { color: var(--primary); font-weight: 600; }
+.questDeadline { margin-left: auto; }
 
-/* ── Empty state ── */
-.emptyState {
+/* ── Empty квесты (inline, не full-height) ── */
+.emptyQuests {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-  padding: 48px 24px;
+  gap: 14px;
+  padding: 18px 20px;
   background: var(--surface);
   border: 1px dashed var(--border);
-  border-radius: 14px;
-  gap: 8px;
+  border-radius: 12px;
 }
-.emptyIcon   { font-size: 2.5rem; }
-.emptyTitle  { font-size: 15px; font-weight: 600; color: var(--text); margin: 4px 0 0; }
-.emptyHint   { font-size: 13px; color: var(--text-muted); max-width: 36ch; }
-.emptyAction {
-  margin-top: 8px;
-  padding: 8px 20px;
+.emptyIcon { font-size: 1.8rem; flex-shrink: 0; }
+.emptyTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 2px;
+}
+.emptyHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+.emptyBtn {
+  margin-left: auto;
+  padding: 7px 16px;
   background: var(--primary-dim);
   border: 1px solid var(--border-focus);
   color: var(--primary);
   border-radius: 8px;
   text-decoration: none;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
   transition: background 180ms;
+  flex-shrink: 0;
 }
-.emptyAction:hover { background: var(--primary); color: var(--bg); }
+.emptyBtn:hover { background: var(--primary); color: var(--bg); }
+
+/* ── Inline hint / retry ── */
+.inlineHint {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 10px 14px;
+  background: var(--surface-alt);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.retryBtn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+  padding: 0;
+}
 
 /* ── Skeleton shimmer ── */
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position:  200% 0; }
 }
-.skeleton {
+.skel {
   background: linear-gradient(
     90deg,
     var(--surface-alt) 25%,
@@ -254,30 +337,12 @@
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
   border-color: transparent !important;
-}
-
-/* ── Error / Warning messages ── */
-.errorMsg {
-  font-size: 13px;
-  color: var(--danger);
-  padding: 10px 14px;
-  background: rgba(248, 113, 113, .08);
-  border-radius: 8px;
-  border: 1px solid rgba(248, 113, 113, .2);
-}
-/* Мягкое предупреждение — не блокирует остальной контент */
-.warnMsg {
-  font-size: 12px;
-  color: var(--text-muted);
-  padding: 8px 12px;
-  background: var(--surface-alt);
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  border-radius: 14px;
 }
 
 /* ── Responsive ── */
-@media (max-width: 600px) {
-  .page { padding: 20px 16px 40px; }
-  .statsGrid { grid-template-columns: 1fr 1fr; }
-  .questsGrid { grid-template-columns: 1fr; }
+@media (max-width: 500px) {
+  .page { padding: 16px 14px 40px; }
+  .emptyQuests { flex-direction: column; text-align: center; }
+  .emptyBtn { margin-left: 0; }
 }
