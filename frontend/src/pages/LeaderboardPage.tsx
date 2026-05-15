@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { leaderboardApi, isAbortError, type LeaderboardEntry, type LeaderboardPeriod } from '../api/leaderboard'
 import { useAuthStore } from '../store/authStore'
 import s from './LeaderboardPage.module.css'
@@ -6,8 +6,8 @@ import s from './LeaderboardPage.module.css'
 // ─────────────────── helpers ───────────────────
 
 const PERIOD_LABELS: Record<LeaderboardPeriod, string> = {
-  weekly:   'Неделя',
-  monthly:  'Месяц',
+  weekly: 'Неделя',
+  monthly: 'Месяц',
   all_time: 'Всё время',
 }
 
@@ -24,32 +24,69 @@ function initials(e: LeaderboardEntry): string {
     .join('')
 }
 
-function xpBarWidth(xp: number, maxXp: number): number {
-  if (!maxXp) return 0
-  return Math.max(4, Math.round((xp / maxXp) * 100))
+/**
+ * Формула прогрессии уровней из Gamification Service:
+ *   xp_for_level(n) = 100 * n * (n + 1) / 2
+ * Суммарный XP для начала уровня n (1-based):
+ *   threshold(n) = 100 * (n-1) * n / 2
+ *
+ * Прогресс внутри текущего уровня:
+ *   xp_in_level   = total_xp - threshold(level)
+ *   xp_for_level  = threshold(level + 1) - threshold(level)
+ */
+function levelThreshold(level: number): number {
+  return 100 * (level - 1) * level / 2
+}
+
+function xpBarWidth(totalXp: number, level: number): number {
+  const start = levelThreshold(level)
+  const end   = levelThreshold(level + 1)
+  const range = end - start
+  if (range <= 0) return 100
+  const progress = totalXp - start
+  return Math.min(100, Math.max(4, Math.round((progress / range) * 100)))
 }
 
 // ─────────────────── podium (top-3) ───────────────────
 
 const MEDAL = ['🥇', '🥈', '🥉']
-const PODIUM_HEIGHT = ['h3', 'h1', 'h2'] // CSS modifier: tallest = gold
+
+/**
+ * Пьедестал: визуальный порядок  2 – 1 – 3  (серебро слева, золото в центре, бронза справа).
+ * CSS: .order1 = левая колонка, .order2 = центр, .order3 = правая.
+ *
+ * rank 1 → центр  → order2
+ * rank 2 → левая  → order1
+ * rank 3 → правая → order3
+ */
+function podiumVisualOrder(rank: number): string {
+  if (rank === 1) return s.order2
+  if (rank === 2) return s.order1
+  return s.order3
+}
+
+function podiumRankClass(rank: number): string {
+  if (rank === 1) return s.podiumRank1
+  if (rank === 2) return s.podiumRank2
+  return s.podiumRank3
+}
 
 function PodiumCard({ entry, isSelf }: { entry: LeaderboardEntry; isSelf: boolean }) {
-  const order = entry.rank === 1 ? 0 : entry.rank === 2 ? 1 : 2   // visual order: 2-1-3
-  const visualOrder = entry.rank === 1 ? 'order2' : entry.rank === 2 ? 'order1' : 'order3'
   return (
     <div
-      className={`${s.podiumCard} ${s[`podiumRank${entry.rank}`]} ${s[visualOrder]} ${isSelf ? s.podiumSelf : ''}`}
-      aria-label={`${entry.rank} место — ${displayName(entry)}`}
+      className={[
+        s.podiumCard,
+        podiumVisualOrder(entry.rank),
+        podiumRankClass(entry.rank),
+        isSelf ? s.podiumSelf : '',
+      ].join(' ')}
     >
-      <div className={s.podiumAvatar}>
-        {initials(entry)}
-      </div>
+      <div className={s.podiumAvatar}>{initials(entry)}</div>
       <div className={s.podiumMedal}>{MEDAL[entry.rank - 1]}</div>
       <div className={s.podiumName}>{displayName(entry)}</div>
       <div className={s.podiumLevel}>Ур. {entry.level}</div>
       <div className={s.podiumXP}>{entry.total_xp.toLocaleString()} XP</div>
-      <div className={`${s.podiumBase} ${s[PODIUM_HEIGHT[entry.rank - 1]]}`} />
+      <div className={[s.podiumBase, entry.rank === 1 ? s.h1 : entry.rank === 2 ? s.h2 : s.h3].join(' ')} />
     </div>
   )
 }
@@ -59,30 +96,30 @@ function PodiumCard({ entry, isSelf }: { entry: LeaderboardEntry; isSelf: boolea
 function TableRow({
   entry,
   isSelf,
-  maxXp,
 }: {
   entry: LeaderboardEntry
   isSelf: boolean
-  maxXp: number
 }) {
+  const barWidth = xpBarWidth(entry.total_xp, entry.level)
+
   return (
-    <tr className={`${s.row} ${isSelf ? s.rowSelf : ''}`}>
+    <tr className={[s.row, isSelf ? s.rowSelf : ''].join(' ')}>
       <td className={s.tdRank}>
         {entry.rank <= 3
           ? <span className={s.medal}>{MEDAL[entry.rank - 1]}</span>
           : <span className={s.rankNum}>{entry.rank}</span>}
       </td>
-      <td className={s.tdPlayer}>
+      <td>
         <div className={s.playerCell}>
           <div className={s.avatar}>{initials(entry)}</div>
           <div className={s.playerInfo}>
-            <span className={s.playerName}>
+            <div className={s.playerName}>
               {displayName(entry)}
               {isSelf && <span className={s.selfBadge}>Вы</span>}
-            </span>
-            <span className={s.playerMeta}>
+            </div>
+            <div className={s.playerMeta}>
               {entry.quests_completed} квестов · {entry.badges_count} бейджей
-            </span>
+            </div>
           </div>
         </div>
       </td>
@@ -93,10 +130,7 @@ function TableRow({
         <div className={s.xpCell}>
           <span className={s.xpValue}>{entry.total_xp.toLocaleString()}</span>
           <div className={s.xpTrack}>
-            <div
-              className={s.xpFill}
-              style={{ width: `${xpBarWidth(entry.total_xp, maxXp)}%` }}
-            />
+            <div className={s.xpFill} style={{ width: `${barWidth}%` }} />
           </div>
         </div>
       </td>
@@ -111,18 +145,18 @@ function SkeletonRows() {
     <>
       {[...Array(8)].map((_, i) => (
         <tr key={i} className={s.row}>
-          <td><div className={`${s.skel} ${s.skelSm}`} /></td>
+          <td className={s.tdRank}><div className={[s.skel, s.skelSm].join(' ')} /></td>
           <td>
             <div className={s.playerCell}>
-              <div className={`${s.skel} ${s.skelAvatar}`} />
+              <div className={[s.skel, s.skelAvatar].join(' ')} />
               <div>
-                <div className={`${s.skel} ${s.skelName}`} />
-                <div className={`${s.skel} ${s.skelMeta}`} />
+                <div className={[s.skel, s.skelName].join(' ')} />
+                <div className={[s.skel, s.skelMeta].join(' ')} />
               </div>
             </div>
           </td>
-          <td><div className={`${s.skel} ${s.skelSm}`} /></td>
-          <td><div className={`${s.skel} ${s.skelBar}`} /></td>
+          <td><div className={[s.skel, s.skelSm].join(' ')} /></td>
+          <td><div className={[s.skel, s.skelBar].join(' ')} /></td>
         </tr>
       ))}
     </>
@@ -152,7 +186,6 @@ export function LeaderboardPage() {
       })
       .catch(err => {
         if (isAbortError(err) || ctrl.signal.aborted) return
-        // при ошибке — просто пустой список, не ломаем страницу
         setEntries([])
       })
       .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
@@ -165,9 +198,7 @@ export function LeaderboardPage() {
     return () => ctrl.abort()
   }, [period, load])
 
-  const top3    = entries.slice(0, 3)
-  const rest    = entries.slice(3)
-  const maxXp   = entries[0]?.total_xp ?? 1
+  const top3     = entries.slice(0, 3)
   const selfRank = entries.find(e => e.user_id === currentUserId)
 
   const formattedAt = updatedAt
@@ -177,28 +208,26 @@ export function LeaderboardPage() {
   return (
     <div className={s.page}>
       {/* header */}
-      <header className={s.pageHeader}>
+      <div className={s.pageHeader}>
         <div>
           <h1 className={s.pageTitle}>Рейтинг</h1>
-          <p className={s.pageSub}>
-            {selfRank
-              ? `Ваша позиция: #${selfRank.rank} · ${selfRank.total_xp.toLocaleString()} XP`
-              : 'Выполняй квесты, чтобы попасть в топ'}
-          </p>
+          {selfRank && (
+            <p className={s.pageSub}>
+              Ваша позиция: #{selfRank.rank} · {selfRank.total_xp.toLocaleString()} XP
+            </p>
+          )}
         </div>
         {formattedAt && (
           <span className={s.updatedAt}>обновлено в {formattedAt}</span>
         )}
-      </header>
+      </div>
 
       {/* period switcher */}
-      <div className={s.periodSwitcher} role="tablist" aria-label="Период рейтинга">
+      <div className={s.periodSwitcher}>
         {(Object.keys(PERIOD_LABELS) as LeaderboardPeriod[]).map(p => (
           <button
             key={p}
-            role="tab"
-            aria-selected={period === p}
-            className={`${s.periodBtn} ${period === p ? s.periodBtnActive : ''}`}
+            className={[s.periodBtn, period === p ? s.periodBtnActive : ''].join(' ')}
             onClick={() => setPeriod(p)}
           >
             {PERIOD_LABELS[p]}
@@ -208,20 +237,20 @@ export function LeaderboardPage() {
 
       {/* podium */}
       {!loading && top3.length >= 3 && (
-        <section className={s.podiumSection} aria-label="Тройка лидеров">
+        <div className={s.podiumSection}>
           {top3.map(e => (
             <PodiumCard key={e.user_id} entry={e} isSelf={e.user_id === currentUserId} />
           ))}
-        </section>
+        </div>
       )}
 
       {/* table */}
-      <section className={s.tableSection}>
+      <div className={s.tableSection}>
         <table className={s.table}>
           <thead>
             <tr>
               <th className={s.thRank}>#</th>
-              <th className={s.thPlayer}>Игрок</th>
+              <th>Игрок</th>
               <th className={s.thLevel}>Ур.</th>
               <th className={s.thXP}>XP</th>
             </tr>
@@ -230,29 +259,30 @@ export function LeaderboardPage() {
             {loading
               ? <SkeletonRows />
               : entries.length > 0
-                ? entries.map(e => (
-                    <TableRow
-                      key={e.user_id}
-                      entry={e}
-                      isSelf={e.user_id === currentUserId}
-                      maxXp={maxXp}
-                    />
-                  ))
-                : (
-                  <tr>
-                    <td colSpan={4}>
-                      <div className={s.empty}>
-                        <span className={s.emptyIcon}>🏆</span>
-                        <p className={s.emptyTitle}>Рейтинг пока пуст</p>
-                        <p className={s.emptyHint}>Первый выполненный квест поставит тебя на первое место!</p>
+              ? entries.map(e => (
+                  <TableRow
+                    key={e.user_id}
+                    entry={e}
+                    isSelf={e.user_id === currentUserId}
+                  />
+                ))
+              : (
+                <tr>
+                  <td colSpan={4}>
+                    <div className={s.empty}>
+                      <div className={s.emptyIcon}>🏆</div>
+                      <div className={s.emptyTitle}>Рейтинг пока пуст</div>
+                      <div className={s.emptyHint}>
+                        Первый выполненный квест поставит тебя на первое место!
                       </div>
-                    </td>
-                  </tr>
-                )
+                    </div>
+                  </td>
+                </tr>
+              )
             }
           </tbody>
         </table>
-      </section>
+      </div>
     </div>
   )
 }
