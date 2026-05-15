@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { api } from './axios'
 
 export type QuestType = 'personal' | 'team' | 'skill'
@@ -46,12 +47,15 @@ export interface QuestsListResponse {
 
 export const questsApi = {
   /** Все доступные квесты (пагинация + фильтры) */
-  getAll: (params?: { page?: number; per_page?: number; quest_type?: string; difficulty?: string }) =>
-    api.get<QuestsListResponse>('/quests', { params }).then(r => r.data),
+  getAll: (
+    params?: { page?: number; per_page?: number; quest_type?: string; difficulty?: string },
+    signal?: AbortSignal,
+  ) =>
+    api.get<QuestsListResponse>('/quests', { params, signal }).then(r => r.data),
 
-  /** Квесты текущего пользователя (принятые / в процессе) */
-  getMy: () =>
-    api.get<UserQuest[]>('/quests/my').then(r => r.data),
+  /** Квесты текущего пользователя */
+  getMy: (signal?: AbortSignal) =>
+    api.get<UserQuest[]>('/quests/my', { signal }).then(r => r.data),
 
   /** Принять квест */
   accept: (questId: string) =>
@@ -60,4 +64,12 @@ export const questsApi = {
   /** Завершить квест */
   complete: (questId: string) =>
     api.post(`/quests/${questId}/complete`).then(r => r.data),
+}
+
+/**
+ * Возвращает true если ошибка является отменой AbortController-а
+ * (например в StrictMode при двойном монтировании)
+ */
+export function isAbortError(err: unknown): boolean {
+  return axios.isCancel(err) || (err instanceof DOMException && err.name === 'AbortError')
 }

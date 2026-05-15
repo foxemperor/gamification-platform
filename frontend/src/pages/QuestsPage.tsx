@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { questsApi, type Quest, type UserQuest } from '../api/quests'
+import { questsApi, isAbortError, type Quest, type UserQuest } from '../api/quests'
 import { useAppToast } from '../App'
 import s from './QuestsPage.module.css'
 
@@ -164,8 +164,6 @@ type Tab = 'catalog' | 'my'
 
 export function QuestsPage() {
   const toast = useAppToast()
-  // Стабильный ref — toast не попадает в deps useCallback,
-  // иначе каждый ре-рендер пересоздаёт loadMy/loadCatalog → двойной эффект
   const toastRef = useRef(toast)
   useEffect(() => { toastRef.current = toast }, [toast])
 
@@ -179,12 +177,10 @@ export function QuestsPage() {
   const [accepting, setAccepting]           = useState<string | null>(null)
 
   // ── мои квесты ──
-  const [myQuests, setMyQuests]   = useState<UserQuest[]>([])
-  const [myLoading, setMyLoading] = useState(true)
+  const [myQuests, setMyQuests]     = useState<UserQuest[]>([])
+  const [myLoading, setMyLoading]   = useState(true)
   const [completing, setCompleting] = useState<string | null>(null)
 
-  // Загрузка каталога — AbortController отменяет запрос при размонтировании
-  // или при изменении фильтров (StrictMode дважды монтирует → первый abort)
   const loadCatalog = useCallback(() => {
     setCatalogLoading(true)
     const ctrl = new AbortController()
@@ -199,16 +195,15 @@ export function QuestsPage() {
         setQuests(res.items)
       })
       .catch(err => {
-        if (ctrl.signal.aborted) return
+        // Отменённый запрос (StrictMode, навигация, unmount) — молчим
+        if (isAbortError(err) || ctrl.signal.aborted) return
         toastRef.current('Не удалось загрузить квесты', 'error')
       })
       .finally(() => { if (!ctrl.signal.aborted) setCatalogLoading(false) })
 
     return ctrl
-  }, [filterType, filterDiff])  // toast намеренно исключён — используем ref
+  }, [filterType, filterDiff])
 
-  // Загрузка «Мои квесты»
-  // 404 — нормальная ситуация (у пользователя просто нет квестов), не ошибка
   const loadMy = useCallback(() => {
     setMyLoading(true)
     const ctrl = new AbortController()
@@ -220,19 +215,17 @@ export function QuestsPage() {
         setMyQuests(Array.isArray(list) ? list : [])
       })
       .catch(err => {
-        if (ctrl.signal.aborted) return
-        if (err?.response?.status === 404) {
-          setMyQuests([])
-          return
-        }
+        // Отменённый запрос (StrictMode abort) — молчим
+        if (isAbortError(err) || ctrl.signal.aborted) return
+        // 404 = у пользователя просто нет квестов — не ошибка
+        if (err?.response?.status === 404) { setMyQuests([]); return }
         toastRef.current('Не удалось загрузить ваши квесты', 'error')
       })
       .finally(() => { if (!ctrl.signal.aborted) setMyLoading(false) })
 
     return ctrl
-  }, [])  // без зависимостей — функция стабильна
+  }, [])
 
-  // Монтирование: запускаем оба запроса, cleanup отменяет их
   useEffect(() => {
     const c = loadCatalog()
     return () => c.abort()
@@ -243,7 +236,6 @@ export function QuestsPage() {
     return () => c.abort()
   }, [loadMy])
 
-  // Принять квест
   const handleAccept = async (questId: string) => {
     setAccepting(questId)
     try {
@@ -258,7 +250,6 @@ export function QuestsPage() {
     }
   }
 
-  // Завершить квест
   const handleComplete = async (userQuestId: string) => {
     setCompleting(userQuestId)
     try {
@@ -277,7 +268,6 @@ export function QuestsPage() {
 
   return (
     <div className={s.page}>
-      {/* Заголовок */}
       <header className={s.pageHeader}>
         <div>
           <h1 className={s.pageTitle}>Квесты</h1>
@@ -288,7 +278,6 @@ export function QuestsPage() {
         )}
       </header>
 
-      {/* Табы */}
       <div className={s.tabs} role="tablist">
         <button
           role="tab"
@@ -311,7 +300,6 @@ export function QuestsPage() {
         </button>
       </div>
 
-      {/* Фильтры (только для каталога) */}
       {tab === 'catalog' && (
         <div className={s.filters}>
           <select
@@ -347,7 +335,6 @@ export function QuestsPage() {
         </div>
       )}
 
-      {/* Каталог */}
       {tab === 'catalog' && (
         catalogLoading ? (
           <div className={s.grid}>
@@ -373,7 +360,6 @@ export function QuestsPage() {
         )
       )}
 
-      {/* Мои квесты */}
       {tab === 'my' && (
         myLoading ? (
           <div className={s.grid}>
