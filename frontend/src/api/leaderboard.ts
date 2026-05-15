@@ -14,6 +14,10 @@ export interface LeaderboardEntry {
   total_coins: number
   quests_completed: number
   badges_count: number
+  // профиль (добавлены поля, которые возвращает бэкенд)
+  department: string | null
+  project_name: string | null
+  position: string | null
 }
 
 export interface LeaderboardResponse {
