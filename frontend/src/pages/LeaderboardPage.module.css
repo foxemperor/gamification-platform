@@ -1,8 +1,9 @@
 /* ═══════════════════════════════════════════
    LeaderboardPage.module.css
    Токены из tokens.css: --bg, --surface, --surface-alt,
-   --surface-high, --border, --primary, --text, --text-muted,
-   --text-faint, --font-d, --font-b, --shadow-card, --reward
+   --surface-high, --surface-dynamic, --border, --primary,
+   --text, --text-muted, --text-faint, --font-d, --font-b,
+   --shadow-card, --reward
 ═══════════════════════════════════════════ */
 
 /* ──── page layout ──── */
@@ -232,7 +233,7 @@
 
 .thRank  { width: 52px;  text-align: center; }
 .thLevel { width: 72px;  text-align: center; }
-.thXP    { width: 200px; }
+.thXP    { width: 180px; }
 
 /* rows */
 .row {
@@ -292,7 +293,7 @@
 .playerInfo {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -304,7 +305,7 @@
   text-overflow: ellipsis;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .selfBadge {
@@ -318,9 +319,63 @@
   flex-shrink: 0;
 }
 
+/* position label */
+.positionLabel {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 999px;
+  line-height: 1.6;
+  flex-shrink: 0;
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* meta line: квесты · бейджи */
 .playerMeta {
   font-size: 0.75rem;
   color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* department / project chips */
+.chipRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.6;
+}
+
+.chipIcon {
+  font-size: 0.65rem;
+  flex-shrink: 0;
+  opacity: 0.7;
 }
 
 /* level cell */
@@ -341,11 +396,13 @@
   padding: 0 6px;
 }
 
-/* xp cell */
+/* ──── XP cell ──── */
+.tdXP { width: 180px; }
+
 .xpCell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .xpValue {
@@ -355,11 +412,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+/*
+  XP progress bar.
+  Трек: используем --surface-dynamic (самый контрастный нейтральный
+  слой) — виден и на тёмной, и на светлой теме.
+  На случай если токен не определён — fallback rgba.
+*/
 .xpTrack {
-  height: 4px;
+  height: 5px;
   border-radius: 999px;
-  background: var(--surface-high);
+  background: var(--surface-dynamic, rgba(120,120,120,.35));
   overflow: hidden;
+  /* тонкая внутренняя тень делает «канавку» заметнее */
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.25);
 }
 
 .xpFill {
@@ -367,6 +432,8 @@
   background: var(--primary);
   border-radius: 999px;
   transition: width 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* лёгкое свечение — заполненная часть выделяется на любом фоне */
+  box-shadow: 0 0 4px var(--primary-glow, rgba(34,211,238,.45));
 }
 
 /* ──── empty state ──── */
@@ -409,7 +476,8 @@
 
 /* ──── responsive ──── */
 @media (max-width: 600px) {
+  .chipRow     { display: none; }
   .xpTrack     { display: none; }
-  .thXP .tdXP  { width: auto; }
+  .thXP, .tdXP { width: auto; }
   .table thead .thXP { display: none; }
 }

@@ -29,10 +29,6 @@ function initials(e: LeaderboardEntry): string {
  *   xp_for_level(n) = 100 * n * (n + 1) / 2
  * Суммарный XP для начала уровня n (1-based):
  *   threshold(n) = 100 * (n-1) * n / 2
- *
- * Прогресс внутри текущего уровня:
- *   xp_in_level   = total_xp - threshold(level)
- *   xp_for_level  = threshold(level + 1) - threshold(level)
  */
 function levelThreshold(level: number): number {
   return 100 * (level - 1) * level / 2
@@ -47,18 +43,10 @@ function xpBarWidth(totalXp: number, level: number): number {
   return Math.min(100, Math.max(4, Math.round((progress / range) * 100)))
 }
 
-// ─────────────────── podium (top-3) ───────────────────
+// ─────────────────── podium ───────────────────
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
-/**
- * Пьедестал: визуальный порядок  2 – 1 – 3  (серебро слева, золото в центре, бронза справа).
- * CSS: .order1 = левая колонка, .order2 = центр, .order3 = правая.
- *
- * rank 1 → центр  → order2
- * rank 2 → левая  → order1
- * rank 3 → правая → order3
- */
 function podiumVisualOrder(rank: number): string {
   if (rank === 1) return s.order2
   if (rank === 2) return s.order1
@@ -91,15 +79,23 @@ function PodiumCard({ entry, isSelf }: { entry: LeaderboardEntry; isSelf: boolea
   )
 }
 
+// ─────────────────── chips ───────────────────
+
+function PlayerChips({ entry }: { entry: LeaderboardEntry }) {
+  const dept    = entry.department
+  const project = entry.project
+  if (!dept && !project) return null
+  return (
+    <div className={s.chipRow}>
+      {dept    && <span className={s.chip}><span className={s.chipIcon}>🏢</span>{dept}</span>}
+      {project && <span className={s.chip}><span className={s.chipIcon}>📁</span>{project}</span>}
+    </div>
+  )
+}
+
 // ─────────────────── table row ───────────────────
 
-function TableRow({
-  entry,
-  isSelf,
-}: {
-  entry: LeaderboardEntry
-  isSelf: boolean
-}) {
+function TableRow({ entry, isSelf }: { entry: LeaderboardEntry; isSelf: boolean }) {
   const barWidth = xpBarWidth(entry.total_xp, entry.level)
 
   return (
@@ -116,7 +112,11 @@ function TableRow({
             <div className={s.playerName}>
               {displayName(entry)}
               {isSelf && <span className={s.selfBadge}>Вы</span>}
+              {entry.position && (
+                <span className={s.positionLabel}>{entry.position}</span>
+              )}
             </div>
+            <PlayerChips entry={entry} />
             <div className={s.playerMeta}>
               {entry.quests_completed} квестов · {entry.badges_count} бейджей
             </div>
