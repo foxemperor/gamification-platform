@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthPage }         from './pages/AuthPage'
 import { OverviewPage }     from './pages/OverviewPage'
+import { QuestsPage }       from './pages/QuestsPage'
 import { AdminUsersPage }   from './pages/admin/AdminUsersPage'
 import { AdminOverviewPage } from './pages/admin/AdminOverviewPage'
 import { AdminQuestsPage }  from './pages/admin/AdminQuestsPage'
@@ -42,8 +43,6 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 
-  // Refresh user on cold start when token persisted (handles role/superuser changes,
-  // and verifies token is still valid).
   useEffect(() => {
     if (!accessToken) return
     let cancelled = false
@@ -86,8 +85,8 @@ export default function App() {
 
         {/* Защищённые */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          <Route index             element={<OverviewPage />} />
-          <Route path="/quests"       element={<ComingSoon title="Квесты" />} />
+          <Route index              element={<OverviewPage />} />
+          <Route path="/quests"     element={<QuestsPage />} />
           <Route path="/leaderboard"  element={<ComingSoon title="Рейтинг" />} />
           <Route path="/achievements" element={<ComingSoon title="Достижения" />} />
           <Route path="/members"      element={<ComingSoon title="Участники" />} />
