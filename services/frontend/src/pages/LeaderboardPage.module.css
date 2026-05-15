@@ -1,0 +1,506 @@
+/* ═══════════════════════════════════════════
+   LeaderboardPage.module.css
+   Токены из tokens.css: --bg, --surface, --surface-alt,
+   --surface-high, --border, --primary, --text, --text-muted,
+   --text-faint, --font-d, --font-b, --shadow-card, --reward
+═══════════════════════════════════════════ */
+
+/* ──── page layout ──── */
+.page {
+  padding: 32px;
+  max-width: 1100px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .page { padding: 16px; gap: 16px; }
+}
+
+/* ──── header ──── */
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pageTitle {
+  font-family: var(--font-d);
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+
+.pageSub {
+  font-family: var(--font-b);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.updatedAt {
+  font-family: var(--font-b);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 999px;
+  align-self: center;
+  white-space: nowrap;
+}
+
+/* ──── controls row (period + project filter) ──── */
+.controlsRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* ──── period switcher ──── */
+.periodSwitcher {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  width: fit-content;
+}
+
+.periodBtn {
+  font-size: 0.875rem;
+  font-family: var(--font-b);
+  padding: 6px 16px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition: background 180ms ease, color 180ms ease;
+  cursor: pointer;
+  border: none;
+  background: none;
+  line-height: 1.4;
+}
+
+.periodBtn:hover {
+  color: var(--text);
+  background: var(--surface-alt);
+}
+
+.periodBtnActive {
+  background: var(--primary);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.periodBtnActive:hover {
+  opacity: 0.9;
+  color: var(--bg);
+}
+
+/* ──── project filter ──── */
+.projectFilterWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.projectFilterLabel {
+  font-family: var(--font-b);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.projectSelect {
+  font-family: var(--font-b);
+  font-size: 0.875rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  /* стрелка вниз */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  transition: border-color 160ms ease;
+}
+
+.projectSelect:hover,
+.projectSelect:focus {
+  border-color: var(--primary);
+}
+
+/* ══════════════════════════════════════
+   PODIUM
+══════════════════════════════════════ */
+.podiumSection {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px 16px 0;
+}
+
+.podiumCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  min-width: 120px;
+}
+
+.order1 { order: 1; }
+.order2 { order: 2; }
+.order3 { order: 3; }
+
+.podiumAvatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary-dim, rgba(34,211,238,.15));
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  font-family: var(--font-d);
+  border: 2px solid var(--border);
+  transition: transform 200ms ease;
+}
+
+.podiumRank1 .podiumAvatar {
+  width: 64px;
+  height: 64px;
+  font-size: 1.125rem;
+  border-color: var(--reward, #FBBF24);
+  box-shadow: 0 0 0 3px rgba(251,191,36,.20);
+}
+.podiumRank2 .podiumAvatar { border-color: var(--text-muted); }
+.podiumRank3 .podiumAvatar { border-color: var(--streak, #F97316); }
+
+.podiumSelf .podiumAvatar {
+  border-color: var(--primary);
+  box-shadow: var(--primary-glow);
+}
+
+.podiumMedal {
+  font-size: 1.4rem;
+  line-height: 1;
+  margin-top: -4px;
+}
+
+.podiumName {
+  font-family: var(--font-b);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podiumLevel {
+  font-family: var(--font-b);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.podiumXP {
+  font-family: var(--font-b);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.podiumBase {
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  margin-top: 8px;
+}
+
+.h1 { height: 80px; background: linear-gradient(180deg, rgba(251,191,36,.20) 0%, transparent 100%); border-top: 2px solid rgba(251,191,36,.35); }
+.h2 { height: 56px; background: linear-gradient(180deg, rgba(156,163,175,.15) 0%, transparent 100%); border-top: 2px solid rgba(156,163,175,.25); }
+.h3 { height: 40px; background: linear-gradient(180deg, rgba(249,115,22,.15) 0%, transparent 100%); border-top: 2px solid rgba(249,115,22,.25); }
+
+@media (max-width: 600px) {
+  .podiumSection { gap: 8px; }
+  .podiumCard { min-width: 90px; }
+  .podiumName { font-size: 0.75rem; }
+}
+
+/* ══════════════════════════════════════
+   TABLE
+══════════════════════════════════════ */
+.tableSection {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-b);
+  font-size: 0.875rem;
+}
+
+.table thead th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+}
+
+.thRank { width: 52px; text-align: center; }
+.thLevel { width: 72px; text-align: center; }
+.thXp { width: 200px; }
+
+/* rows */
+.row {
+  border-bottom: 1px solid var(--border);
+  transition: background 140ms ease;
+}
+
+.row:last-child { border-bottom: none; }
+.row:hover { background: var(--surface-alt); }
+
+.rowSelf {
+  background: var(--primary-dim, rgba(34,211,238,.06));
+}
+.rowSelf:hover {
+  background: rgba(34,211,238,.10);
+}
+
+.row td {
+  padding: 12px 16px;
+  vertical-align: middle;
+}
+
+/* rank cell */
+.tdRank { text-align: center; }
+.medal { font-size: 1.2rem; }
+.rankNum {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* player cell */
+.playerCell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  background: var(--primary-dim, rgba(34,211,238,.15));
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  font-family: var(--font-d);
+  border: 1px solid var(--border);
+}
+
+.playerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.playerName {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selfBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--primary);
+  color: var(--bg);
+  padding: 1px 6px;
+  border-radius: 999px;
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+
+.playerMeta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ──── chips row (dept / project / position) ──── */
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+/* base chip */
+.chipDept,
+.chipProject,
+.chipPosition {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+/* отдел — нейтральный серый */
+.chipDept {
+  background: rgba(255,255,255,.08);
+  color: var(--text-muted);
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+/* проект — акцентный (primary с прозрачностью) */
+.chipProject {
+  background: rgba(34,211,238,.12);
+  color: var(--primary);
+  border: 1px solid rgba(34,211,238,.25);
+}
+
+/* должность — тонкий нейтральный */
+.chipPosition {
+  background: transparent;
+  color: var(--text-faint, #6b7280);
+  border: 1px solid rgba(255,255,255,.10);
+}
+
+/* ──── level cell ──── */
+.tdLevel { text-align: center; }
+.levelBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 22px;
+  background: var(--surface-high);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  padding: 0 6px;
+}
+
+/* ──── xp cell ──── */
+.tdXp { vertical-align: middle; }
+.xpCell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.xpValue {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Track с заметным фоном — проблема тёмного фона решена */
+.xpTrack {
+  height: 5px;
+  border-radius: 999px;
+  /* светлее surface-high: полупрозрачный белый поверх любого фона */
+  background: rgba(255,255,255,.18);
+  overflow: hidden;
+  min-width: 120px;
+}
+
+.xpFill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+  transition: width 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ──── empty state ──── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 64px 32px;
+  gap: 8px;
+}
+
+.emptyIcon { font-size: 2.5rem; }
+.emptyTitle { font-family: var(--font-d); font-size: 1rem; font-weight: 600; color: var(--text); }
+.emptyHint { font-family: var(--font-b); font-size: 0.875rem; color: var(--text-muted); max-width: 36ch; }
+
+/* ──── skeleton ──── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skel {
+  background: linear-gradient(
+    90deg,
+    var(--surface-alt) 25%,
+    var(--surface-high) 50%,
+    var(--surface-alt) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.skelSm     { width: 24px;  height: 20px; }
+.skelAvatar { width: 36px;  height: 36px; border-radius: 50%; flex-shrink: 0; }
+.skelName   { width: 120px; height: 14px; margin-bottom: 4px; }
+.skelMeta   { width: 80px;  height: 10px; }
+.skelBar    { width: 140px; height: 20px; }
+
+/* ──── responsive ──── */
+@media (max-width: 600px) {
+  .xpTrack  { display: none; }
+  .thXp     { display: none; }
+  .chipPosition { display: none; }
+}

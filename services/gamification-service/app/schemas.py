@@ -312,12 +312,16 @@ class LeaderboardEntryResponse(BaseModel):
     rank: int
     user_id: str
     username: str
-    full_name: Optional[str]
+    full_name: Optional[str] = None
     total_xp: int
     level: int
     total_coins: int
     quests_completed: int
     badges_count: int
+    # Поля из auth.users — отдел, проект, должность
+    department: Optional[str] = None
+    project_name: Optional[str] = None
+    position: Optional[str] = None
 
 
 class LeaderboardResponse(BaseModel):
