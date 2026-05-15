@@ -8,7 +8,7 @@ Gamification Service — роутер лидерборда
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -26,6 +26,21 @@ def _calc_level(total_xp: int) -> int:
         xp_acc += xp_required_for_level(level)
         level += 1
     return level
+
+
+async def _fetch_usernames(db: AsyncSession, user_ids: list[str]) -> dict[str, tuple[str, str | None]]:
+    """
+    Возвращает {user_id: (username, full_name)} из схемы auth.users.
+    Один батч-запрос вместо N+1. Fallback — player_{uid[:8]}.
+    """
+    if not user_ids:
+        return {}
+    result = await db.execute(
+        text("SELECT id::text, username, full_name FROM auth.users WHERE id::text = ANY(:ids)"),
+        {"ids": user_ids},
+    )
+    rows = result.fetchall()
+    return {row[0]: (row[1], row[2]) for row in rows}
 
 
 @router.get("/xp", response_model=LeaderboardResponse, summary="Топ игроков по XP")
@@ -55,10 +70,16 @@ async def leaderboard_xp(
 
     rows = (await db.execute(q)).all()
 
+    # Батч-запрос имён из auth.users — один запрос на всех
+    user_ids = [row.user_id for row in rows]
+    usernames = await _fetch_usernames(db, user_ids)
+
     entries = []
     for rank, row in enumerate(rows, start=1):
         uid = row.user_id
         total_xp = max(row.total_xp, 0)
+
+        username, full_name = usernames.get(uid, (f"player_{uid[:8]}", None))
 
         quests_done = await db.scalar(
             select(func.count(UserQuest.id))
@@ -74,8 +95,8 @@ async def leaderboard_xp(
         entries.append(LeaderboardEntryResponse(
             rank=rank,
             user_id=uid,
-            username=f"player_{uid[:8]}",  # полное имя будет через Auth Service
-            full_name=None,
+            username=username,
+            full_name=full_name,
             total_xp=total_xp,
             level=_calc_level(total_xp),
             total_coins=0,
