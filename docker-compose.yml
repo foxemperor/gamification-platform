@@ -230,6 +230,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Отключаем healthcheck из базового образа — у Celery нет HTTP-порта
+    healthcheck:
+      test: ["NONE"]
     command: celery -A app.celery_app worker --loglevel=info
     restart: unless-stopped
 
@@ -258,6 +261,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Отключаем healthcheck из базового образа — у Celery нет HTTP-порта
+    healthcheck:
+      test: ["NONE"]
     command: celery -A app.celery_app beat --loglevel=info
     restart: unless-stopped
 
