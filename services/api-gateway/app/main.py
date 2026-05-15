@@ -27,6 +27,9 @@ from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.routers import health, auth, users, quests, leaderboard, integrations
 from app.celery_app import process_gamification_event
+from app.routers import profile
+from app.routers import auth as auth_router
+from app.routers import admin
 
 import logging
 import sys
@@ -176,6 +179,7 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 
 # РџРѕР»СЊР·РѕРІР°С‚РµР»Рё
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 
 # РљРІРµСЃС‚С‹ Рё РіРµР№РјРёС„РёРєР°С†РёСЏ
 app.include_router(quests.router, prefix="/api/v1/quests", tags=["Quests"])
@@ -185,6 +189,8 @@ app.include_router(leaderboard.router, prefix="/api/v1/leaderboard", tags=["Lead
 
 # РРЅС‚РµРіСЂР°С†РёРё (GitHub, Jira, Slack)
 app.include_router(integrations.router, prefix="/api/v1/integrations", tags=["Integrations"])
+
+app.include_router(profile.router, prefix="/api/v1/profile", tags=["Profile"]) 
 
 # ===================================
 # CELERY ENDPOINT
