@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { questsApi, type Quest, type UserQuest } from '../api/quests'
 import { useAppToast } from '../App'
 import s from './QuestsPage.module.css'
 
-// ────────────── константы ──────────────
+// ─────────────────── константы ───────────────────
 
 const TYPE_LABELS: Record<string, string> = {
   personal: 'Личный',
@@ -29,7 +29,7 @@ const TYPE_ICON: Record<string, string> = {
   skill:    '📚',
 }
 
-// ────────────── карточка каталога ──────────────
+// ─────────────────── карточка каталога ───────────────────
 
 function CatalogCard({
   quest,
@@ -76,7 +76,7 @@ function CatalogCard({
   )
 }
 
-// ────────────── карточка "Мои квесты" ──────────────
+// ─────────────────── карточка "Мои квесты" ───────────────────
 
 const STATUS_LABEL: Record<string, string> = {
   in_progress: 'В процессе',
@@ -152,57 +152,96 @@ function MyQuestCard({
   )
 }
 
-// ────────────── skeleton ──────────────
+// ─────────────────── skeleton ───────────────────
 
 function SkeletonCard() {
   return <div className={`${s.card} ${s.skeleton}`} style={{ minHeight: 180 }} />
 }
 
-// ────────────── главная страница ──────────────
+// ─────────────────── главная страница ───────────────────
 
 type Tab = 'catalog' | 'my'
 
 export function QuestsPage() {
   const toast = useAppToast()
+  // Стабильный ref — toast не попадает в deps useCallback,
+  // иначе каждый ре-рендер пересоздаёт loadMy/loadCatalog → двойной эффект
+  const toastRef = useRef(toast)
+  useEffect(() => { toastRef.current = toast }, [toast])
 
   const [tab, setTab] = useState<Tab>('catalog')
 
   // ── каталог ──
-  const [quests, setQuests]         = useState<Quest[]>([])
+  const [quests, setQuests]                 = useState<Quest[]>([])
   const [catalogLoading, setCatalogLoading] = useState(true)
-  const [filterType, setFilterType] = useState<string>('')
-  const [filterDiff, setFilterDiff] = useState<string>('')
-  const [accepting, setAccepting]   = useState<string | null>(null)
+  const [filterType, setFilterType]         = useState<string>('')
+  const [filterDiff, setFilterDiff]         = useState<string>('')
+  const [accepting, setAccepting]           = useState<string | null>(null)
 
   // ── мои квесты ──
-  const [myQuests, setMyQuests]     = useState<UserQuest[]>([])
-  const [myLoading, setMyLoading]   = useState(true)
+  const [myQuests, setMyQuests]   = useState<UserQuest[]>([])
+  const [myLoading, setMyLoading] = useState(true)
   const [completing, setCompleting] = useState<string | null>(null)
 
-  // Загрузка каталога
+  // Загрузка каталога — AbortController отменяет запрос при размонтировании
+  // или при изменении фильтров (StrictMode дважды монтирует → первый abort)
   const loadCatalog = useCallback(() => {
     setCatalogLoading(true)
-    questsApi.getAll({
-      quest_type: filterType || undefined,
-      difficulty: filterDiff || undefined,
-      per_page: 50,
-    })
-      .then(res => setQuests(res.items))
-      .catch(() => toast('Не удалось загрузить квесты', 'error'))
-      .finally(() => setCatalogLoading(false))
-  }, [filterType, filterDiff, toast])
+    const ctrl = new AbortController()
 
-  // Загрузка моих квестов
+    questsApi
+      .getAll(
+        { quest_type: filterType || undefined, difficulty: filterDiff || undefined, per_page: 50 },
+        ctrl.signal,
+      )
+      .then(res => {
+        if (ctrl.signal.aborted) return
+        setQuests(res.items)
+      })
+      .catch(err => {
+        if (ctrl.signal.aborted) return
+        toastRef.current('Не удалось загрузить квесты', 'error')
+      })
+      .finally(() => { if (!ctrl.signal.aborted) setCatalogLoading(false) })
+
+    return ctrl
+  }, [filterType, filterDiff])  // toast намеренно исключён — используем ref
+
+  // Загрузка «Мои квесты»
+  // 404 — нормальная ситуация (у пользователя просто нет квестов), не ошибка
   const loadMy = useCallback(() => {
     setMyLoading(true)
-    questsApi.getMy()
-      .then(list => setMyQuests(Array.isArray(list) ? list : []))
-      .catch(() => toast('Не удалось загрузить ваши квесты', 'error'))
-      .finally(() => setMyLoading(false))
-  }, [toast])
+    const ctrl = new AbortController()
 
-  useEffect(() => { loadCatalog() }, [loadCatalog])
-  useEffect(() => { loadMy() }, [loadMy])
+    questsApi
+      .getMy(ctrl.signal)
+      .then(list => {
+        if (ctrl.signal.aborted) return
+        setMyQuests(Array.isArray(list) ? list : [])
+      })
+      .catch(err => {
+        if (ctrl.signal.aborted) return
+        if (err?.response?.status === 404) {
+          setMyQuests([])
+          return
+        }
+        toastRef.current('Не удалось загрузить ваши квесты', 'error')
+      })
+      .finally(() => { if (!ctrl.signal.aborted) setMyLoading(false) })
+
+    return ctrl
+  }, [])  // без зависимостей — функция стабильна
+
+  // Монтирование: запускаем оба запроса, cleanup отменяет их
+  useEffect(() => {
+    const c = loadCatalog()
+    return () => c.abort()
+  }, [loadCatalog])
+
+  useEffect(() => {
+    const c = loadMy()
+    return () => c.abort()
+  }, [loadMy])
 
   // Принять квест
   const handleAccept = async (questId: string) => {
