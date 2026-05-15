@@ -1,21 +1,22 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { AuthPage }         from './pages/AuthPage'
-import { OverviewPage }     from './pages/OverviewPage'
-import { QuestsPage }       from './pages/QuestsPage'
-import { AdminUsersPage }   from './pages/admin/AdminUsersPage'
-import { AdminOverviewPage } from './pages/admin/AdminOverviewPage'
-import { AdminQuestsPage }  from './pages/admin/AdminQuestsPage'
-import { AdminBadgesPage }  from './pages/admin/AdminBadgesPage'
-import { AdminXPPage }      from './pages/admin/AdminXPPage'
+import { AuthPage }            from './pages/AuthPage'
+import { OverviewPage }        from './pages/OverviewPage'
+import { QuestsPage }          from './pages/QuestsPage'
+import { LeaderboardPage }     from './pages/LeaderboardPage'
+import { AdminUsersPage }      from './pages/admin/AdminUsersPage'
+import { AdminOverviewPage }   from './pages/admin/AdminOverviewPage'
+import { AdminQuestsPage }     from './pages/admin/AdminQuestsPage'
+import { AdminBadgesPage }     from './pages/admin/AdminBadgesPage'
+import { AdminXPPage }         from './pages/admin/AdminXPPage'
 import { AdminMonitoringPage } from './pages/admin/AdminMonitoringPage'
-import { AppLayout }        from './layouts/AppLayout'
-import { ProtectedRoute }   from './components/ProtectedRoute'
-import { AdminRoute }       from './components/AdminRoute'
-import { ToastContainer }   from './components/ui/Toast'
-import { useToast }         from './hooks/useToast'
-import { useThemeStore }    from './store/themeStore'
-import { useAuthStore }     from './store/authStore'
-import { authApi }          from './api/auth'
+import { AppLayout }           from './layouts/AppLayout'
+import { ProtectedRoute }      from './components/ProtectedRoute'
+import { AdminRoute }          from './components/AdminRoute'
+import { ToastContainer }      from './components/ui/Toast'
+import { useToast }            from './hooks/useToast'
+import { useThemeStore }       from './store/themeStore'
+import { useAuthStore }        from './store/authStore'
+import { authApi }             from './api/auth'
 import { useEffect, createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
 
@@ -36,8 +37,8 @@ function ToastProvider({ children }: { children: ReactNode }) {
 export default function App() {
   const { theme } = useThemeStore()
   const accessToken = useAuthStore((s) => s.accessToken)
-  const setUser    = useAuthStore((s) => s.setUser)
-  const logout     = useAuthStore((s) => s.logout)
+  const setUser     = useAuthStore((s) => s.setUser)
+  const logout      = useAuthStore((s) => s.logout)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -71,9 +72,7 @@ export default function App() {
         if (cancelled) return
         logout()
       })
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -85,21 +84,21 @@ export default function App() {
 
         {/* Защищённые */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          <Route index              element={<OverviewPage />} />
-          <Route path="/quests"     element={<QuestsPage />} />
-          <Route path="/leaderboard"  element={<ComingSoon title="Рейтинг" />} />
-          <Route path="/achievements" element={<ComingSoon title="Достижения" />} />
-          <Route path="/members"      element={<ComingSoon title="Участники" />} />
-          <Route path="/events"       element={<ComingSoon title="События" />} />
-          <Route path="/settings"     element={<ComingSoon title="Настройки" />} />
+          <Route index                 element={<OverviewPage />} />
+          <Route path="/quests"        element={<QuestsPage />} />
+          <Route path="/leaderboard"   element={<LeaderboardPage />} />
+          <Route path="/achievements"  element={<ComingSoon title="Достижения" />} />
+          <Route path="/members"       element={<ComingSoon title="Участники" />} />
+          <Route path="/events"        element={<ComingSoon title="События" />} />
+          <Route path="/settings"      element={<ComingSoon title="Настройки" />} />
 
           {/* Админ-панель */}
-          <Route path="/admin" element={<AdminRoute><AdminOverviewPage /></AdminRoute>} />
-          <Route path="/admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
-          <Route path="/admin/quests" element={<AdminRoute><AdminQuestsPage /></AdminRoute>} />
-          <Route path="/admin/badges" element={<AdminRoute><AdminBadgesPage /></AdminRoute>} />
-          <Route path="/admin/xp" element={<AdminRoute><AdminXPPage /></AdminRoute>} />
-          <Route path="/admin/monitoring" element={<AdminRoute><AdminMonitoringPage /></AdminRoute>} />
+          <Route path="/admin"             element={<AdminRoute><AdminOverviewPage /></AdminRoute>} />
+          <Route path="/admin/users"       element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+          <Route path="/admin/quests"      element={<AdminRoute><AdminQuestsPage /></AdminRoute>} />
+          <Route path="/admin/badges"      element={<AdminRoute><AdminBadgesPage /></AdminRoute>} />
+          <Route path="/admin/xp"          element={<AdminRoute><AdminXPPage /></AdminRoute>} />
+          <Route path="/admin/monitoring"  element={<AdminRoute><AdminMonitoringPage /></AdminRoute>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

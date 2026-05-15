@@ -1,0 +1,397 @@
+/* ═══════════════════════════════════════════
+   LeaderboardPage — CSS Module
+   ═══════════════════════════════════════════ */
+
+/* ── page layout ── */
+.page {
+  padding: var(--space-8) var(--space-8);
+  max-width: var(--content-wide);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+@media (max-width: 768px) {
+  .page { padding: var(--space-4) var(--space-4); }
+}
+
+/* ── header ── */
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.pageTitle {
+  font-family: var(--font-d);
+  font-size: var(--text-xl);
+  color: var(--text);
+  margin-bottom: var(--space-1);
+}
+
+.pageSub {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.updatedAt {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: var(--surface-offset);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  align-self: center;
+  white-space: nowrap;
+}
+
+/* ── period switcher ── */
+.periodSwitcher {
+  display: flex;
+  gap: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-1);
+  width: fit-content;
+}
+
+.periodBtn {
+  font-size: var(--text-sm);
+  font-family: var(--font-b);
+  padding: var(--space-2) var(--space-4);
+  border-radius: calc(var(--radius-lg) - var(--space-1));
+  color: var(--text-muted);
+  transition: background 180ms ease, color 180ms ease;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+.periodBtn:hover {
+  color: var(--text);
+  background: var(--surface-offset);
+}
+
+.periodBtnActive {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.periodBtnActive:hover {
+  background: var(--primary-hover);
+  color: #fff;
+}
+
+/* ══════════════════════════════════════
+   PODIUM
+══════════════════════════════════════ */
+.podiumSection {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-4) 0;
+}
+
+.podiumCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  position: relative;
+  min-width: 120px;
+}
+
+/* visual order: 2nd left, 1st center, 3rd right */
+.order1 { order: 1; }
+.order2 { order: 2; }
+.order3 { order: 3; }
+
+.podiumAvatar {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--text-base);
+  font-family: var(--font-d);
+  border: 2px solid var(--border);
+  transition: transform 200ms ease;
+}
+
+.podiumRank1 .podiumAvatar {
+  width: 64px;
+  height: 64px;
+  font-size: var(--text-lg);
+  border-color: var(--gold, #d4a017);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--gold, #d4a017) 20%, transparent);
+}
+.podiumRank2 .podiumAvatar { border-color: var(--text-muted); }
+.podiumRank3 .podiumAvatar { border-color: var(--warning, #b07a00); }
+
+.podiumSelf .podiumAvatar {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 25%, transparent);
+}
+
+.podiumMedal {
+  font-size: 1.4rem;
+  line-height: 1;
+  margin-top: calc(-1 * var(--space-1));
+}
+
+.podiumName {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podiumLevel {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.podiumXP {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* podium base platform */
+.podiumBase {
+  width: 100%;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  margin-top: var(--space-2);
+}
+
+.h1 { height: 80px; background: linear-gradient(180deg, color-mix(in oklab, var(--gold, #d4a017) 35%, var(--surface)) 0%, var(--surface-offset) 100%); }
+.h2 { height: 56px; background: linear-gradient(180deg, color-mix(in oklab, var(--text-muted) 20%, var(--surface)) 0%, var(--surface-offset) 100%); }
+.h3 { height: 40px; background: linear-gradient(180deg, color-mix(in oklab, var(--warning, #b07a00) 20%, var(--surface)) 0%, var(--surface-offset) 100%); }
+
+@media (max-width: 600px) {
+  .podiumSection { gap: var(--space-2); }
+  .podiumCard { min-width: 90px; }
+  .podiumName { font-size: var(--text-xs); }
+}
+
+/* ══════════════════════════════════════
+   TABLE
+══════════════════════════════════════ */
+.tableSection {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.table thead th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--surface-offset);
+  border-bottom: 1px solid var(--border);
+}
+
+.thRank  { width: 52px; text-align: center; }
+.thLevel { width: 72px; text-align: center; }
+.thXP    { width: 220px; }
+
+/* rows */
+.row {
+  border-bottom: 1px solid var(--divider);
+  transition: background 140ms ease;
+}
+
+.row:last-child { border-bottom: none; }
+.row:hover { background: var(--surface-offset); }
+
+.rowSelf {
+  background: color-mix(in oklab, var(--primary) 6%, var(--surface));
+}
+.rowSelf:hover {
+  background: color-mix(in oklab, var(--primary) 10%, var(--surface));
+}
+
+.row td {
+  padding: var(--space-3) var(--space-4);
+  vertical-align: middle;
+}
+
+/* rank cell */
+.tdRank { text-align: center; }
+.medal  { font-size: 1.2rem; }
+.rankNum {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* player cell */
+.playerCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--text-xs);
+  font-family: var(--font-d);
+}
+
+.playerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.playerName {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.selfBadge {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  background: var(--primary);
+  color: #fff;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  line-height: 1.6;
+}
+
+.playerMeta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* level cell */
+.tdLevel { text-align: center; }
+.levelBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  background: var(--surface-offset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  padding: 0 var(--space-2);
+}
+
+/* xp cell */
+.xpCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.xpValue {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.xpTrack {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--surface-offset);
+  overflow: hidden;
+}
+
+.xpFill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: var(--radius-full);
+  transition: width 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── empty state ── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-16) var(--space-8);
+  gap: var(--space-2);
+}
+
+.emptyIcon  { font-size: 2.5rem; }
+.emptyTitle { font-size: var(--text-base); font-weight: 600; color: var(--text); }
+.emptyHint  { font-size: var(--text-sm); color: var(--text-muted); max-width: 36ch; }
+
+/* ── skeleton ── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skel {
+  background: linear-gradient(
+    90deg,
+    var(--surface-offset) 25%,
+    var(--surface-dynamic, #e0deda) 50%,
+    var(--surface-offset) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skelSm     { width: 24px;  height: 20px; }
+.skelAvatar { width: 36px;  height: 36px; border-radius: var(--radius-full); flex-shrink: 0; }
+.skelName   { width: 120px; height: 14px; margin-bottom: 4px; }
+.skelMeta   { width: 80px;  height: 10px; }
+.skelBar    { width: 140px; height: 20px; }
+
+/* ── responsive: hide XP bar on small screens ── */
+@media (max-width: 600px) {
+  .xpTrack { display: none; }
+  .thXP, .tdXP { width: auto; }
+}
