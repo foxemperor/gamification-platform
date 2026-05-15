@@ -34,14 +34,14 @@ async def _proxy(request: Request, upstream_url: str) -> Response:
     except httpx.ConnectError:
         logger.error(f"auth-service unavailable: {upstream_url}")
         return Response(
-            content=b'{"error": true, "message": "auth-service недоступен"}',
+            content='{"error": true, "message": "auth-service недоступен"}',
             status_code=503,
             media_type="application/json",
         )
     except httpx.TimeoutException:
         logger.error(f"auth-service timeout: {upstream_url}")
         return Response(
-            content=b'{"error": true, "message": "auth-service не ответил вовремя"}',
+            content='{"error": true, "message": "auth-service не ответил вовремя"}',
             status_code=504,
             media_type="application/json",
         )

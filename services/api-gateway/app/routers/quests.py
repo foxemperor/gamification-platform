@@ -33,14 +33,14 @@ async def _proxy(request: Request, upstream_url: str) -> Response:
     except httpx.ConnectError:
         logger.error(f"gamification-service unavailable: {upstream_url}")
         return Response(
-            content=b'{"error": true, "message": "gamification-service недоступен"}',
+            content='{"error": true, "message": "gamification-service недоступен"}',
             status_code=503,
             media_type="application/json",
         )
     except httpx.TimeoutException:
         logger.error(f"gamification-service timeout: {upstream_url}")
         return Response(
-            content=b'{"error": true, "message": "gamification-service не ответил вовремя"}',
+            content='{"error": true, "message": "gamification-service не ответил вовремя"}',
             status_code=504,
             media_type="application/json",
         )
