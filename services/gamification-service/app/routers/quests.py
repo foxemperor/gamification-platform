@@ -18,13 +18,13 @@ from app.dependencies import get_current_user_id, require_admin
 from app.models import (
     Quest, UserQuest, Badge, UserBadge, XPTransaction,
     QuestStatus, UserQuestStatus, XPSource, BadgeRarity,
-    xp_required_for_level,
+    xp_required_for_level, Character, CharacterEquipment, CharacterType,
 )
 from app.schemas import (
     QuestCreate, QuestUpdate, QuestResponse, QuestListResponse,
     UserQuestResponse, AcceptQuestResponse, CompleteQuestResponse,
     UserBadgeResponse, XPHistoryResponse, XPTransactionResponse,
-    PlayerProfileResponse,
+    PlayerProfileResponse, CharacterResponse,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["quests"])
@@ -435,6 +435,20 @@ async def player_profile(
     xp_for_next = xp_required_for_level(level)
     progress_pct = round((xp_in_level / xp_for_next) * 100, 1) if xp_for_next > 0 else 0.0
 
+    # Загружаем персонажа пользователя (если создан)
+    character_result = await db.execute(
+        select(Character)
+        .options(
+            selectinload(Character.character_type),
+            selectinload(Character.equipment).selectinload(CharacterEquipment.cosmetic_item),
+        )
+        .where(Character.user_id == user_id)
+    )
+    character_obj = character_result.scalar_one_or_none()
+    character_response: Optional[CharacterResponse] = (
+        CharacterResponse.model_validate(character_obj) if character_obj else None
+    )
+
     return PlayerProfileResponse(
         user_id=user_id,
         username=username or "",
@@ -447,4 +461,7 @@ async def player_profile(
         quests_completed=quests_completed,
         quests_in_progress=quests_in_progress,
         badges_count=badges_count,
+        streak_days=0,
+        position=None,
+        character=character_response,
     )

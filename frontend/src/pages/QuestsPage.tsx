@@ -199,6 +199,8 @@ export function QuestsPage() {
       })
       .catch(err => {
         if (isAbortError(err) || ctrl.signal.aborted) return
+        // 401 при refresh страницы — токен ещё не готов, грузим тихо
+        if (err?.response?.status === 401) return
         toastRef.current('Не удалось загрузить квесты', 'error')
       })
       .finally(() => { if (!ctrl.signal.aborted) setCatalogLoading(false) })
@@ -218,7 +220,9 @@ export function QuestsPage() {
       })
       .catch(err => {
         if (isAbortError(err) || ctrl.signal.aborted) return
-        if (err?.response?.status === 404) { setMyQuests([]); return }
+        // 404 — нет квестов, 401 — токен ещё не готов при refresh: оба случая тихие
+        const status = err?.response?.status
+        if (status === 404 || status === 401) { setMyQuests([]); return }
         toastRef.current('Не удалось загрузить ваши квесты', 'error')
       })
       .finally(() => { if (!ctrl.signal.aborted) setMyLoading(false) })

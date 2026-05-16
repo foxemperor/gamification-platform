@@ -300,6 +300,8 @@ class PlayerProfileResponse(BaseModel):
     badges_count: int
     rank_all_time: Optional[int] = None
     rank_weekly: Optional[int] = None
+    streak_days: int = 0
+    position: Optional[str] = None
     character: Optional[CharacterResponse] = None
 
 

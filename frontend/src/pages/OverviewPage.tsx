@@ -189,13 +189,18 @@ const DIFF_CLASS: Record<string, string> = {
 }
 
 function QuestCard({ q }: { q: UserQuest }) {
-  const pct = Math.min(100, Math.max(0, q.progress_percent ?? 0))
+  // UserQuest содержит вложенный объект quest с данными самого квеста
+  const questData  = q.quest
+  const pct        = Math.min(100, Math.max(0, q.progress_percent ?? 0))
+  const title      = questData?.title      ?? '—'
+  const difficulty = questData?.difficulty ?? 'medium'
+  const xpReward   = questData?.xp_reward  ?? 0
   return (
     <div className={s.questCard}>
       <div className={s.questTop}>
-        <span className={s.questName}>{q.quest_title}</span>
-        <span className={`${s.diffBadge} ${DIFF_CLASS[q.difficulty] ?? ''}`}>
-          {DIFF_LABEL[q.difficulty] ?? q.difficulty}
+        <span className={s.questName}>{title}</span>
+        <span className={`${s.diffBadge} ${DIFF_CLASS[difficulty] ?? ''}`}>
+          {DIFF_LABEL[difficulty] ?? difficulty}
         </span>
       </div>
       <div className={s.questBar}>
@@ -203,7 +208,7 @@ function QuestCard({ q }: { q: UserQuest }) {
       </div>
       <div className={s.questBottom}>
         <span className={s.questProg}>{q.progress}/{q.target}</span>
-        <span className={s.questReward}>+{q.xp_reward} XP</span>
+        <span className={s.questReward}>+{xpReward} XP</span>
         {q.deadline_at && (
           <span className={s.questDeadline}>
             до {new Date(q.deadline_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
