@@ -8,9 +8,14 @@ export default defineConfig({
     port: 3000,
 
     proxy: {
-      // Порядок важен: более специфичные правила выше
+      // ВСЕ /api/v1/* идёт через API Gateway :8000
+      // Gateway сам раздаёт на auth-service :8001, gamification-service :8002 и т.д.
+      '/api/v1': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
 
-      // Health-эндпоинты сервисов для admin monitoring panel.
+      // Health-эндпоинты сервисов для admin monitoring panel
       '/_monitor/auth': {
         target: 'http://localhost:8001',
         changeOrigin: true,
@@ -21,39 +26,6 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (p: string) => p.replace(/^\/_monitor\/gamification/, '/health'),
       },
-
-      // Auth Service — аутентификация и админка пользователей
-      '/api/v1/auth': {
-        target: 'http://localhost:8001',
-        changeOrigin: true,
-      },
-      '/api/v1/admin/users': {
-        target: 'http://localhost:8001',
-        changeOrigin: true,
-      },
-
-      // Gamification Service — админка квестов/бейджей/XP + system-metrics + остальное
-      '/api/v1/admin/quests': {
-        target: 'http://localhost:8002',
-        changeOrigin: true,
-      },
-      '/api/v1/admin/badges': {
-        target: 'http://localhost:8002',
-        changeOrigin: true,
-      },
-      '/api/v1/admin/xp': {
-        target: 'http://localhost:8002',
-        changeOrigin: true,
-      },
-      // system-metrics — был пропущен в предыдущей версии, добавляем
-      '/api/v1/admin/system-metrics': {
-        target: 'http://localhost:8002',
-        changeOrigin: true,
-      },
-      '/api/v1': {
-        target: 'http://localhost:8002',
-        changeOrigin: true,
-      },
     },
 
     headers: {
@@ -63,7 +35,6 @@ export default defineConfig({
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "script-src 'self' 'unsafe-inline'",
-        // Разрешаем preview иконок бейджей с любого https-источника (dev only)
         "img-src 'self' data: blob: https:",
         "frame-ancestors 'none'",
         "base-uri 'self'",
