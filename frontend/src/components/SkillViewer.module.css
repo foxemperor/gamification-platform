@@ -1,0 +1,397 @@
+/* SkillViewer — fullscreen overlay */
+
+@keyframes svFadeIn {
+  from { opacity: 0 }
+  to   { opacity: 1 }
+}
+
+@keyframes svSlideUp {
+  from { opacity: 0; transform: translateY(28px) scale(0.97) }
+  to   { opacity: 1; transform: translateY(0) scale(1) }
+}
+
+@keyframes svEnterVisible {
+  from { opacity: 0; transform: translateY(14px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes svExitLeft {
+  from { opacity: 1; transform: translateX(0) }
+  to   { opacity: 0; transform: translateX(-32px) }
+}
+
+@keyframes svExitRight {
+  from { opacity: 1; transform: translateX(0) }
+  to   { opacity: 0; transform: translateX(32px) }
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.35) }
+  50%       { box-shadow: 0 0 0 8px rgba(34, 211, 238, 0) }
+}
+
+/* Overlay */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: svFadeIn 0.2s ease both;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 14, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+}
+
+/* Main container */
+.container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 680px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(34, 211, 238, 0.08);
+  display: flex;
+  flex-direction: column;
+  animation: svSlideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.container::-webkit-scrollbar { width: 4px }
+.container::-webkit-scrollbar-track { background: transparent }
+.container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px }
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.questLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.skillBadge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+}
+
+.questTitle {
+  font-family: var(--font-d);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.closeBtn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.closeBtn:hover {
+  background: var(--surface-high);
+  color: var(--text);
+  border-color: var(--border-focus);
+}
+
+/* Segment progress bar */
+.segmentBar {
+  display: flex;
+  gap: 5px;
+  padding: 14px 24px 0;
+  flex-shrink: 0;
+}
+
+.segment {
+  flex: 1;
+  height: 3px;
+  border-radius: 99px;
+  transition: background 0.3s, opacity 0.3s;
+}
+
+.segmentPending {
+  background: var(--border);
+}
+
+.segmentActive {
+  background: var(--primary);
+  animation: pulse 1.8s infinite;
+}
+
+.segmentDone {
+  background: var(--primary);
+  opacity: 0.45;
+}
+
+.stepLabel {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 6px 24px 0;
+  font-family: var(--font-b);
+  letter-spacing: 0.03em;
+}
+
+/* Slide content */
+.slideContent {
+  flex: 1;
+  padding: 28px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.enterVisible {
+  animation: svEnterVisible 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.exitLeft {
+  animation: svExitLeft 0.22s ease both;
+}
+
+.exitRight {
+  animation: svExitRight 0.22s ease both;
+}
+
+.slideIcon {
+  font-size: 40px;
+  line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(34, 211, 238, 0.3));
+}
+
+.slideTitle {
+  font-family: var(--font-d);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.25;
+}
+
+.slideBody {
+  font-family: var(--font-b);
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Bullet list */
+.bulletList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bulletItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-family: var(--font-b);
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.bulletDot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  margin-top: 5px;
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.5);
+}
+
+/* Reward preview on finish slide */
+.rewardPreview {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.rewardChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  font-family: var(--font-d);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.rewardChipGold {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.25);
+  color: var(--reward);
+}
+
+.rewardIcon {
+  font-size: 18px;
+}
+
+/* Navigation bar */
+.navBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 24px 22px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dotRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s, transform 0.2s;
+}
+
+.dotVisited {
+  background: rgba(34, 211, 238, 0.4);
+}
+
+.dotActive {
+  background: var(--primary);
+  transform: scale(1.35);
+}
+
+.navBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-b);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, opacity 0.18s, transform 0.15s, box-shadow 0.18s;
+  border: none;
+  outline: none;
+}
+
+.navBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.navBtnSecondary {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.navBtnSecondary:hover:not(:disabled) {
+  background: var(--surface-high);
+  color: var(--text);
+  border-color: var(--border-focus);
+}
+
+.navBtnPrimary {
+  background: var(--grad-btn);
+  color: #0a0f1e;
+  font-weight: 700;
+}
+
+.navBtnPrimary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(34, 211, 238, 0.3);
+}
+
+.navBtnPrimary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .container {
+    max-height: calc(100dvh - 16px);
+  }
+
+  .header {
+    padding: 16px 16px 14px;
+  }
+
+  .segmentBar {
+    padding: 12px 16px 0;
+  }
+
+  .stepLabel {
+    padding: 5px 16px 0;
+  }
+
+  .slideContent {
+    padding: 22px 16px 16px;
+  }
+
+  .slideTitle {
+    font-size: 20px;
+  }
+
+  .navBar {
+    padding: 14px 16px 18px;
+  }
+
+  .navBtn {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+}
