@@ -98,21 +98,24 @@ function MyQuestCard({
   onComplete: (id: string) => void
   completing: boolean
 }) {
+  // Данные самого квеста — во вложенном объекте quest.quest
+  const q = quest.quest
+
   return (
     <div className={`${s.card} ${quest.status === 'completed' ? s.cardDone : ''}`}>
       <div className={s.cardTop}>
-        <span className={s.typeIcon}>{TYPE_ICON[quest.quest_type] ?? '⭐'}</span>
+        <span className={s.typeIcon}>{TYPE_ICON[q.quest_type] ?? '⭐'}</span>
         <div className={s.cardMeta}>
           <span className={`${s.statusBadge} ${STATUS_CLASS[quest.status] ?? ''}`}>
             {STATUS_LABEL[quest.status] ?? quest.status}
           </span>
-          <span className={`${s.diffBadge} ${DIFF_CLASS[quest.difficulty] ?? ''}`}>
-            {DIFF_LABELS[quest.difficulty] ?? quest.difficulty}
+          <span className={`${s.diffBadge} ${DIFF_CLASS[q.difficulty] ?? ''}`}>
+            {DIFF_LABELS[q.difficulty] ?? q.difficulty}
           </span>
         </div>
       </div>
 
-      <h3 className={s.cardTitle}>{quest.quest_title}</h3>
+      <h3 className={s.cardTitle}>{q.title}</h3>
 
       {/* progress bar */}
       <div className={s.progressWrap}>
@@ -123,14 +126,14 @@ function MyQuestCard({
           />
         </div>
         <span className={s.progressLabel}>
-          {quest.progress} / {quest.target} · {quest.progress_percent.toFixed(0)}%
+          {quest.progress} / {quest.target} · {quest.progress_percent.toFixed(0)}%
         </span>
       </div>
 
       <div className={s.cardFooter}>
         <div className={s.rewards}>
-          <span className={s.rewardXp}>+{quest.xp_reward} XP</span>
-          <span className={s.rewardCoins}>+{quest.coins_reward} 🪙</span>
+          <span className={s.rewardXp}>+{q.xp_reward} XP</span>
+          <span className={s.rewardCoins}>+{q.coins_reward} 🪙</span>
           {quest.deadline_at && (
             <span className={s.timeLimit}>
               до {new Date(quest.deadline_at).toLocaleDateString('ru-RU')}
@@ -142,7 +145,7 @@ function MyQuestCard({
             className={`${s.acceptBtn} ${s.completeBtn}`}
             onClick={() => onComplete(quest.id)}
             disabled={completing}
-            aria-label={`Завершить квест ${quest.quest_title}`}
+            aria-label={`Завершить квест ${q.title}`}
           >
             {completing ? '…' : 'Завершить'}
           </button>
@@ -195,7 +198,6 @@ export function QuestsPage() {
         setQuests(res.items)
       })
       .catch(err => {
-        // Отменённый запрос (StrictMode, навигация, unmount) — молчим
         if (isAbortError(err) || ctrl.signal.aborted) return
         toastRef.current('Не удалось загрузить квесты', 'error')
       })
@@ -215,9 +217,7 @@ export function QuestsPage() {
         setMyQuests(Array.isArray(list) ? list : [])
       })
       .catch(err => {
-        // Отменённый запрос (StrictMode abort) — молчим
         if (isAbortError(err) || ctrl.signal.aborted) return
-        // 404 = у пользователя просто нет квестов — не ошибка
         if (err?.response?.status === 404) { setMyQuests([]); return }
         toastRef.current('Не удалось загрузить ваши квесты', 'error')
       })
