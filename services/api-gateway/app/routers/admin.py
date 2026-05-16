@@ -1,8 +1,12 @@
 """
-Admin Router — проксирует /api/v1/admin/* → auth-service:8001
-Исключение:
-  - system-metrics → gamification-service:8002
-  - users (GET) → auth-service + обогащение XP из gamification-service
+Admin Router — проксирует /api/v1/admin/* → auth-service:8001 или gamification-service:8002
+Маршрутизация по first_segment пути:
+  - users       → auth-service (CRUD) + обогащение XP для GET /users
+  - quests      → gamification-service
+  - badges      → gamification-service
+  - xp          → gamification-service
+  - system-metrics → gamification-service
+  Исключение: users/xp-bulk POST → gamification-service
 """
 import json
 import logging
@@ -16,8 +20,8 @@ from app.config import settings
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Пути, которые должны проксироваться в gamification-service вместо auth-service
-_GAMIFICATION_PATHS = {"system-metrics"}
+# First-segment пути, которые идут в gamification-service
+_GAMIFICATION_PATHS = {"system-metrics", "quests", "badges", "xp"}
 
 
 async def _proxy_to(request: Request, upstream_url: str) -> Response:
@@ -126,16 +130,23 @@ async def _enrich_users_with_xp(request: Request) -> Response:
 
 
 async def _proxy(request: Request, path: str) -> Response:
-    """Маршрутизирует запрос к нужному сервису по имени пути."""
+    """Маршрутизирует запрос к нужному сервису по first-segment пути."""
+    first_segment = path.split("/")[0] if path else ""
+
+    # Специальный случай: users/xp-bulk POST → gamification-service
+    if path == "users/xp-bulk" and request.method == "POST":
+        upstream = f"{settings.GAMIFICATION_SERVICE_URL}/api/v1/admin/users/xp-bulk"
+        return await _proxy_to(request, upstream)
+
     # Обогащаем GET /admin/users реальным XP из gamification
     if path == "users" and request.method == "GET":
         return await _enrich_users_with_xp(request)
 
-    # system-metrics → gamification-service
-    first_segment = path.split("/")[0] if path else ""
+    # quests/badges/xp/system-metrics → gamification-service
     if first_segment in _GAMIFICATION_PATHS:
         upstream = f"{settings.GAMIFICATION_SERVICE_URL}/api/v1/admin/{path}"
     else:
+        # users CRUD и всё остальное → auth-service
         upstream = (
             f"{settings.AUTH_SERVICE_URL}/api/v1/admin/{path}"
             if path else f"{settings.AUTH_SERVICE_URL}/api/v1/admin"
