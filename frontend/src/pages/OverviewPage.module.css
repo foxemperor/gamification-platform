@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   gap: 28px;
-  max-width: 980px;
+  max-width: 1200px;
 }
 
 /* ── Header ── */
@@ -62,6 +62,158 @@
   letter-spacing: 0.04em;
 }
 
+/* ── Main grid: sidebar card + right col ── */
+.mainGrid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .mainGrid { grid-template-columns: 1fr; }
+}
+
+/* ── CharacterCard ── */
+.characterCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  position: sticky;
+  top: 24px;
+}
+.charBanner {
+  width: 100%;
+  height: 72px;
+  background: linear-gradient(135deg, var(--primary) 0%, color-mix(in oklch, var(--primary) 60%, var(--bg)) 100%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 8px 12px;
+  position: relative;
+}
+.charLevelBadge, .charRankBadge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: rgba(0,0,0,0.35);
+  color: #fff;
+}
+.charAvatarWrap {
+  margin-top: -30px;
+  z-index: 1;
+}
+.charAvatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid var(--surface);
+  background: var(--primary-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-d);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--primary);
+  box-shadow: var(--shadow-card);
+}
+.charName {
+  font-family: var(--font-d);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 10px 0 0;
+  text-align: center;
+  padding: 0 12px;
+}
+.charPosition {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+  text-align: center;
+}
+
+/* XP inside char card */
+.charXpWrap {
+  width: 100%;
+  padding: 14px 16px 6px;
+}
+.charXpLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.charXpTrack {
+  height: 6px;
+  background: var(--surface-alt);
+  border-radius: 99px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.charXpFill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 99px;
+  transition: width 700ms cubic-bezier(0.16,1,0.3,1);
+}
+.charXpHint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 5px;
+  text-align: center;
+}
+
+/* stats grid inside char card */
+.charStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  width: 100%;
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+}
+.charStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 6px;
+  gap: 2px;
+  border-right: 1px solid var(--border);
+}
+.charStat:nth-child(3n) { border-right: none; }
+.charStatVal {
+  font-family: var(--font-d);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1;
+}
+.charStatLabel {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Right column ── */
+.rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
 /* ── Stats row (bento) ── */
 .statsRow {
   display: grid;
@@ -90,17 +242,8 @@
   border-color: var(--border-focus);
   background: var(--primary-dim);
 }
-.statIcon {
-  font-size: 1.4rem;
-  line-height: 1;
-  margin-top: 2px;
-}
-.statBody {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
+.statIcon { font-size: 1.4rem; line-height: 1; margin-top: 2px; }
+.statBody { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .statLabel {
   font-size: 10px;
   text-transform: uppercase;
@@ -114,11 +257,7 @@
   line-height: 1.1;
   font-weight: 700;
 }
-.statSub {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 1px;
-}
+.statSub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 
 /* ── XP Bar ── */
 .xpSection {
@@ -131,22 +270,9 @@
   flex-direction: column;
   gap: 8px;
 }
-.xpHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.xpTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-.xpPct {
-  font-family: var(--font-d);
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--primary);
-}
+.xpHeader { display: flex; justify-content: space-between; align-items: baseline; }
+.xpTitle { font-size: 13px; font-weight: 600; color: var(--text); }
+.xpPct { font-family: var(--font-d); font-size: 1.1rem; font-weight: 700; color: var(--primary); }
 .xpTrack {
   height: 8px;
   background: var(--surface-alt);
@@ -160,24 +286,11 @@
   border-radius: 99px;
   transition: width 700ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-.xpFooter {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--text-muted);
-}
+.xpFooter { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
 
 /* ── Section ── */
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.sectionHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
+.section { display: flex; flex-direction: column; gap: 14px; }
+.sectionHead { display: flex; align-items: center; justify-content: space-between; }
 .sectionTitle {
   font-family: var(--font-d);
   font-size: 1rem;
@@ -197,7 +310,7 @@
 /* ── Quest cards ── */
 .questsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
 }
 .questCard {
@@ -211,23 +324,9 @@
   box-shadow: var(--shadow-card);
   transition: transform 160ms ease, border-color 160ms ease;
 }
-.questCard:hover {
-  transform: translateY(-1px);
-  border-color: var(--border-focus);
-}
-.questTop {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
-.questName {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  line-height: 1.35;
-  flex: 1;
-}
+.questCard:hover { transform: translateY(-1px); border-color: var(--border-focus); }
+.questTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.questName { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.35; flex: 1; }
 .diffBadge {
   font-size: 9px;
   font-weight: 700;
@@ -241,31 +340,14 @@
 .diffEasy   { background: rgba(52,211,153,.15); color: #34D399; }
 .diffMedium { background: rgba(251,191,36,.15);  color: #FBBF24; }
 .diffHard   { background: rgba(248,113,113,.15); color: #F87171; }
-
-.questBar {
-  height: 5px;
-  background: var(--surface-alt);
-  border-radius: 99px;
-  overflow: hidden;
-}
-.questBarFill {
-  height: 100%;
-  background: var(--primary);
-  border-radius: 99px;
-  transition: width 500ms ease;
-}
-.questBottom {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--text-muted);
-}
+.questBar { height: 5px; background: var(--surface-alt); border-radius: 99px; overflow: hidden; }
+.questBarFill { height: 100%; background: var(--primary); border-radius: 99px; transition: width 500ms ease; }
+.questBottom { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); }
 .questProg { flex: 1; }
 .questReward { color: var(--primary); font-weight: 600; }
 .questDeadline { margin-left: auto; }
 
-/* ── Empty квесты (inline, не full-height) ── */
+/* ── Empty квесты ── */
 .emptyQuests {
   display: flex;
   align-items: center;
@@ -276,17 +358,8 @@
   border-radius: 12px;
 }
 .emptyIcon { font-size: 1.8rem; flex-shrink: 0; }
-.emptyTitle {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  margin: 0 0 2px;
-}
-.emptyHint {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0;
-}
+.emptyTitle { font-size: 14px; font-weight: 600; color: var(--text); margin: 0 0 2px; }
+.emptyHint { font-size: 12px; color: var(--text-muted); margin: 0; }
 .emptyBtn {
   margin-left: auto;
   padding: 7px 16px;
@@ -302,6 +375,142 @@
   flex-shrink: 0;
 }
 .emptyBtn:hover { background: var(--primary); color: var(--bg); }
+
+/* ── Bottom grid: streak + mini-leaderboard ── */
+.bottomGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 640px) {
+  .bottomGrid { grid-template-columns: 1fr; }
+}
+
+/* ── StreakCard ── */
+.streakCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.streakHeader { display: flex; align-items: center; gap: 12px; }
+.streakFire { font-size: 1.8rem; line-height: 1; }
+.streakDays {
+  font-family: var(--font-d);
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+  line-height: 1;
+}
+.streakUnit { font-size: 0.9rem; font-weight: 500; color: var(--text-muted); }
+.streakLabel { font-size: 11px; color: var(--text-muted); margin: 3px 0 0; }
+.streakDots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.streakDot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  border: 2px solid var(--border);
+  transition: background 300ms, border-color 300ms;
+  flex-shrink: 0;
+}
+.streakDotActive {
+  background: var(--primary);
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--primary-dim);
+}
+.streakHint { font-size: 11px; color: var(--text-muted); margin: 0; }
+
+/* ── Mini leaderboard ── */
+.miniLb {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+}
+.miniLbRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  transition: background 150ms;
+}
+.miniLbRow:last-child { border-bottom: none; }
+.miniLbRow:hover { background: var(--surface-alt); }
+.miniLbRowMe {
+  background: var(--primary-dim) !important;
+  border-color: var(--border-focus) !important;
+}
+.miniLbRank { font-size: 1rem; width: 24px; flex-shrink: 0; text-align: center; }
+.miniLbAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.miniLbName { font-size: 13px; font-weight: 500; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.miniLbYou { color: var(--primary); font-size: 11px; }
+.miniLbXp { font-size: 11px; color: var(--primary); font-weight: 600; white-space: nowrap; }
+.miniLbLvl { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+
+/* ── Badges grid ── */
+.badgesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.badgeItem {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  box-shadow: var(--shadow-card);
+  transition: transform 160ms ease, border-color 160ms ease;
+  position: relative;
+  cursor: default;
+}
+.badgeItem:not(.badgeLocked):hover {
+  transform: translateY(-2px);
+  border-color: var(--border-focus);
+}
+.badgeLocked {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+.badgeIcon { font-size: 1.6rem; line-height: 1; }
+.badgeName { font-size: 10px; color: var(--text-muted); text-align: center; font-weight: 500; }
+.badgeLockIcon {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 10px;
+  opacity: 0.6;
+}
 
 /* ── Inline hint / retry ── */
 .inlineHint {
@@ -338,6 +547,7 @@
   animation: shimmer 1.4s ease-in-out infinite;
   border-color: transparent !important;
   border-radius: 14px;
+  min-height: 220px;
 }
 
 /* ── Responsive ── */
@@ -345,4 +555,5 @@
   .page { padding: 16px 14px 40px; }
   .emptyQuests { flex-direction: column; text-align: center; }
   .emptyBtn { margin-left: 0; }
+  .statsRow { grid-template-columns: 1fr 1fr; }
 }
