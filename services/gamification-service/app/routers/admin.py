@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,6 +45,25 @@ from app.schemas import (
     XPTransactionListResponse,
     XPTransactionResponse,
 )
+
+
+# ===================================
+# Bulk-XP — схемы запроса/ответа
+# ===================================
+
+class BulkXPRequest(BaseModel):
+    """Список user_id для получения суммарного XP и уровня."""
+    user_ids: list[str]
+
+
+class UserXPInfo(BaseModel):
+    user_id: str
+    xp: int
+    level: int
+
+
+class BulkXPResponse(BaseModel):
+    users: list[UserXPInfo]
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -359,3 +379,47 @@ async def admin_list_xp_transactions(
         per_page=per_page,
         pages=_pages(total, per_page),
     )
+
+
+# ===================================
+# BULK XP — суммарный XP/уровень по списку пользователей
+# ===================================
+
+@router.post(
+    "/users/xp-bulk",
+    response_model=BulkXPResponse,
+    summary="Суммарный XP и уровень для набора пользователей (админ)",
+)
+async def admin_users_xp_bulk(
+    data: BulkXPRequest,
+    _admin: str = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Принимает список user_id, возвращает суммарный XP из xp_transactions
+    и вычисленный уровень для каждого.
+    Используется api-gateway для обогащения ответа GET /admin/users.
+    """
+    if not data.user_ids:
+        return BulkXPResponse(users=[])
+
+    rows = await db.execute(
+        select(
+            XPTransaction.user_id,
+            func.coalesce(func.sum(XPTransaction.amount), 0).label("total_xp"),
+        )
+        .where(XPTransaction.user_id.in_(data.user_ids))
+        .group_by(XPTransaction.user_id)
+    )
+    xp_map: dict[str, int] = {row.user_id: int(row.total_xp) for row in rows.all()}
+
+    result: list[UserXPInfo] = []
+    for uid in data.user_ids:
+        total_xp = xp_map.get(uid, 0)
+        result.append(UserXPInfo(
+            user_id=uid,
+            xp=total_xp,
+            level=_compute_level(total_xp),
+        ))
+
+    return BulkXPResponse(users=result)

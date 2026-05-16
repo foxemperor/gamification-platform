@@ -273,18 +273,26 @@ async def test_xp_grant_user_forbidden(client, user_headers):
 
 
 async def test_xp_grant_validation(client, admin_headers):
-    # zero amount
+    # amount выходит за границу (> 50000) → 422
     resp = await client.post(
         "/api/v1/admin/xp/grant",
-        json={"user_id": str(uuid.uuid4()), "amount": 0},
+        json={"user_id": str(uuid.uuid4()), "amount": 99999},
         headers=admin_headers,
     )
     assert resp.status_code == 422
 
-    # invalid uuid
+    # amount выходит за границу (< -50000) → 422
     resp = await client.post(
         "/api/v1/admin/xp/grant",
-        json={"user_id": "not-a-uuid", "amount": 10},
+        json={"user_id": str(uuid.uuid4()), "amount": -99999},
+        headers=admin_headers,
+    )
+    assert resp.status_code == 422
+
+    # пропущен обязательный user_id → 422
+    resp = await client.post(
+        "/api/v1/admin/xp/grant",
+        json={"amount": 10},
         headers=admin_headers,
     )
     assert resp.status_code == 422

@@ -37,15 +37,17 @@ $CYAN   = "Cyan"
 $GRAY   = "DarkGray"
 $WHITE  = "White"
 
-$ACTIVE_SERVICES = @("postgres", "redis", "auth-service", "gamification-service")
+$ACTIVE_SERVICES = @("postgres", "redis", "auth-service", "gamification-service", "api-gateway")
 
 $HEALTH_ENDPOINTS = [ordered]@{
+    "api-gateway"                = "http://localhost:8000/health"
     "auth-service"               = "http://localhost:8001/health"
     "gamification-service"       = "http://localhost:8002/health"
     "gamification-service/ready" = "http://localhost:8002/health/ready"
 }
 
 $SWAGGER_URLS = @(
+    "http://localhost:8000/docs"
     "http://localhost:8001/docs"
     "http://localhost:8002/docs"
 )

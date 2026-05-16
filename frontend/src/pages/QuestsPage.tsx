@@ -184,6 +184,18 @@ export function QuestsPage() {
   const [myLoading, setMyLoading]   = useState(true)
   const [completing, setCompleting] = useState<string | null>(null)
 
+  /**
+   * Ошибки, которые не должны вызывать toast при первоначальной загрузке:
+   * - 401/403: токен ещё не готов после refresh
+   * - 422: FastAPI Unprocessable Entity (невалидный токен)
+   * - undefined/null: нет ответа (сервис недоступен / Network Error)
+   */
+  const isSilentError = (err: unknown): boolean => {
+    const s = (err as { response?: { status?: number } })?.response?.status
+    if (s === undefined || s === null) return true  // Network Error (gateway не запущен)
+    return s === 401 || s === 403 || s === 422
+  }
+
   const loadCatalog = useCallback(() => {
     setCatalogLoading(true)
     const ctrl = new AbortController()
@@ -199,8 +211,7 @@ export function QuestsPage() {
       })
       .catch(err => {
         if (isAbortError(err) || ctrl.signal.aborted) return
-        // 401 при refresh страницы — токен ещё не готов, грузим тихо
-        if (err?.response?.status === 401) return
+        if (isSilentError(err)) return
         toastRef.current('Не удалось загрузить квесты', 'error')
       })
       .finally(() => { if (!ctrl.signal.aborted) setCatalogLoading(false) })
@@ -220,9 +231,9 @@ export function QuestsPage() {
       })
       .catch(err => {
         if (isAbortError(err) || ctrl.signal.aborted) return
-        // 404 — нет квестов, 401 — токен ещё не готов при refresh: оба случая тихие
-        const status = err?.response?.status
-        if (status === 404 || status === 401) { setMyQuests([]); return }
+        // 404 — нет квестов (норма), другие — тихая загрузка
+        const status = (err as { response?: { status?: number } })?.response?.status
+        if (status === 404 || isSilentError(err)) { setMyQuests([]); return }
         toastRef.current('Не удалось загрузить ваши квесты', 'error')
       })
       .finally(() => { if (!ctrl.signal.aborted) setMyLoading(false) })
@@ -247,8 +258,15 @@ export function QuestsPage() {
       toast('Квест принят! Переходи в "Мои квесты"', 'success')
       loadMy()
       setTab('my')
-    } catch {
-      toast('Не удалось принять квест. Возможно, он уже активен.', 'warning')
+    } catch (err) {
+      const httpStatus = (err as { response?: { status?: number } })?.response?.status
+      if (httpStatus === 409) {
+        toast('Квест уже активен', 'warning')
+      } else if (httpStatus === undefined || httpStatus === null) {
+        toast('Сервер недоступен. Проверьте что запущен api-gateway.', 'error')
+      } else {
+        toast('Не удалось принять квест', 'error')
+      }
     } finally {
       setAccepting(null)
     }

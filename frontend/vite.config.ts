@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import type { UserConfig } from 'vitest/config'
 
 export default defineConfig({
   plugins: [react()],
@@ -58,4 +59,11 @@ export default defineConfig({
       },
     },
   },
+
+  test: {
+    // Запускаем в среде Node.js (без браузера) — достаточно для unit-тестов
+    environment: 'node',
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    reporter: ['verbose'],
+  } as UserConfig['test'],
 })

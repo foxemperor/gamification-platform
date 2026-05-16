@@ -10,6 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -238,14 +239,33 @@ async def accept_quest(
     if not quest or quest.status != QuestStatus.ACTIVE:
         raise HTTPException(status_code=404, detail="Квест недоступен")
 
+    # Проверяем существующую запись UserQuest
     existing = await db.scalar(
         select(UserQuest)
         .where(UserQuest.user_id == user_id)
         .where(UserQuest.quest_id == quest_id)
-        .where(UserQuest.status == UserQuestStatus.IN_PROGRESS)
     )
     if existing:
-        raise HTTPException(status_code=409, detail="Квест уже в процессе")
+        if existing.status == UserQuestStatus.IN_PROGRESS:
+            raise HTTPException(status_code=409, detail="Квест уже в процессе")
+        # Для завершённых/проваленных квестов перезапускаем:
+        # сбрасываем статус и прогресс в IN_PROGRESS
+        deadline = None
+        if quest.time_limit_hours:
+            deadline = datetime.now(timezone.utc) + timedelta(hours=quest.time_limit_hours)
+        existing.status = UserQuestStatus.IN_PROGRESS
+        existing.progress = 0
+        existing.completed_at = None
+        existing.deadline_at = deadline
+        existing.started_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(existing)
+        return AcceptQuestResponse(
+            user_quest_id=existing.id,
+            quest_id=quest_id,
+            message=f"Квест '{quest.title}' принят повторно!",
+            deadline_at=deadline,
+        )
 
     deadline = None
     if quest.time_limit_hours:
@@ -258,7 +278,14 @@ async def accept_quest(
         deadline_at=deadline,
     )
     db.add(uq)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Квест уже в процессе",
+        )
     await db.refresh(uq)
 
     return AcceptQuestResponse(
