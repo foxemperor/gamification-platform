@@ -6,78 +6,55 @@ import { questsApi, type UserQuest } from '../api/quests'
 import { leaderboardApi, type LeaderboardEntry } from '../api/leaderboard'
 import s from './OverviewPage.module.css'
 
-// ──────────────── helpers ────────────────
-
-function levelThreshold(level: number): number {
-  return Math.floor(100 * Math.pow(level - 1, 1.5))
-}
-
-function calcXpBar(
-  totalXp: number,
-  level: number,
-  xpToNext: number,
-  percent: number | null,
-): number {
-  if (percent !== null) return Math.min(100, Math.max(2, percent))
-  const start = levelThreshold(level)
-  const end = start + xpToNext
+// ────── helpers ──────
+function calcXpPct(profile: PlayerProfile): number {
+  if (typeof profile.xp_progress_percent === 'number') {
+    return Math.min(100, Math.max(2, profile.xp_progress_percent))
+  }
+  const level = profile.level
+  const start = Math.floor(100 * Math.pow(level - 1, 1.5))
+  const end   = Math.floor(100 * Math.pow(level,     1.5))
   const range = end - start
   if (range <= 0) return 100
-  return Math.min(100, Math.max(2, Math.round(((totalXp - start) / range) * 100)))
+  return Math.min(100, Math.max(2, Math.round(((profile.total_xp - start) / range) * 100)))
 }
 
-// ──────────────── CharacterCard ────────────────
-
+// ────── CharacterCard ──────
 function CharacterCard({ profile, displayName }: { profile: PlayerProfile; displayName: string }) {
-  const xpPct = calcXpBar(
-    profile.total_xp,
-    profile.level,
-    profile.xp_to_next_level,
-    profile.xp_progress_percent ?? null,
-  )
-
-  const stats = [
-    { label: 'Квесты',     value: profile.quests_completed },
-    { label: 'Монеты',     value: profile.total_coins.toLocaleString() },
-    { label: 'Бейджи',     value: profile.badges_count },
-    { label: 'В процессе', value: profile.quests_in_progress },
-    { label: 'Стрик',      value: `${profile.streak_days ?? 0} д.` },
-  ] as const
-
+  const xpPct = calcXpPct(profile)
   const initials = displayName.trim().slice(0, 2).toUpperCase() || '??'
+
+  const stats: { label: string; value: string | number }[] = [
+    { label: 'Квесты',      value: profile.quests_completed },
+    { label: 'Монеты',      value: profile.total_coins.toLocaleString() },
+    { label: 'Бейджи',      value: profile.badges_count },
+    { label: 'В процессе',  value: profile.quests_in_progress },
+    { label: 'Стрик',       value: `${profile.streak_days ?? 0} д.` },
+  ]
 
   return (
     <div className={s.characterCard}>
-      {/* banner */}
       <div className={s.charBanner}>
-        <span className={s.charLevelBadge}>LVL {profile.level}</span>
+        <span className={s.charLevelBadge}>LVL {profile.level}</span>
         {profile.rank_all_time != null && (
           <span className={s.charRankBadge}>#{profile.rank_all_time}</span>
         )}
       </div>
-
-      {/* avatar */}
       <div className={s.charAvatarWrap}>
         <div className={s.charAvatar}>{initials}</div>
       </div>
-
-      {/* name */}
       <p className={s.charName}>{displayName}</p>
       {profile.position && <p className={s.charPosition}>{profile.position}</p>}
-
-      {/* XP bar */}
       <div className={s.charXpWrap}>
         <div className={s.charXpLabels}>
-          <span>{profile.total_xp.toLocaleString()} XP</span>
-          <span>LVL {profile.level + 1}</span>
+          <span>{profile.total_xp.toLocaleString()} XP</span>
+          <span>LVL {profile.level + 1}</span>
         </div>
         <div className={s.charXpTrack}>
           <div className={s.charXpFill} style={{ width: `${xpPct}%` }} />
         </div>
-        <p className={s.charXpHint}>ещё {profile.xp_to_next_level.toLocaleString()} XP до следующего уровня</p>
+        <p className={s.charXpHint}>ещё {profile.xp_to_next_level.toLocaleString()} XP до следующего уровня</p>
       </div>
-
-      {/* stats grid */}
       <div className={s.charStats}>
         {stats.map(st => (
           <div key={st.label} className={s.charStat}>
@@ -90,8 +67,7 @@ function CharacterCard({ profile, displayName }: { profile: PlayerProfile; displ
   )
 }
 
-// ──────────────── StatCard ────────────────
-
+// ────── StatCard ──────
 function StatCard({
   icon, label, value, sub, accent = false,
 }: {
@@ -109,40 +85,28 @@ function StatCard({
   )
 }
 
-// ──────────────── XPBar (standalone) ────────────────
-
+// ────── XPBar ──────
 function XPBar({ profile }: { profile: PlayerProfile }) {
-  const percent = calcXpBar(
-    profile.total_xp,
-    profile.level,
-    profile.xp_to_next_level,
-    profile.xp_progress_percent ?? null,
-  )
+  const percent = calcXpPct(profile)
   return (
     <div className={s.xpSection}>
       <div className={s.xpHeader}>
-        <span className={s.xpTitle}>Прогресс до уровня {profile.level + 1}</span>
+        <span className={s.xpTitle}>Прогресс до уровня {profile.level + 1}</span>
         <span className={s.xpPct}>{percent.toFixed(0)}%</span>
       </div>
-      <div
-        className={s.xpTrack}
-        role="progressbar"
-        aria-valuenow={percent}
-        aria-valuemin={0}
-        aria-valuemax={100}
-      >
+      <div className={s.xpTrack} role="progressbar"
+        aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
         <div className={s.xpFill} style={{ width: `${percent}%` }} />
       </div>
       <div className={s.xpFooter}>
-        <span>{profile.total_xp.toLocaleString()} XP</span>
-        <span>ещё {profile.xp_to_next_level.toLocaleString()} XP</span>
+        <span>{profile.total_xp.toLocaleString()} XP</span>
+        <span>ещё {profile.xp_to_next_level.toLocaleString()} XP</span>
       </div>
     </div>
   )
 }
 
-// ──────────────── QuestCard ────────────────
-
+// ────── QuestCard ──────
 const DIFF_LABEL: Record<string, string> = { easy: 'Легко', medium: 'Средне', hard: 'Сложно' }
 const DIFF_CLASS: Record<string, string> = {
   easy:   s.diffEasy,
@@ -165,10 +129,10 @@ function QuestCard({ q }: { q: UserQuest }) {
       </div>
       <div className={s.questBottom}>
         <span className={s.questProg}>{q.progress}/{q.target}</span>
-        <span className={s.questReward}>+{q.xp_reward} XP</span>
+        <span className={s.questReward}>+{q.xp_reward} XP</span>
         {q.deadline_at && (
           <span className={s.questDeadline}>
-            до {new Date(q.deadline_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+            до {new Date(q.deadline_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
           </span>
         )}
       </div>
@@ -176,8 +140,7 @@ function QuestCard({ q }: { q: UserQuest }) {
   )
 }
 
-// ──────────────── StreakCard ────────────────
-
+// ────── StreakCard ──────
 function StreakCard({ days }: { days: number }) {
   const active = Math.min(days, 7)
   return (
@@ -185,7 +148,9 @@ function StreakCard({ days }: { days: number }) {
       <div className={s.streakHeader}>
         <span className={s.streakFire}>🔥</span>
         <div>
-          <p className={s.streakDays}>{days} <span className={s.streakUnit}>дней</span></p>
+          <p className={s.streakDays}>
+            {days} <span className={s.streakUnit}>дней</span>
+          </p>
           <p className={s.streakLabel}>Стрик активности</p>
         </div>
       </div>
@@ -194,29 +159,26 @@ function StreakCard({ days }: { days: number }) {
           <div
             key={i}
             className={`${s.streakDot} ${i < active ? s.streakDotActive : ''}`}
-            title={`День ${i + 1}`}
+            title={`День ${i + 1}`}
           />
         ))}
       </div>
       <p className={s.streakHint}>
         {days >= 7
           ? '🏆 7 дней подряд — отлично!'
-          : `Ещё ${7 - days} ${7 - days === 1 ? 'день' : 'дня'} до недельного рекорда`}
+          : `Ещё ${7 - days} ${7 - days === 1 ? 'день' : 'дня'} до недельного рекорда`}
       </p>
     </div>
   )
 }
 
-// ──────────────── MiniLeaderboard ────────────────
-
+// ────── MiniLeaderboard ──────
 const MEDALS = ['🥇', '🥈', '🥉']
 
 function MiniLeaderboard({
-  entries,
-  currentUserId,
+  entries, currentUserId,
 }: {
-  entries: LeaderboardEntry[]
-  currentUserId?: string
+  entries: LeaderboardEntry[]; currentUserId?: string
 }) {
   return (
     <div className={s.miniLb}>
@@ -228,11 +190,10 @@ function MiniLeaderboard({
             <span className={s.miniLbRank}>{MEDALS[i] ?? `#${e.rank}`}</span>
             <div className={s.miniLbAvatar}>{name.slice(0, 2).toUpperCase()}</div>
             <span className={s.miniLbName}>
-              {name}
-              {isMe && <span className={s.miniLbYou}> (ты)</span>}
+              {name}{isMe && <span className={s.miniLbYou}> (ты)</span>}
             </span>
-            <span className={s.miniLbXp}>{e.total_xp.toLocaleString()} XP</span>
-            <span className={s.miniLbLvl}>LVL {e.level}</span>
+            <span className={s.miniLbXp}>{e.total_xp.toLocaleString()} XP</span>
+            <span className={s.miniLbLvl}>LVL {e.level}</span>
           </div>
         )
       })}
@@ -240,37 +201,25 @@ function MiniLeaderboard({
   )
 }
 
-// ──────────────── BadgesGrid ────────────────
-
+// ────── BadgesGrid ──────
 const BADGE_ICONS: Record<string, string> = {
-  first_quest: '🎯',
-  week_streak: '🔥',
-  top10:       '🏆',
-  coins_1000:  '🪙',
-  level_10:    '⚡',
-  quests_50:   '📜',
+  first_quest: '🎯', week_streak: '🔥', top10: '🏆',
+  coins_1000: '🪙', level_10: '⚡', quests_50: '📜',
 }
 const BADGE_NAMES: Record<string, string> = {
-  first_quest: 'Первый квест',
-  week_streak: 'Неделя подряд',
-  top10:       'Топ-10',
-  coins_1000:  '1000 монет',
-  level_10:    'Уровень 10',
-  quests_50:   '50 квестов',
+  first_quest: 'Первый квест', week_streak: 'Неделя подряд', top10: 'Топ-10',
+  coins_1000: '1000 монет', level_10: 'Уровень 10', quests_50: '50 квестов',
 }
 
 function BadgesGrid({ count }: { count: number }) {
-  const codes = Object.keys(BADGE_ICONS)
   return (
     <div className={s.badgesGrid}>
-      {codes.map((code, i) => {
+      {Object.keys(BADGE_ICONS).map((code, i) => {
         const unlocked = i < count
         return (
-          <div
-            key={code}
+          <div key={code}
             className={`${s.badgeItem} ${unlocked ? '' : s.badgeLocked}`}
-            title={BADGE_NAMES[code]}
-          >
+            title={BADGE_NAMES[code]}>
             <span className={s.badgeIcon}>{BADGE_ICONS[code]}</span>
             <span className={s.badgeName}>{BADGE_NAMES[code]}</span>
             {!unlocked && <span className={s.badgeLockIcon}>🔒</span>}
@@ -281,69 +230,60 @@ function BadgesGrid({ count }: { count: number }) {
   )
 }
 
-// ──────────────── Skeleton ────────────────
-
-function StatSkeleton() {
-  return (
-    <div className={s.statsRow}>
-      {[...Array(4)].map((_, i) => (
-        <div key={i} className={`${s.statCard} ${s.skel}`} style={{ minHeight: 88 }} />
-      ))}
-    </div>
-  )
-}
-
-// ──────────────── Page ────────────────
-
+// ────── Page ──────
 export function OverviewPage() {
   const user = useAuthStore(st => st.user)
 
-  const [profile,        setProfile]        = useState<PlayerProfile | null>(null)
-  const [myQuests,       setMyQuests]        = useState<UserQuest[]>([])
-  const [lbEntries,      setLbEntries]       = useState<LeaderboardEntry[]>([])
-  const [profileLoading, setProfileLoading]  = useState(true)
-  const [questsLoading,  setQuestsLoading]   = useState(true)
-  const [questsErr,      setQuestsErr]       = useState(false)
-  const [lbLoading,      setLbLoading]       = useState(true)
+  const [profile,        setProfile]       = useState<PlayerProfile | null>(null)
+  const [myQuests,       setMyQuests]       = useState<UserQuest[]>([])
+  const [lbEntries,      setLbEntries]      = useState<LeaderboardEntry[]>([])
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [questsLoading,  setQuestsLoading]  = useState(true)
+  const [questsErr,      setQuestsErr]      = useState(false)
+  const [lbLoading,      setLbLoading]      = useState(true)
 
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (!user?.id) return
     abortRef.current?.abort()
-    const ac = new AbortController()
-    abortRef.current = ac
+    const ac  = new AbortController()
     const sig = ac.signal
+    abortRef.current = ac
 
-    // профиль
+    // profile
     setProfileLoading(true)
     meApi.getProfile(user.id)
       .then(p  => { if (!sig.aborted) setProfile(p) })
-      .catch(() => {})
+      .catch(() => { /* profile error handled via null state */ })
       .finally(() => { if (!sig.aborted) setProfileLoading(false) })
 
-    // квесты
+    // my quests — getMy() returns UserQuest[] directly
     setQuestsLoading(true)
-    questsApi.getMy()
-      .then((raw: unknown) => {
+    questsApi.getMy(sig)
+      .then((list: UserQuest[]) => {
         if (sig.aborted) return
-        const list: UserQuest[] =
-          Array.isArray(raw)
-            ? (raw as UserQuest[])
-            : Array.isArray((raw as { items?: UserQuest[] }).items)
-              ? (raw as { items: UserQuest[] }).items
-              : []
-        setMyQuests(list.filter(q => q.status === 'in_progress').slice(0, 4))
+        setMyQuests(
+          (Array.isArray(list) ? list : [])
+            .filter(q => q.status === 'in_progress')
+            .slice(0, 4),
+        )
         setQuestsErr(false)
       })
-      .catch(() => { if (!sig.aborted) setQuestsErr(true) })
+      .catch(err => {
+        if (sig.aborted) return
+        const isAbort =
+          (err instanceof DOMException && err.name === 'AbortError') ||
+          (typeof err?.message === 'string' && err.message === 'canceled')
+        if (!isAbort) setQuestsErr(true)
+      })
       .finally(() => { if (!sig.aborted) setQuestsLoading(false) })
 
-    // лидерборд (топ-5)
+    // leaderboard top-5
     setLbLoading(true)
     leaderboardApi.getXP('all_time', 5, sig)
       .then(res => { if (!sig.aborted) setLbEntries(res.entries) })
-      .catch(() => {})
+      .catch(() => { /* silent */ })
       .finally(() => { if (!sig.aborted) setLbLoading(false) })
 
     return () => ac.abort()
@@ -357,45 +297,52 @@ export function OverviewPage() {
   return (
     <div className={s.page}>
 
-      {/* ── Приветствие ── */}
+      {/* Header */}
       <header className={s.header}>
         <div className={s.headerLeft}>
           <div className={s.avatar}>
             {displayName.slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <h1 className={s.greeting}>Привет, {displayName} 👋</h1>
+            <h1 className={s.greeting}>Привет, {displayName} 👋</h1>
             <p className={s.greetingSub}>
-              Уровень {level}
-              {rank != null && <> · <span className={s.rankBadge}>#{rank} в рейтинге</span></>}
+              Уровень {level}
+              {rank != null && <> · <span className={s.rankBadge}>#{rank} в рейтинге</span></>}
             </p>
           </div>
         </div>
       </header>
 
-      {/* ── Главная сетка: CharacterCard + правая колонка ── */}
+      {/* Main grid */}
       <div className={s.mainGrid}>
 
-        {/* CharacterCard */}
+        {/* CharacterCard — левая колонка */}
         {profileLoading ? (
           <div className={`${s.characterCard} ${s.skel}`} style={{ minHeight: 380 }} />
         ) : profile != null ? (
           <CharacterCard profile={profile} displayName={displayName} />
         ) : (
-          /* fallback — если профиль не загрузился, показываем заглушку */
+          /* fallback: профиль не загрузился, но колонка не схлопывается */
           <div className={s.characterCard}>
             <div className={s.charBanner} />
             <div className={s.charAvatarWrap}>
-              <div className={s.charAvatar}>{displayName.slice(0, 2).toUpperCase()}</div>
-            </div>
-            <p className={s.charName}>{displayName}</p>
-            <div className={s.charXpWrap}>
-              <div className={s.charXpTrack}>
-                <div className={s.charXpFill} style={{ width: '0%' }} />
+              <div className={s.charAvatar}>
+                {(user?.username ?? '?').slice(0, 2).toUpperCase()}
               </div>
             </div>
+            <p className={s.charName}>{user?.username ?? '—'}</p>
+            <div className={s.charXpWrap}>
+              <div className={s.charXpLabels}>
+                <span>{(user?.xp ?? 0).toLocaleString()} XP</span>
+                <span>LVL {(user?.level ?? 1) + 1}</span>
+              </div>
+              <div className={s.charXpTrack}>
+                <div className={s.charXpFill} style={{ width: '2%' }} />
+              </div>
+              <p className={s.charXpHint}>данные недоступны</p>
+            </div>
             <div className={s.charStats}>
-              {(['Квесты','Монеты','Бейджи','В процессе','Стрик'] as const).map(l => (
+              {['Квесты', 'Монеты', 'Бейджи', 'В процессе', 'Стрик'].map(l => (
                 <div key={l} className={s.charStat}>
                   <span className={s.charStatVal}>—</span>
                   <span className={s.charStatLabel}>{l}</span>
@@ -405,30 +352,38 @@ export function OverviewPage() {
           </div>
         )}
 
-        {/* правая колонка */}
+        {/* Right column */}
         <div className={s.rightCol}>
 
-          {/* Статистика */}
+          {/* Stats row */}
           {profileLoading ? (
-            <StatSkeleton />
+            <div className={s.statsRow}>
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className={`${s.statCard} ${s.skel}`} style={{ minHeight: 88 }} />
+              ))}
+            </div>
           ) : profile != null ? (
             <div className={s.statsRow}>
-              <StatCard icon="⚡" label="Уровень"  value={profile.level}                         sub={`${profile.quests_completed} квестов`} accent />
-              <StatCard icon="🔮" label="Всего XP" value={profile.total_xp.toLocaleString()}    sub={`${profile.quests_in_progress} в процессе`} />
-              <StatCard icon="🪙" label="Монеты"   value={profile.total_coins.toLocaleString()}  sub="на балансе" />
-              <StatCard icon="🏅" label="Бейджи"   value={profile.badges_count}                  sub={rank != null ? `#${rank} в рейтинге` : 'нет позиции'} />
+              <StatCard icon="⚡" label="Уровень"  value={profile.level}
+                sub={`${profile.quests_completed} квестов`} accent />
+              <StatCard icon="🔮" label="Всего XP" value={profile.total_xp.toLocaleString()}
+                sub={`${profile.quests_in_progress} в процессе`} />
+              <StatCard icon="🪙" label="Монеты"   value={profile.total_coins.toLocaleString()}
+                sub="на балансе" />
+              <StatCard icon="🏅" label="Бейджи"   value={profile.badges_count}
+                sub={rank != null ? `#${rank} в рейтинге` : 'нет позиции'} />
             </div>
           ) : (
             <div className={s.statsRow}>
-              <StatCard icon="⚡" label="Уровень"  value={user?.level ?? 1}              sub="игрока" accent />
-              <StatCard icon="🔮" label="Всего XP" value={(user?.xp ?? 0).toLocaleString()} />
-              <StatCard icon="🪙" label="Монеты"   value={(user?.coins ?? 0).toLocaleString()} sub="на балансе" />
-              <StatCard icon="🏅" label="Бейджи"   value="—" sub="нет данных" />
+              <StatCard icon="⚡" label="Уровень"  value={user?.level ?? 1} sub="игрока" accent />
+              <StatCard icon="🔮" label="Всего XP" value={(user?.xp ?? 0).toLocaleString()} />
+              <StatCard icon="🪙" label="Монеты"   value={(user?.coins ?? 0).toLocaleString()} sub="на балансе" />
+              <StatCard icon="🏅" label="Бейджи"   value="—" sub="нет данных" />
             </div>
           )}
 
           {/* XP Bar */}
-          {profile != null && !profileLoading && <XPBar profile={profile} />}
+          {!profileLoading && profile != null && <XPBar profile={profile} />}
 
           {/* Активные квесты */}
           <section className={s.section}>
@@ -444,8 +399,10 @@ export function OverviewPage() {
               </div>
             ) : questsErr ? (
               <div className={s.inlineHint}>
-                ⚠️ Не удалось загрузить квесты —{' '}
-                <button className={s.retryBtn} onClick={() => window.location.reload()}>повторить</button>
+                ⚠️ Не удалось загрузить квесты — 
+                <button className={s.retryBtn} onClick={() => window.location.reload()}>
+                  повторить
+                </button>
               </div>
             ) : myQuests.length > 0 ? (
               <div className={s.questsGrid}>
@@ -465,14 +422,12 @@ export function OverviewPage() {
 
           {/* Стрик + Мини-лидерборд */}
           <div className={s.bottomGrid}>
-            {!profileLoading && (
-              <section className={s.section}>
-                <div className={s.sectionHead}>
-                  <h2 className={s.sectionTitle}>Стрик</h2>
-                </div>
-                <StreakCard days={streakDays} />
-              </section>
-            )}
+            <section className={s.section}>
+              <div className={s.sectionHead}>
+                <h2 className={s.sectionTitle}>Стрик</h2>
+              </div>
+              <StreakCard days={streakDays} />
+            </section>
 
             <section className={s.section}>
               <div className={s.sectionHead}>
@@ -481,7 +436,7 @@ export function OverviewPage() {
               </div>
               {lbLoading ? (
                 <div className={s.miniLb}>
-                  {[...Array(5)].map((_, i) => (
+                  {[...Array(3)].map((_, i) => (
                     <div key={i} className={`${s.miniLbRow} ${s.skel}`} style={{ height: 44 }} />
                   ))}
                 </div>
@@ -494,7 +449,7 @@ export function OverviewPage() {
           </div>
 
           {/* Достижения */}
-          {profile != null && !profileLoading && (
+          {!profileLoading && profile != null && (
             <section className={s.section}>
               <div className={s.sectionHead}>
                 <h2 className={s.sectionTitle}>Достижения</h2>
@@ -505,7 +460,6 @@ export function OverviewPage() {
 
         </div>{/* /rightCol */}
       </div>{/* /mainGrid */}
-
     </div>
   )
 }
