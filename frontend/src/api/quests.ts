@@ -9,7 +9,7 @@ export type UserQuestStatus = 'in_progress' | 'completed' | 'failed'
 export interface Quest {
   id: string
   title: string
-  description: string
+  description: string | null
   quest_type: QuestType
   difficulty: QuestDifficulty
   status: QuestStatus
@@ -17,24 +17,27 @@ export interface Quest {
   coins_reward: number
   time_limit_hours: number | null
   integration_trigger: string | null
+  integration_target: number | null
   created_at: string
 }
 
+/**
+ * Соответствует UserQuestResponse в gamification-service/app/schemas.py
+ * Бэкенд возвращает вложенный объект quest, а не плоскую структуру.
+ */
 export interface UserQuest {
   id: string
+  user_id: string
   quest_id: string
-  quest_title: string
-  quest_type: QuestType
-  difficulty: QuestDifficulty
-  xp_reward: number
-  coins_reward: number
   status: UserQuestStatus
   progress: number
   target: number
   progress_percent: number
-  accepted_at: string
-  deadline_at: string | null
+  /** Дата принятия квеста (в бэкенде поле называется started_at) */
+  started_at: string
   completed_at: string | null
+  deadline_at: string | null
+  quest: Quest
 }
 
 export interface QuestsListResponse {
