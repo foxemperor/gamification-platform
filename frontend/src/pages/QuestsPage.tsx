@@ -89,29 +89,37 @@ function CountdownDisplay({ deadline }: { deadline: string | null }) {
 // ─── Difficulty / type helpers ────────────────────────────────────────────────
 
 const DIFF_LABELS: Record<QuestDifficulty, string> = {
-  easy: 'Лёгкий',
+  easy:   'Лёгкий',
   medium: 'Средний',
-  hard: 'Сложный',
+  hard:   'Сложный',
+  epic:   'Эпический',
 }
 const TYPE_LABELS: Record<QuestType, string> = {
-  personal: 'Личный',
-  team: 'Командный',
-  skill: 'Навык',
+  personal:    'Личный',
+  team:        'Командный',
+  skill:       'Навык',
+  daily:       'Ежедневный',
+  integration: 'Интеграция',
 }
 const DIFF_CLASS: Record<QuestDifficulty, string> = {
-  easy: styles.diffEasy,
+  easy:   styles.diffEasy,
   medium: styles.diffMedium,
-  hard: styles.diffHard,
+  hard:   styles.diffHard,
+  epic:   styles.diffEpic,
 }
 const TYPE_CLASS: Record<QuestType, string> = {
-  personal: styles.typePersonal,
-  team: styles.typeTeam,
-  skill: styles.typeSkill,
+  personal:    styles.typePersonal,
+  team:        styles.typeTeam,
+  skill:       styles.typeSkill,
+  daily:       styles.typeDaily,
+  integration: styles.typeIntegration,
 }
 const TYPE_ICON: Record<QuestType, string> = {
-  personal: '⚡',
-  team: '🤝',
-  skill: '📚',
+  personal:    '⚡',
+  team:        '🤝',
+  skill:       '📚',
+  daily:       '🌅',
+  integration: '🔗',
 }
 
 // ─── CatalogCard ──────────────────────────────────────────────────────────────
@@ -376,20 +384,32 @@ export function QuestsPage() {
     abortRef.current = ctrl
 
     setLoading(true)
-    try {
-      const [allRes, myRes] = await Promise.all([
-        questsApi.getAll({ per_page: 100 }, ctrl.signal),
-        questsApi.getMy(ctrl.signal),
-      ])
-      setQuests(allRes.items)
-      setMyQuests(myRes)
-    } catch (err: unknown) {
-      if (!isAbortError(err)) {
-        showToast('Не удалось загрузить квесты', 'error')
-      }
-    } finally {
-      setLoading(false)
+
+    // Запрашиваем каталог и мои квесты независимо, чтобы сбой одного не подавлял другой.
+    // Каталог (без авторизации) загружается всегда;
+    // /quests/my загружается отдельно и ошибка там (напр., 401) не мешает отобразить каталог.
+    const [catalogResult, myResult] = await Promise.allSettled([
+      questsApi.getAll({ per_page: 100 }, ctrl.signal),
+      questsApi.getMy(ctrl.signal),
+    ])
+
+    if (ctrl.signal.aborted) return
+
+    // Каталог квестов — основной блок
+    if (catalogResult.status === 'fulfilled') {
+      setQuests(catalogResult.value.items)
+    } else if (!isAbortError(catalogResult.reason)) {
+      showToast('Не удалось загрузить каталог квестов', 'error')
     }
+
+    // Мои квесты — если не авторизован, просто оставляем пустыми (не показываем ошибку)
+    if (myResult.status === 'fulfilled') {
+      setMyQuests(Array.isArray(myResult.value) ? myResult.value : [])
+    } else {
+      setMyQuests([])
+    }
+
+    setLoading(false)
   }, [showToast])
 
   useEffect(() => {
@@ -559,6 +579,8 @@ export function QuestsPage() {
                 <option value="personal">Личный</option>
                 <option value="team">Командный</option>
                 <option value="skill">Навык</option>
+                <option value="daily">Ежедневный</option>
+                <option value="integration">Интеграция</option>
               </select>
               <select
                 className={styles.filterSelect}
@@ -570,6 +592,7 @@ export function QuestsPage() {
                 <option value="easy">Лёгкий</option>
                 <option value="medium">Средний</option>
                 <option value="hard">Сложный</option>
+                <option value="epic">Эпический</option>
               </select>
               {hasFilters && (
                 <button className={styles.resetBtn} onClick={resetFilters}>

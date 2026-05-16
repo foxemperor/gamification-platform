@@ -1,8 +1,8 @@
 import axios from 'axios'
 import { api } from './axios'
 
-export type QuestType = 'personal' | 'team' | 'skill'
-export type QuestDifficulty = 'easy' | 'medium' | 'hard'
+export type QuestType = 'personal' | 'team' | 'skill' | 'daily' | 'integration'
+export type QuestDifficulty = 'easy' | 'medium' | 'hard' | 'epic'
 export type QuestStatus = 'active' | 'archived'
 export type UserQuestStatus = 'in_progress' | 'completed' | 'failed'
 

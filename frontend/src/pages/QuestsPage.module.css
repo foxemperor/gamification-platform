@@ -357,9 +357,11 @@
 }
 
 /* Accent bar colors per type */
-.typePersonal .cardAccentBar { background: var(--primary) }
-.typeTeam     .cardAccentBar { background: var(--success) }
-.typeSkill    .cardAccentBar { background: var(--accent) }
+.typePersonal    .cardAccentBar { background: var(--primary) }
+.typeTeam        .cardAccentBar { background: var(--success) }
+.typeSkill       .cardAccentBar { background: var(--accent) }
+.typeDaily       .cardAccentBar { background: var(--streak) }
+.typeIntegration .cardAccentBar { background: var(--accent-soft) }
 
 /* Skill card: accent border */
 .catalogCardSkill {
@@ -432,14 +434,17 @@
 }
 
 /* Type badges */
-.typePersonal { color: var(--primary);  background: rgba(34, 211, 238, 0.1);  border: 1px solid rgba(34, 211, 238, 0.2) }
-.typeTeam     { color: var(--success);  background: rgba(52, 211, 153, 0.1);  border: 1px solid rgba(52, 211, 153, 0.2) }
-.typeSkill    { color: var(--accent);   background: rgba(167, 139, 250, 0.1); border: 1px solid rgba(167, 139, 250, 0.2) }
+.typePersonal    { color: var(--primary);     background: rgba(34, 211, 238, 0.1);   border: 1px solid rgba(34, 211, 238, 0.2) }
+.typeTeam        { color: var(--success);     background: rgba(52, 211, 153, 0.1);   border: 1px solid rgba(52, 211, 153, 0.2) }
+.typeSkill       { color: var(--accent);      background: rgba(167, 139, 250, 0.1);  border: 1px solid rgba(167, 139, 250, 0.2) }
+.typeDaily       { color: var(--streak);      background: rgba(249, 115, 22, 0.1);   border: 1px solid rgba(249, 115, 22, 0.2) }
+.typeIntegration { color: var(--accent-soft); background: rgba(196, 181, 253, 0.1);  border: 1px solid rgba(196, 181, 253, 0.2) }
 
 /* Difficulty badges */
-.diffEasy   { color: var(--success);  background: rgba(52, 211, 153, 0.1);  border: 1px solid rgba(52, 211, 153, 0.2) }
-.diffMedium { color: var(--warning);  background: rgba(251, 191, 36, 0.1);  border: 1px solid rgba(251, 191, 36, 0.2) }
-.diffHard   { color: var(--danger);   background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.2) }
+.diffEasy   { color: var(--success);  background: rgba(52, 211, 153, 0.1);   border: 1px solid rgba(52, 211, 153, 0.2) }
+.diffMedium { color: var(--warning);  background: rgba(251, 191, 36, 0.1);   border: 1px solid rgba(251, 191, 36, 0.2) }
+.diffHard   { color: var(--danger);   background: rgba(248, 113, 113, 0.1);  border: 1px solid rgba(248, 113, 113, 0.2) }
+.diffEpic   { color: #e879f9;         background: rgba(232, 121, 249, 0.1);  border: 1px solid rgba(232, 121, 249, 0.2) }
 
 /* Status badges */
 .badgeAccepted   { color: var(--primary);  background: rgba(34, 211, 238, 0.08); border: 1px solid rgba(34, 211, 238, 0.2) }

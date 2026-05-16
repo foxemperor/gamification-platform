@@ -20,8 +20,8 @@ function makeQuest(overrides: Partial<{
   id: string
   title: string
   description: string | null
-  quest_type: 'personal' | 'team' | 'skill'
-  difficulty: 'easy' | 'medium' | 'hard'
+  quest_type: 'personal' | 'team' | 'skill' | 'daily' | 'integration'
+  difficulty: 'easy' | 'medium' | 'hard' | 'epic'
   status: 'active' | 'archived'
   xp_reward: number
   coins_reward: number
@@ -305,6 +305,9 @@ describe('Каталог — фильтрация и поиск', () => {
     makeQuest({ id: '3', title: 'Навык React', quest_type: 'skill', difficulty: 'hard' }),
     makeQuest({ id: '4', title: 'TypeScript мастерство', quest_type: 'skill', difficulty: 'easy' }),
     makeQuest({ id: '5', title: 'Проект команды', quest_type: 'team', difficulty: 'easy' }),
+    makeQuest({ id: '6', title: 'Ежедневная задача', quest_type: 'daily', difficulty: 'easy' }),
+    makeQuest({ id: '7', title: 'GitHub интеграция', quest_type: 'integration', difficulty: 'epic' }),
+    makeQuest({ id: '8', title: 'Эпический вызов', quest_type: 'personal', difficulty: 'epic' }),
   ]
 
   function filterQuests(
@@ -327,7 +330,7 @@ describe('Каталог — фильтрация и поиск', () => {
 
   it('без фильтров → все квесты', () => {
     const result = filterQuests(catalog, 'all', 'all', '')
-    expect(result).toHaveLength(5)
+    expect(result).toHaveLength(8)
   })
 
   it('фильтр по типу skill → только skill-квесты', () => {
@@ -338,7 +341,7 @@ describe('Каталог — фильтрация и поиск', () => {
 
   it('фильтр по сложности easy → только лёгкие', () => {
     const result = filterQuests(catalog, 'all', 'easy', '')
-    expect(result).toHaveLength(3)
+    expect(result).toHaveLength(4)  // id 1,4,5,6 (персонал, скилл, тим, дейли)
     expect(result.every(q => q.difficulty === 'easy')).toBe(true)
   })
 
@@ -368,6 +371,46 @@ describe('Каталог — фильтрация и поиск', () => {
   it('фильтр team + hard → пусто (нет таких)', () => {
     const result = filterQuests(catalog, 'team', 'hard', '')
     expect(result).toHaveLength(0)
+  })
+
+  // Новые типы: daily, integration, epic
+  it('фильтр по типу daily → только ежедневные квесты', () => {
+    const result = filterQuests(catalog, 'daily', 'all', '')
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('6')
+    expect(result.every(q => q.quest_type === 'daily')).toBe(true)
+  })
+
+  it('фильтр по типу integration → только integration-квесты', () => {
+    const result = filterQuests(catalog, 'integration', 'all', '')
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('7')
+    expect(result.every(q => q.quest_type === 'integration')).toBe(true)
+  })
+
+  it('фильтр по сложности epic → 2 квеста (id 7 и 8)', () => {
+    const result = filterQuests(catalog, 'all', 'epic', '')
+    expect(result).toHaveLength(2)
+    expect(result.every(q => q.difficulty === 'epic')).toBe(true)
+    expect(result.map(q => q.id).sort()).toEqual(['7', '8'])
+  })
+
+  it('комбинация: integration + epic → один квест', () => {
+    const result = filterQuests(catalog, 'integration', 'epic', '')
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('7')
+  })
+
+  it('поиск «ежедневная» → находит daily-квест', () => {
+    const result = filterQuests(catalog, 'all', 'all', 'ежедневная')
+    expect(result).toHaveLength(1)
+    expect(result[0].quest_type).toBe('daily')
+  })
+
+  it('поиск «GitHub» с фильтром integration → находит GitHub-квест', () => {
+    const result = filterQuests(catalog, 'integration', 'all', 'GitHub')
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('7')
   })
 })
 
