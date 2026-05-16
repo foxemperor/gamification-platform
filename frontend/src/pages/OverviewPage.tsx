@@ -33,32 +33,32 @@ function CharacterCard({ profile, displayName }: { profile: PlayerProfile; displ
     profile.total_xp,
     profile.level,
     profile.xp_to_next_level,
-    profile.xp_progress_percent,
+    profile.xp_progress_percent ?? null,
   )
 
   const stats = [
-    { label: 'Квесты', value: profile.quests_completed },
-    { label: 'Монеты', value: profile.total_coins.toLocaleString() },
-    { label: 'Бейджи', value: profile.badges_count },
+    { label: 'Квесты',     value: profile.quests_completed },
+    { label: 'Монеты',     value: profile.total_coins.toLocaleString() },
+    { label: 'Бейджи',     value: profile.badges_count },
     { label: 'В процессе', value: profile.quests_in_progress },
-    { label: 'Стрик', value: `${profile.streak_days ?? 0} д.` },
+    { label: 'Стрик',      value: `${profile.streak_days ?? 0} д.` },
   ] as const
+
+  const initials = displayName.trim().slice(0, 2).toUpperCase() || '??'
 
   return (
     <div className={s.characterCard}>
       {/* banner */}
       <div className={s.charBanner}>
         <span className={s.charLevelBadge}>LVL {profile.level}</span>
-        {profile.rank_all_time && (
+        {profile.rank_all_time != null && (
           <span className={s.charRankBadge}>#{profile.rank_all_time}</span>
         )}
       </div>
 
       {/* avatar */}
       <div className={s.charAvatarWrap}>
-        <div className={s.charAvatar}>
-          {displayName.slice(0, 2).toUpperCase()}
-        </div>
+        <div className={s.charAvatar}>{initials}</div>
       </div>
 
       {/* name */}
@@ -116,7 +116,7 @@ function XPBar({ profile }: { profile: PlayerProfile }) {
     profile.total_xp,
     profile.level,
     profile.xp_to_next_level,
-    profile.xp_progress_percent,
+    profile.xp_progress_percent ?? null,
   )
   return (
     <div className={s.xpSection}>
@@ -124,7 +124,13 @@ function XPBar({ profile }: { profile: PlayerProfile }) {
         <span className={s.xpTitle}>Прогресс до уровня {profile.level + 1}</span>
         <span className={s.xpPct}>{percent.toFixed(0)}%</span>
       </div>
-      <div className={s.xpTrack} role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+      <div
+        className={s.xpTrack}
+        role="progressbar"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
         <div className={s.xpFill} style={{ width: `${percent}%` }} />
       </div>
       <div className={s.xpFooter}>
@@ -139,9 +145,9 @@ function XPBar({ profile }: { profile: PlayerProfile }) {
 
 const DIFF_LABEL: Record<string, string> = { easy: 'Легко', medium: 'Средне', hard: 'Сложно' }
 const DIFF_CLASS: Record<string, string> = {
-  easy: s.diffEasy,
+  easy:   s.diffEasy,
   medium: s.diffMedium,
-  hard: s.diffHard,
+  hard:   s.diffHard,
 }
 
 function QuestCard({ q }: { q: UserQuest }) {
@@ -173,7 +179,7 @@ function QuestCard({ q }: { q: UserQuest }) {
 // ──────────────── StreakCard ────────────────
 
 function StreakCard({ days }: { days: number }) {
-  const flames = Math.min(days, 7)
+  const active = Math.min(days, 7)
   return (
     <div className={s.streakCard}>
       <div className={s.streakHeader}>
@@ -187,13 +193,15 @@ function StreakCard({ days }: { days: number }) {
         {Array.from({ length: 7 }, (_, i) => (
           <div
             key={i}
-            className={`${s.streakDot} ${i < flames ? s.streakDotActive : ''}`}
+            className={`${s.streakDot} ${i < active ? s.streakDotActive : ''}`}
             title={`День ${i + 1}`}
           />
         ))}
       </div>
       <p className={s.streakHint}>
-        {days >= 7 ? '🏆 7 дней подряд — отлично!' : `Ещё ${7 - days} ${7 - days === 1 ? 'день' : 'дня'} до недельного рекорда`}
+        {days >= 7
+          ? '🏆 7 дней подряд — отлично!'
+          : `Ещё ${7 - days} ${7 - days === 1 ? 'день' : 'дня'} до недельного рекорда`}
       </p>
     </div>
   )
@@ -201,17 +209,28 @@ function StreakCard({ days }: { days: number }) {
 
 // ──────────────── MiniLeaderboard ────────────────
 
-function MiniLeaderboard({ entries, currentUserId }: { entries: LeaderboardEntry[]; currentUserId?: string }) {
-  const MEDALS = ['🥇', '🥈', '🥉']
+const MEDALS = ['🥇', '🥈', '🥉']
+
+function MiniLeaderboard({
+  entries,
+  currentUserId,
+}: {
+  entries: LeaderboardEntry[]
+  currentUserId?: string
+}) {
   return (
     <div className={s.miniLb}>
       {entries.map((e, i) => {
         const isMe = e.user_id === currentUserId
+        const name = e.full_name ?? e.username
         return (
           <div key={e.user_id} className={`${s.miniLbRow} ${isMe ? s.miniLbRowMe : ''}`}>
             <span className={s.miniLbRank}>{MEDALS[i] ?? `#${e.rank}`}</span>
-            <div className={s.miniLbAvatar}>{(e.full_name ?? e.username).slice(0, 2).toUpperCase()}</div>
-            <span className={s.miniLbName}>{e.full_name ?? e.username}{isMe && <span className={s.miniLbYou}> (ты)</span>}</span>
+            <div className={s.miniLbAvatar}>{name.slice(0, 2).toUpperCase()}</div>
+            <span className={s.miniLbName}>
+              {name}
+              {isMe && <span className={s.miniLbYou}> (ты)</span>}
+            </span>
             <span className={s.miniLbXp}>{e.total_xp.toLocaleString()} XP</span>
             <span className={s.miniLbLvl}>LVL {e.level}</span>
           </div>
@@ -226,35 +245,38 @@ function MiniLeaderboard({ entries, currentUserId }: { entries: LeaderboardEntry
 const BADGE_ICONS: Record<string, string> = {
   first_quest: '🎯',
   week_streak: '🔥',
-  top10: '🏆',
-  coins_1000: '🪙',
-  level_10: '⚡',
-  quests_50: '📜',
+  top10:       '🏆',
+  coins_1000:  '🪙',
+  level_10:    '⚡',
+  quests_50:   '📜',
 }
 const BADGE_NAMES: Record<string, string> = {
   first_quest: 'Первый квест',
   week_streak: 'Неделя подряд',
-  top10: 'Топ-10',
-  coins_1000: '1000 монет',
-  level_10: 'Уровень 10',
-  quests_50: '50 квестов',
+  top10:       'Топ-10',
+  coins_1000:  '1000 монет',
+  level_10:    'Уровень 10',
+  quests_50:   '50 квестов',
 }
 
-type BadgeItem = { code: string; unlocked: boolean }
-
 function BadgesGrid({ count }: { count: number }) {
-  const ALL_CODES = Object.keys(BADGE_ICONS)
-  const badges: BadgeItem[] = ALL_CODES.map((code, i) => ({ code, unlocked: i < count }))
-
+  const codes = Object.keys(BADGE_ICONS)
   return (
     <div className={s.badgesGrid}>
-      {badges.map(b => (
-        <div key={b.code} className={`${s.badgeItem} ${b.unlocked ? '' : s.badgeLocked}`} title={BADGE_NAMES[b.code]}>
-          <span className={s.badgeIcon}>{BADGE_ICONS[b.code]}</span>
-          <span className={s.badgeName}>{BADGE_NAMES[b.code]}</span>
-          {!b.unlocked && <span className={s.badgeLockIcon}>🔒</span>}
-        </div>
-      ))}
+      {codes.map((code, i) => {
+        const unlocked = i < count
+        return (
+          <div
+            key={code}
+            className={`${s.badgeItem} ${unlocked ? '' : s.badgeLocked}`}
+            title={BADGE_NAMES[code]}
+          >
+            <span className={s.badgeIcon}>{BADGE_ICONS[code]}</span>
+            <span className={s.badgeName}>{BADGE_NAMES[code]}</span>
+            {!unlocked && <span className={s.badgeLockIcon}>🔒</span>}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -276,13 +298,13 @@ function StatSkeleton() {
 export function OverviewPage() {
   const user = useAuthStore(st => st.user)
 
-  const [profile, setProfile]             = useState<PlayerProfile | null>(null)
-  const [myQuests, setMyQuests]           = useState<UserQuest[]>([])
-  const [lbEntries, setLbEntries]         = useState<LeaderboardEntry[]>([])
-  const [profileLoading, setProfileLoading] = useState(true)
-  const [questsLoading, setQuestsLoading] = useState(true)
-  const [questsErr, setQuestsErr]         = useState(false)
-  const [lbLoading, setLbLoading]         = useState(true)
+  const [profile,        setProfile]        = useState<PlayerProfile | null>(null)
+  const [myQuests,       setMyQuests]        = useState<UserQuest[]>([])
+  const [lbEntries,      setLbEntries]       = useState<LeaderboardEntry[]>([])
+  const [profileLoading, setProfileLoading]  = useState(true)
+  const [questsLoading,  setQuestsLoading]   = useState(true)
+  const [questsErr,      setQuestsErr]       = useState(false)
+  const [lbLoading,      setLbLoading]       = useState(true)
 
   const abortRef = useRef<AbortController | null>(null)
 
@@ -296,7 +318,7 @@ export function OverviewPage() {
     // профиль
     setProfileLoading(true)
     meApi.getProfile(user.id)
-      .then(p => { if (!sig.aborted) setProfile(p) })
+      .then(p  => { if (!sig.aborted) setProfile(p) })
       .catch(() => {})
       .finally(() => { if (!sig.aborted) setProfileLoading(false) })
 
@@ -327,7 +349,7 @@ export function OverviewPage() {
     return () => ac.abort()
   }, [user?.id])
 
-  const displayName = profile?.full_name ?? user?.username ?? '—'
+  const displayName = profile?.full_name ?? profile?.username ?? user?.username ?? '—'
   const level       = profile?.level ?? user?.level ?? 1
   const rank        = profile?.rank_all_time ?? null
   const streakDays  = profile?.streak_days ?? 0
@@ -345,7 +367,7 @@ export function OverviewPage() {
             <h1 className={s.greeting}>Привет, {displayName} 👋</h1>
             <p className={s.greetingSub}>
               Уровень {level}
-              {rank && <> · <span className={s.rankBadge}>#{rank} в рейтинге</span></>}
+              {rank != null && <> · <span className={s.rankBadge}>#{rank} в рейтинге</span></>}
             </p>
           </div>
         </div>
@@ -356,43 +378,64 @@ export function OverviewPage() {
 
         {/* CharacterCard */}
         {profileLoading ? (
-          <div className={`${s.characterCard} ${s.skel}`} />
-        ) : profile ? (
+          <div className={`${s.characterCard} ${s.skel}`} style={{ minHeight: 380 }} />
+        ) : profile != null ? (
           <CharacterCard profile={profile} displayName={displayName} />
-        ) : null}
+        ) : (
+          /* fallback — если профиль не загрузился, показываем заглушку */
+          <div className={s.characterCard}>
+            <div className={s.charBanner} />
+            <div className={s.charAvatarWrap}>
+              <div className={s.charAvatar}>{displayName.slice(0, 2).toUpperCase()}</div>
+            </div>
+            <p className={s.charName}>{displayName}</p>
+            <div className={s.charXpWrap}>
+              <div className={s.charXpTrack}>
+                <div className={s.charXpFill} style={{ width: '0%' }} />
+              </div>
+            </div>
+            <div className={s.charStats}>
+              {(['Квесты','Монеты','Бейджи','В процессе','Стрик'] as const).map(l => (
+                <div key={l} className={s.charStat}>
+                  <span className={s.charStatVal}>—</span>
+                  <span className={s.charStatLabel}>{l}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* правая колонка */}
         <div className={s.rightCol}>
 
-          {/* ── Статистика ── */}
+          {/* Статистика */}
           {profileLoading ? (
             <StatSkeleton />
-          ) : profile ? (
+          ) : profile != null ? (
             <div className={s.statsRow}>
-              <StatCard icon="⚡" label="Уровень" value={profile.level} sub={`${profile.quests_completed} квестов`} accent />
-              <StatCard icon="🔮" label="Всего XP" value={profile.total_xp.toLocaleString()} sub={`${profile.quests_in_progress} в процессе`} />
-              <StatCard icon="🪙" label="Монеты" value={profile.total_coins.toLocaleString()} sub="на балансе" />
-              <StatCard icon="🏅" label="Бейджи" value={profile.badges_count} sub={rank ? `#${rank} в рейтинге` : 'нет позиции'} />
+              <StatCard icon="⚡" label="Уровень"  value={profile.level}                         sub={`${profile.quests_completed} квестов`} accent />
+              <StatCard icon="🔮" label="Всего XP" value={profile.total_xp.toLocaleString()}    sub={`${profile.quests_in_progress} в процессе`} />
+              <StatCard icon="🪙" label="Монеты"   value={profile.total_coins.toLocaleString()}  sub="на балансе" />
+              <StatCard icon="🏅" label="Бейджи"   value={profile.badges_count}                  sub={rank != null ? `#${rank} в рейтинге` : 'нет позиции'} />
             </div>
           ) : (
             <div className={s.statsRow}>
-              <StatCard icon="⚡" label="Уровень" value={user?.level ?? 1} sub="игрока" accent />
+              <StatCard icon="⚡" label="Уровень"  value={user?.level ?? 1}              sub="игрока" accent />
               <StatCard icon="🔮" label="Всего XP" value={(user?.xp ?? 0).toLocaleString()} />
-              <StatCard icon="🪙" label="Монеты" value={(user?.coins ?? 0).toLocaleString()} sub="на балансе" />
-              <StatCard icon="🏅" label="Бейджи" value="—" sub="нет данных" />
+              <StatCard icon="🪙" label="Монеты"   value={(user?.coins ?? 0).toLocaleString()} sub="на балансе" />
+              <StatCard icon="🏅" label="Бейджи"   value="—" sub="нет данных" />
             </div>
           )}
 
-          {/* ── XP Bar ── */}
-          {profile && !profileLoading && <XPBar profile={profile} />}
+          {/* XP Bar */}
+          {profile != null && !profileLoading && <XPBar profile={profile} />}
 
-          {/* ── Активные квесты ── */}
+          {/* Активные квесты */}
           <section className={s.section}>
             <div className={s.sectionHead}>
               <h2 className={s.sectionTitle}>Активные квесты</h2>
               <Link to="/quests" className={s.sectionLink}>Все квесты →</Link>
             </div>
-
             {questsLoading ? (
               <div className={s.questsGrid}>
                 {[...Array(3)].map((_, i) => (
@@ -420,10 +463,8 @@ export function OverviewPage() {
             )}
           </section>
 
-          {/* ── Стрик + Мини-лидерборд ── */}
+          {/* Стрик + Мини-лидерборд */}
           <div className={s.bottomGrid}>
-
-            {/* Стрик */}
             {!profileLoading && (
               <section className={s.section}>
                 <div className={s.sectionHead}>
@@ -433,7 +474,6 @@ export function OverviewPage() {
               </section>
             )}
 
-            {/* Мини-лидерборд */}
             <section className={s.section}>
               <div className={s.sectionHead}>
                 <h2 className={s.sectionTitle}>Топ игроков</h2>
@@ -451,11 +491,10 @@ export function OverviewPage() {
                 <div className={s.inlineHint}>Рейтинг пока недоступен</div>
               )}
             </section>
-
           </div>
 
-          {/* ── Бейджи ── */}
-          {profile && !profileLoading && (
+          {/* Достижения */}
+          {profile != null && !profileLoading && (
             <section className={s.section}>
               <div className={s.sectionHead}>
                 <h2 className={s.sectionTitle}>Достижения</h2>
