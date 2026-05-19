@@ -18,48 +18,41 @@ SCHEMA = 'gamification'
 
 
 def upgrade() -> None:
-    # 1. Создаём ENUM-тип coinsource
-    coinsource = postgresql.ENUM(
-        'quest', 'badge', 'admin', 'penalty',
-        name='coinsource',
-        schema=SCHEMA,
-        create_type=True,
-    )
-    coinsource.create(op.get_bind(), checkfirst=True)
+    # 1. Создаём ENUM-тип coinsource (если вдруг уже есть — пропускаем)
+    op.execute(f"""
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_type t
+                JOIN pg_namespace n ON n.oid = t.typnamespace
+                WHERE t.typname = 'coinsource'
+                  AND n.nspname = '{SCHEMA}'
+            ) THEN
+                CREATE TYPE {SCHEMA}.coinsource AS ENUM ('quest', 'badge', 'admin', 'penalty');
+            END IF;
+        END $$;
+    """)
 
-    # 2. Создаём таблицу coin_transactions
-    op.create_table(
-        'coin_transactions',
-        sa.Column('id', postgresql.UUID(as_uuid=False), primary_key=True),
-        sa.Column('user_id', postgresql.UUID(as_uuid=False), nullable=False),
-        sa.Column('amount', sa.Integer(), nullable=False),
-        sa.Column(
-            'source',
-            sa.Enum('quest', 'badge', 'admin', 'penalty',
-                    name='coinsource', schema=SCHEMA, create_type=False),
-            nullable=False,
-        ),
-        sa.Column('source_id', postgresql.UUID(as_uuid=False), nullable=True),
-        sa.Column('description', sa.String(300), nullable=True),
-        sa.Column(
-            'created_at',
-            sa.DateTime(timezone=True),
-            server_default=sa.text('now()'),
-        ),
-        schema=SCHEMA,
-    )
+    # 2. Создаём таблицу coin_transactions (если вдруг уже есть — пропускаем)
+    op.execute(f"""
+        CREATE TABLE IF NOT EXISTS {SCHEMA}.coin_transactions (
+            id          UUID        NOT NULL PRIMARY KEY,
+            user_id     UUID        NOT NULL,
+            amount      INTEGER     NOT NULL,
+            source      {SCHEMA}.coinsource NOT NULL,
+            source_id   UUID,
+            description VARCHAR(300),
+            created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+    """)
 
-    # 3. Индекс по user_id для быстрых выборок
-    op.create_index(
-        'ix_coin_transactions_user_id',
-        'coin_transactions',
-        ['user_id'],
-        schema=SCHEMA,
-    )
+    # 3. Индекс по user_id
+    op.execute(f"""
+        CREATE INDEX IF NOT EXISTS ix_coin_transactions_user_id
+        ON {SCHEMA}.coin_transactions (user_id);
+    """)
 
 
 def downgrade() -> None:
-    op.drop_index('ix_coin_transactions_user_id',
-                  table_name='coin_transactions', schema=SCHEMA)
-    op.drop_table('coin_transactions', schema=SCHEMA)
-    op.execute(f'DROP TYPE IF EXISTS {SCHEMA}.coinsource')
+    op.execute(f"DROP INDEX IF EXISTS {SCHEMA}.ix_coin_transactions_user_id")
+    op.execute(f"DROP TABLE IF EXISTS {SCHEMA}.coin_transactions")
+    op.execute(f"DROP TYPE IF EXISTS {SCHEMA}.coinsource")
