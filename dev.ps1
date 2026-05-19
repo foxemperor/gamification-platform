@@ -18,6 +18,7 @@
 #   .\dev.ps1 health       - health check all services
 #   .\dev.ps1 db:init      - check DB schemas and run migrations
 #   .\dev.ps1 db:status    - show current migration state
+#   .\dev.ps1 seed         - seed demo data (quests, badges, character types)
 #   .\dev.ps1 test         - quick API test scenario
 #   .\dev.ps1 clean        - remove containers and volumes
 #   .\dev.ps1 rebuild      - full rebuild without cache
@@ -102,11 +103,12 @@ function Write-Help {
     Write-Host "  .\dev.ps1 health            " -NoNewline; Write-Host "HTTP health check all services" -ForegroundColor $GRAY
     Write-Host ""
 
-    Write-Host "  DATABASE" -ForegroundColor $YELLOW
+    Write-Host "  DATABASE & SEED" -ForegroundColor $YELLOW
     Write-Host "  ----------------------------------------------------------------"
     Write-Host "  .\dev.ps1 db                " -NoNewline; Write-Host "open psql (PostgreSQL CLI)" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 db:init           " -NoNewline; Write-Host "check schemas & run migrations (safe, idempotent)" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 db:status         " -NoNewline; Write-Host "show current Alembic migration state" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 seed              " -NoNewline; Write-Host "seed demo data: quests, badges, character types" -ForegroundColor $GRAY
     Write-Host ""
 
     Write-Host "  TESTING & UTILS" -ForegroundColor $YELLOW
@@ -155,6 +157,64 @@ function Assert-Node {
         return $false
     }
     return $true
+}
+
+# ================================================================
+# SEED — заполняет БД демо-данными
+# ================================================================
+
+function Invoke-Seed {
+    param([bool]$AutoMode = $false)
+
+    if (-not $AutoMode) { Write-Header "Seed Demo Data" }
+
+    $gamContainer = docker ps --filter "name=gamification-gamification-service" --filter "status=running" -q
+    if (-not $gamContainer) {
+        Write-Err "gamification-service is not running!"
+        Write-Info "Start it first: .\dev.ps1 up"
+        return $false
+    }
+
+    # Получаем devuser id из БД напрямую (без HTTP-запроса к auth-service)
+    Write-Info "Getting devuser UUID from database..."
+    $uid = docker exec gamification-postgres psql `
+        -U gamification_user -d gamification_db -t -A -c `
+        "SELECT id FROM auth.users WHERE username = 'devuser' LIMIT 1;"
+
+    $uid = $uid.Trim()
+
+    if (-not $uid -or $uid -eq "") {
+        Write-Warn "devuser not found in DB. Did you run '.\dev.ps1 test' first to register the user?"
+        if ($AutoMode) {
+            Write-Info "Skipping seed (no devuser). Run '.\dev.ps1 seed' after first login."
+            return $false
+        }
+        $confirm = Read-Host "  Register devuser now via test scenario? (Y/n)"
+        if ($confirm -ne "n" -and $confirm -ne "N") {
+            Invoke-Test
+            # Повторяем попытку
+            $uid = docker exec gamification-postgres psql `
+                -U gamification_user -d gamification_db -t -A -c `
+                "SELECT id FROM auth.users WHERE username = 'devuser' LIMIT 1;"
+            $uid = $uid.Trim()
+        }
+    }
+
+    if (-not $uid -or $uid -eq "") {
+        Write-Err "Cannot determine devuser UUID. Seed skipped."
+        return $false
+    }
+
+    Write-Info "Running seed for devuser: $uid"
+    docker exec gamification-gamification-service python seed_demo.py --devuser-id $uid
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "Seed completed successfully!"
+        return $true
+    } else {
+        Write-Err "Seed failed. Check: docker logs gamification-gamification-service --tail 30"
+        return $false
+    }
 }
 
 # ================================================================
@@ -491,9 +551,19 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
         Write-Info "  Auth Service:         http://localhost:8001"
         Write-Info "  Gamification Service: http://localhost:8002"
         Write-Host ""
-        Write-Info "Waiting 10s for services to be ready..."
-        Start-Sleep -Seconds 10
-        Invoke-DbInit -Silent $false
+        Write-Info "Waiting 15s for services to be ready..."
+        Start-Sleep -Seconds 15
+        $dbResult = Invoke-DbInit -Silent $false
+
+        # Автоматический seed на свежей БД: регистрируем devuser и сидируем данные
+        if ($dbResult) {
+            Write-Host ""
+            Write-Info "Running test registration to create devuser..."
+            Invoke-Test | Out-Null
+            Start-Sleep -Seconds 2
+            Invoke-Seed -AutoMode $true
+        }
+
         Write-Host ""
         Write-Info "Run '.\dev.ps1 health' to verify all services are up."
         Write-Info "Run '.\dev.ps1 test'   to run the full API test scenario."
@@ -505,20 +575,52 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
     Write-Header "Gamification Platform - Full Stack"
     Assert-EnvFile
     if (-not (Assert-Node)) { exit 1 }
-    Write-Info "Step 1/4: Starting backend..."
+
+    # Проверяем node_modules
+    if (-not (Test-Path "frontend/node_modules")) {
+        Write-Warn "frontend/node_modules not found!"
+        Write-Info "Running npm install in ./frontend..."
+        Set-Location frontend
+        npm install
+        Set-Location ..
+        Write-Ok "npm install done"
+        Write-Host ""
+    }
+
+    Write-Info "Step 1/5: Starting backend..."
     docker compose up $ACTIVE_SERVICES --build -d
     if ($LASTEXITCODE -ne 0) { Write-Err "Backend failed"; exit 1 }
-    Write-Info "Step 2/4: Waiting 10s for services to be ready..."
-    Start-Sleep -Seconds 10
-    Write-Info "Step 3/4: Initializing database..."
-    Invoke-DbInit -Silent $false
+    Write-Info "Step 2/5: Waiting 15s for services to be ready..."
+    Start-Sleep -Seconds 15
+    Write-Info "Step 3/5: Initializing database..."
+    $dbResult = Invoke-DbInit -Silent $false
+
+    Write-Info "Step 4/5: Seeding demo data..."
+    if ($dbResult) {
+        Invoke-Test | Out-Null
+        Start-Sleep -Seconds 2
+        Invoke-Seed -AutoMode $true
+    }
+
     Write-Host ""
     Invoke-Health
     Write-Host ""
-    Write-Info "Step 4/4: Starting frontend (http://localhost:3000)..."
+    Write-Info "Step 5/5: Starting frontend (http://localhost:3000)..."
     Set-Location frontend
     npm run dev
     Set-Location ..
+
+} elseif ($cmd -eq "seed") {
+    # Сначала убеждаемся что devuser зарегистрирован
+    $uidCheck = docker exec gamification-postgres psql `
+        -U gamification_user -d gamification_db -t -A -c `
+        "SELECT id FROM auth.users WHERE username = 'devuser' LIMIT 1;" 2>$null
+    if (-not $uidCheck -or $uidCheck.Trim() -eq "") {
+        Write-Info "devuser not found, running test registration first..."
+        Invoke-Test
+        Start-Sleep -Seconds 2
+    }
+    Invoke-Seed
 
 } elseif ($cmd -eq "ui") {
     if (-not (Assert-Node)) { exit 1 }
