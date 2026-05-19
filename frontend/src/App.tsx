@@ -3,6 +3,7 @@ import { AuthPage }            from './pages/AuthPage'
 import { OverviewPage }        from './pages/OverviewPage'
 import { QuestsPage }          from './pages/QuestsPage'
 import { LeaderboardPage }     from './pages/LeaderboardPage'
+import { AchievementsPage }    from './pages/AchievementsPage'
 import { AdminUsersPage }      from './pages/admin/AdminUsersPage'
 import { AdminOverviewPage }   from './pages/admin/AdminOverviewPage'
 import { AdminQuestsPage }     from './pages/admin/AdminQuestsPage'
@@ -87,7 +88,7 @@ export default function App() {
           <Route index                 element={<OverviewPage />} />
           <Route path="/quests"        element={<QuestsPage />} />
           <Route path="/leaderboard"   element={<LeaderboardPage />} />
-          <Route path="/achievements"  element={<ComingSoon title="Достижения" />} />
+          <Route path="/achievements"  element={<AchievementsPage />} />
           <Route path="/members"       element={<ComingSoon title="Участники" />} />
           <Route path="/events"        element={<ComingSoon title="События" />} />
           <Route path="/settings"      element={<ComingSoon title="Настройки" />} />
