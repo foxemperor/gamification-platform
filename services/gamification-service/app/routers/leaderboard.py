@@ -29,64 +29,6 @@ def _calc_level(total_xp: int) -> int:
     return level
 
 
-class _UserInfo:
-    """Агрегат с профильными данными пользователя из auth.users."""
-    __slots__ = ("username", "full_name", "department", "project_name", "position")
-
-    def __init__(
-        self,
-        username: str,
-        full_name: Optional[str],
-        department: Optional[str],
-        project_name: Optional[str],
-        position: Optional[str],
-    ) -> None:
-        self.username = username
-        self.full_name = full_name
-        self.department = department
-        self.project_name = project_name
-        self.position = position
-
-
-async def _fetch_user_info(
-    db: AsyncSession, user_ids: list[str]
-) -> dict[str, _UserInfo]:
-    """
-    Один батч-запрос к auth.users.
-    Колонка проекта в модели называется `project` (не `project_name`).
-    Fallback — player_{uid[:8]} если пользователь не найден.
-    """
-    if not user_ids:
-        return {}
-    result = await db.execute(
-        text(
-            """
-            SELECT
-                id::text   AS user_id,
-                username,
-                full_name,
-                department,
-                project,
-                position
-            FROM auth.users
-            WHERE id::text = ANY(:ids)
-            """
-        ),
-        {"ids": user_ids},
-    )
-    rows = result.fetchall()
-    return {
-        row[0]: _UserInfo(
-            username=row[1],
-            full_name=row[2],
-            department=row[3],
-            project_name=row[4],
-            position=row[5],
-        )
-        for row in rows
-    }
-
-
 @router.get("/xp", response_model=LeaderboardResponse, summary="Топ игроков по XP")
 async def leaderboard_xp(
     period: str = Query("all_time", pattern="^(weekly|monthly|all_time)$"),
@@ -101,6 +43,9 @@ async def leaderboard_xp(
     """
     Лидерборд по XP.
 
+    Данные всегда актуальны: агрегируются из xp_transactions на лету
+    с JOIN к auth.users — призрачные user_id автоматически отфильтровываются.
+
     Параметры:
     - **period**: `weekly` | `monthly` | `all_time`
     - **limit**: сколько строк вернуть (1-100, дефолт 50)
@@ -113,84 +58,90 @@ async def leaderboard_xp(
     elif period == "monthly":
         since = datetime.now(timezone.utc) - timedelta(days=30)
 
-    # ── 2. Если задан фильтр по проекту — получаем user_id из auth.users ──
-    project_user_ids: Optional[list[str]] = None
-    if project:
-        proj_result = await db.execute(
-            text(
-                "SELECT id::text FROM auth.users "
-                "WHERE project = :project"
-            ),
-            {"project": project},
-        )
-        project_user_ids = [row[0] for row in proj_result.fetchall()]
-        if not project_user_ids:
-            return LeaderboardResponse(
-                period=period,
-                entries=[],
-                total_players=0,
-                updated_at=datetime.now(timezone.utc),
-            )
-
-    # ── 3. Агрегация XP ──
-    q = (
-        select(
-            XPTransaction.user_id,
-            func.sum(XPTransaction.amount).label("total_xp"),
-        )
-        .group_by(XPTransaction.user_id)
-        .order_by(func.sum(XPTransaction.amount).desc())
-        .limit(limit)
-    )
+    # ── 2. Один SQL-запрос: агрегация XP + JOIN с auth.users ──
+    # JOIN гарантирует что в рейтинг попадают ТОЛЬКО реальные пользователи.
+    # Призрачные user_id (от старых тестов/пересоздания БД) отсекаются автоматически.
+    period_filter = ""
     if since:
-        q = q.where(XPTransaction.created_at >= since)
-    if project_user_ids is not None:
-        q = q.where(XPTransaction.user_id.in_(project_user_ids))
+        period_filter = "AND xt.created_at >= :since"
 
-    rows = (await db.execute(q)).all()
+    project_filter = ""
+    if project:
+        project_filter = "AND u.project = :project"
 
-    # ── 4. Батч-запрос профилей ──
+    raw_sql = text(f"""
+        SELECT
+            xt.user_id::text            AS user_id,
+            SUM(xt.amount)              AS total_xp,
+            u.username,
+            u.full_name,
+            u.department,
+            u.project                   AS project_name,
+            u.position
+        FROM gamification.xp_transactions xt
+        INNER JOIN auth.users u ON u.id = xt.user_id::uuid
+        WHERE u.is_active = true
+          {period_filter}
+          {project_filter}
+        GROUP BY xt.user_id, u.username, u.full_name, u.department, u.project, u.position
+        ORDER BY total_xp DESC
+        LIMIT :limit
+    """)
+
+    params: dict = {"limit": limit}
+    if since:
+        params["since"] = since
+    if project:
+        params["project"] = project
+
+    rows = (await db.execute(raw_sql, params)).fetchall()
+
+    if not rows:
+        return LeaderboardResponse(
+            period=period,
+            entries=[],
+            total_players=0,
+            updated_at=datetime.now(timezone.utc),
+        )
+
+    # ── 3. Батч-запрос квестов и бейджей ──
     user_ids = [row.user_id for row in rows]
-    user_info_map = await _fetch_user_info(db, user_ids)
 
-    # ── 5. Сборка ответа ──
+    quests_rows = (await db.execute(
+        select(UserQuest.user_id, func.count(UserQuest.id).label("cnt"))
+        .where(UserQuest.user_id.in_(user_ids))
+        .where(UserQuest.status == UserQuestStatus.COMPLETED)
+        .group_by(UserQuest.user_id)
+    )).all()
+    quests_map: dict[str, int] = {r.user_id: r.cnt for r in quests_rows}
+
+    badges_rows = (await db.execute(
+        select(UserBadge.user_id, func.count(UserBadge.id).label("cnt"))
+        .where(UserBadge.user_id.in_(user_ids))
+        .group_by(UserBadge.user_id)
+    )).all()
+    badges_map: dict[str, int] = {r.user_id: r.cnt for r in badges_rows}
+
+    # ── 4. Сборка ответа ──
     entries: list[LeaderboardEntryResponse] = []
     for rank, row in enumerate(rows, start=1):
         uid = row.user_id
-        total_xp = max(row.total_xp, 0)
-
-        info = user_info_map.get(uid)
-        username     = info.username     if info else f"player_{uid[:8]}"
-        full_name    = info.full_name    if info else None
-        department   = info.department   if info else None
-        project_name = info.project_name if info else None
-        position     = info.position     if info else None
-
-        quests_done = await db.scalar(
-            select(func.count(UserQuest.id))
-            .where(UserQuest.user_id == uid)
-            .where(UserQuest.status == UserQuestStatus.COMPLETED)
-        ) or 0
-
-        badges = await db.scalar(
-            select(func.count(UserBadge.id))
-            .where(UserBadge.user_id == uid)
-        ) or 0
+        total_xp = max(int(row.total_xp), 0)
 
         entries.append(
             LeaderboardEntryResponse(
                 rank=rank,
                 user_id=uid,
-                username=username,
-                full_name=full_name,
+                username=row.username,
+                full_name=row.full_name,
                 total_xp=total_xp,
                 level=_calc_level(total_xp),
                 total_coins=0,
-                quests_completed=quests_done,
-                badges_count=badges,
-                department=department,
-                project_name=project_name,
-                position=position,
+                quests_completed=quests_map.get(uid, 0),
+                badges_count=badges_map.get(uid, 0),
+                department=row.department,
+                project_name=row.project_name,
+                position=row.position,
             )
         )
 
