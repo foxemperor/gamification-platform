@@ -1,4 +1,4 @@
-"""Начальная схема Gamification Service
+"""Начальная схема Gamification Service (актуальная, консолидированная)
 
 Revision ID: 0001
 Revises: -
@@ -47,9 +47,9 @@ def upgrade() -> None:
         sa.Column('experience', sa.Integer, nullable=False, server_default='0'),
         sa.Column('coin_multiplier', sa.Float, nullable=False, server_default='1.0'),
         sa.Column('xp_multiplier', sa.Float, nullable=False, server_default='1.0'),
-        sa.Column('skin_color', sa.String(7), nullable=True, server_default='#F5C5A3'),
-        sa.Column('hair_color', sa.String(7), nullable=True, server_default='#2C1810'),
-        sa.Column('eyes_color', sa.String(7), nullable=True, server_default='#4A90D9'),
+        sa.Column('skin_color', sa.String(7), nullable=True, server_default="'#F5C5A3'"),
+        sa.Column('hair_color', sa.String(7), nullable=True, server_default="'#2C1810'"),
+        sa.Column('eyes_color', sa.String(7), nullable=True, server_default="'#4A90D9'"),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.UniqueConstraint('user_id', name='uq_characters_user_id'),
@@ -70,9 +70,9 @@ def upgrade() -> None:
             'torso','torso_accessory','legs','weapon_main','weapon_secondary',
             name='cosmeticslot', schema=SCHEMA
         ), nullable=False),
-        sa.Column('rarity', sa.Enum('common','rare','epic','legendary', name='badgerarity', schema=SCHEMA), nullable=False, server_default='common'),
-        sa.Column('visibility', sa.Enum('open','locked','hidden', name='cosmeticvisibility', schema=SCHEMA), nullable=False, server_default='open'),
-        sa.Column('unlock_type', sa.Enum('none','quest','achievement','level','admin', name='unlocktype', schema=SCHEMA), nullable=False, server_default='none'),
+        sa.Column('rarity', sa.Enum('common','rare','epic','legendary', name='badgerarity', schema=SCHEMA), nullable=False, server_default="'common'"),
+        sa.Column('visibility', sa.Enum('open','locked','hidden', name='cosmeticvisibility', schema=SCHEMA), nullable=False, server_default="'open'"),
+        sa.Column('unlock_type', sa.Enum('none','quest','achievement','level','admin', name='unlocktype', schema=SCHEMA), nullable=False, server_default="'none'"),
         sa.Column('unlock_ref', postgresql.UUID(as_uuid=False), nullable=True),
         sa.Column('unlock_value', sa.Integer, nullable=True),
         sa.Column('allowed_character_types', postgresql.JSON, nullable=True),
@@ -123,9 +123,9 @@ def upgrade() -> None:
         sa.Column('id', postgresql.UUID(as_uuid=False), primary_key=True),
         sa.Column('title', sa.String(200), nullable=False),
         sa.Column('description', sa.Text, nullable=True),
-        sa.Column('quest_type', sa.Enum('personal','team','daily','skill','integration', name='questtype', schema=SCHEMA), nullable=False, server_default='personal'),
-        sa.Column('difficulty', sa.Enum('easy','medium','hard','epic', name='questdifficulty', schema=SCHEMA), nullable=False, server_default='medium'),
-        sa.Column('status', sa.Enum('draft','active','archived', name='queststatus', schema=SCHEMA), nullable=False, server_default='active'),
+        sa.Column('quest_type', sa.Enum('personal','team','daily','skill','integration', name='questtype', schema=SCHEMA), nullable=False, server_default="'personal'"),
+        sa.Column('difficulty', sa.Enum('easy','medium','hard','epic', name='questdifficulty', schema=SCHEMA), nullable=False, server_default="'medium'"),
+        sa.Column('status', sa.Enum('draft','active','archived', name='queststatus', schema=SCHEMA), nullable=False, server_default="'active'"),
         sa.Column('xp_reward', sa.Integer, nullable=False, server_default='150'),
         sa.Column('coins_reward', sa.Integer, nullable=False, server_default='10'),
         sa.Column('time_limit_hours', sa.Integer, nullable=True),
@@ -146,9 +146,10 @@ def upgrade() -> None:
         sa.Column('user_id', postgresql.UUID(as_uuid=False), nullable=False),
         sa.Column('quest_id', postgresql.UUID(as_uuid=False),
                   sa.ForeignKey(f'{SCHEMA}.quests.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('status', sa.Enum('in_progress','completed','failed','abandoned', name='userqueststatus', schema=SCHEMA), nullable=False, server_default='in_progress'),
+        sa.Column('status', sa.Enum('in_progress','completed','failed','abandoned', name='userqueststatus', schema=SCHEMA), nullable=False, server_default="'in_progress'"),
         sa.Column('progress', sa.Integer, nullable=False, server_default='0'),
         sa.Column('target', sa.Integer, nullable=False, server_default='1'),
+        sa.Column('is_viewed', sa.Boolean, nullable=False, server_default='false'),
         sa.Column('started_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('deadline_at', sa.DateTime(timezone=True), nullable=True),
@@ -164,7 +165,7 @@ def upgrade() -> None:
         sa.Column('name', sa.String(100), nullable=False),
         sa.Column('description', sa.Text, nullable=True),
         sa.Column('icon_url', sa.String(500), nullable=True),
-        sa.Column('rarity', sa.Enum('common','rare','epic','legendary', name='badgerarity', schema=SCHEMA), nullable=False, server_default='common'),
+        sa.Column('rarity', sa.Enum('common','rare','epic','legendary', name='badgerarity', schema=SCHEMA), nullable=False, server_default="'common'"),
         sa.Column('condition_type', sa.String(50), nullable=True),
         sa.Column('condition_value', sa.Integer, nullable=True),
         sa.Column('xp_bonus', sa.Integer, nullable=False, server_default='0'),
@@ -173,7 +174,7 @@ def upgrade() -> None:
         schema=SCHEMA,
     )
 
-    # ── user_badges ──
+    # ── user_badges ──  (is_new добавлен согласно модели)
     op.create_table(
         'user_badges',
         sa.Column('id', postgresql.UUID(as_uuid=False), primary_key=True),
@@ -183,6 +184,7 @@ def upgrade() -> None:
         sa.Column('earned_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column('granted_by', postgresql.UUID(as_uuid=False), nullable=True),
         sa.Column('is_revoked', sa.Boolean, nullable=False, server_default='false'),
+        sa.Column('is_new', sa.Boolean, nullable=False, server_default='true'),
         sa.Column('revoked_at', sa.DateTime(timezone=True), nullable=True),
         sa.UniqueConstraint('user_id', 'badge_id', name='uq_user_badge'),
         schema=SCHEMA,
@@ -204,6 +206,23 @@ def upgrade() -> None:
         schema=SCHEMA,
     )
     op.create_index('ix_xp_transactions_user_created', 'xp_transactions', ['user_id', 'created_at'], schema=SCHEMA)
+
+    # ── coin_transactions ──
+    op.create_table(
+        'coin_transactions',
+        sa.Column('id', postgresql.UUID(as_uuid=False), primary_key=True),
+        sa.Column('user_id', postgresql.UUID(as_uuid=False), nullable=False),
+        sa.Column('amount', sa.Integer, nullable=False),
+        sa.Column('source', sa.Enum(
+            'quest','badge','admin','penalty',
+            name='coinsource', schema=SCHEMA
+        ), nullable=False),
+        sa.Column('source_id', postgresql.UUID(as_uuid=False), nullable=True),
+        sa.Column('description', sa.String(300), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
+        schema=SCHEMA,
+    )
+    op.create_index('ix_coin_transactions_user_id', 'coin_transactions', ['user_id'], schema=SCHEMA)
 
     # ── leaderboard_snapshots ──
     op.create_table(
@@ -228,6 +247,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table('leaderboard_snapshots', schema=SCHEMA)
+    op.drop_table('coin_transactions', schema=SCHEMA)
     op.drop_table('xp_transactions', schema=SCHEMA)
     op.drop_table('user_badges', schema=SCHEMA)
     op.drop_table('badges', schema=SCHEMA)

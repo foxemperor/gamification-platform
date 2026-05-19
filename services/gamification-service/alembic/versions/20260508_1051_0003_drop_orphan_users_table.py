@@ -1,5 +1,4 @@
-"""Удаление осиротевшей таблицы users из public-схемы
-(была создана до введения изоляции по схемам)
+"""OBSOLETE — логика перенесена в 0001
 
 Revision ID: 0003
 Revises: 0001
@@ -7,7 +6,6 @@ Create Date: 2026-05-08 10:51:00
 """
 from typing import Sequence, Union
 from alembic import op
-import sqlalchemy as sa
 
 revision: str = '0003'
 down_revision: Union[str, None] = '0001'
@@ -30,4 +28,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    pass  # Необратимо — таблица принадлежит auth-service
+    pass
