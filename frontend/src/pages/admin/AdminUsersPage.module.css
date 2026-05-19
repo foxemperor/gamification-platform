@@ -225,6 +225,9 @@
   margin-bottom: 24px;
 }
 
+/* Поле на всю ширину (Email, Password) */
+.fieldFull { grid-column: 1 / -1; }
+
 .field { display: flex; flex-direction: column; gap: 6px; }
 .label {
   font-size: 13px;
@@ -234,6 +237,13 @@
   overflow: visible;
   text-overflow: clip;
   line-height: 1.3;
+}
+
+/* Инлайновая ошибка поля */
+.fieldError {
+  font-size: 12px;
+  color: var(--danger, #ef4444);
+  margin-top: -2px;
 }
 
 .helpText {
@@ -273,8 +283,63 @@
   outline: none;
   width: 100%;
   box-sizing: border-box;
+  transition: border-color .15s;
 }
 .input:focus { border-color: var(--primary); }
+
+/* Поле с ошибкой */
+.inputError {
+  border-color: var(--danger, #ef4444) !important;
+}
+.inputError:focus {
+  border-color: var(--danger, #ef4444) !important;
+  box-shadow: 0 0 0 2px rgba(239,68,68,.15);
+}
+
+/* Враппер поля пароля с кнопкой показа/скрыть */
+.passwordWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.passwordWrap .input {
+  padding-right: 40px;
+}
+.eyeBtn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-muted);
+  padding: 0;
+  line-height: 1;
+  transition: color .15s;
+}
+.eyeBtn:hover { color: var(--text); }
+
+/* Индикатор силы пароля */
+.strengthWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 6px;
+}
+.strengthSegs {
+  display: flex;
+  gap: 5px;
+}
+.seg {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  transition: background .25s;
+}
+.strengthLabel {
+  font-size: 11px;
+  font-weight: 600;
+}
 
 .checkboxGroup {
   display: flex;
