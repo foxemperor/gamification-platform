@@ -22,10 +22,13 @@ export function useLogin() {
           { email: payload.email, password: payload.password },
           signal,
         )
-        setTokens(data.access_token, data.refresh_token, payload.rememberMe)
-
-        const me = await authApi.me(data.access_token, signal)
-        setUser(me)
+        // login возвращает { user, tokens: { access_token, refresh_token } }
+        setTokens(
+          data.tokens.access_token,
+          data.tokens.refresh_token,
+          payload.rememberMe,
+        )
+        setUser(data.user as Parameters<typeof setUser>[0])
       } catch (err: unknown) {
         if ((err as { name?: string })?.name === 'AbortError') return
         const msg =
