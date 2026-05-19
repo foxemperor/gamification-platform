@@ -4,7 +4,6 @@ import { useAuthStore } from '../store/authStore'
 import s from './LeaderboardPage.module.css'
 
 // ─────────────────── helpers ───────────────────
-
 const PERIOD_LABELS: Record<LeaderboardPeriod, string> = {
   weekly: 'Неделя',
   monthly: 'Месяц',
@@ -24,12 +23,6 @@ function initials(e: LeaderboardEntry): string {
     .join('')
 }
 
-/**
- * Формула прогрессии уровней из Gamification Service:
- *   xp_for_level(n) = 100 * n * (n + 1) / 2
- * Суммарный XP для начала уровня n (1-based):
- *   threshold(n) = 100 * (n-1) * n / 2
- */
 function levelThreshold(level: number): number {
   return 100 * (level - 1) * level / 2
 }
@@ -47,7 +40,16 @@ function xpBarWidth(totalXp: number, level: number): number {
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
-function podiumVisualOrder(rank: number): string {
+/**
+ * Визуальный порядок карточек: 2-е место — лево, 1-е — центр, 3-е — право.
+ * Если игроков меньше 3 — все карточки отображаются центрированно.
+ */
+function podiumVisualOrder(rank: number, total: number): string {
+  if (total === 1) return s.order2  // единственный — центр
+  if (total === 2) {
+    return rank === 1 ? s.order2 : s.order1  // 1-е в центре, 2-е слева
+  }
+  // стандартный 3-местный пьедестал
   if (rank === 1) return s.order2
   if (rank === 2) return s.order1
   return s.order3
@@ -59,12 +61,20 @@ function podiumRankClass(rank: number): string {
   return s.podiumRank3
 }
 
-function PodiumCard({ entry, isSelf }: { entry: LeaderboardEntry; isSelf: boolean }) {
+function PodiumCard({
+  entry,
+  isSelf,
+  total,
+}: {
+  entry: LeaderboardEntry
+  isSelf: boolean
+  total: number
+}) {
   return (
     <div
       className={[
         s.podiumCard,
-        podiumVisualOrder(entry.rank),
+        podiumVisualOrder(entry.rank, total),
         podiumRankClass(entry.rank),
         isSelf ? s.podiumSelf : '',
       ].join(' ')}
@@ -74,7 +84,12 @@ function PodiumCard({ entry, isSelf }: { entry: LeaderboardEntry; isSelf: boolea
       <div className={s.podiumName}>{displayName(entry)}</div>
       <div className={s.podiumLevel}>Ур. {entry.level}</div>
       <div className={s.podiumXP}>{entry.total_xp.toLocaleString()} XP</div>
-      <div className={[s.podiumBase, entry.rank === 1 ? s.h1 : entry.rank === 2 ? s.h2 : s.h3].join(' ')} />
+      <div
+        className={[
+          s.podiumBase,
+          entry.rank === 1 ? s.h1 : entry.rank === 2 ? s.h2 : s.h3,
+        ].join(' ')}
+      />
     </div>
   )
 }
@@ -83,7 +98,6 @@ function PodiumCard({ entry, isSelf }: { entry: LeaderboardEntry; isSelf: boolea
 
 function PlayerChips({ entry }: { entry: LeaderboardEntry }) {
   const dept    = entry.department
-  // используем project_name (поле из LeaderboardEntry), а не entry.project
   const project = entry.project_name
   if (!dept && !project) return null
   return (
@@ -199,6 +213,7 @@ export function LeaderboardPage() {
     return () => ctrl.abort()
   }, [period, load])
 
+  // Топ-3 или меньше — пьедестал отображается при любом количестве игроков ≥ 1
   const top3     = entries.slice(0, 3)
   const selfRank = entries.find(e => e.user_id === currentUserId)
 
@@ -236,11 +251,16 @@ export function LeaderboardPage() {
         ))}
       </div>
 
-      {/* podium */}
-      {!loading && top3.length >= 3 && (
+      {/* podium: показывается при любом количестве игроков >= 1 */}
+      {!loading && top3.length >= 1 && (
         <div className={s.podiumSection}>
           {top3.map(e => (
-            <PodiumCard key={e.user_id} entry={e} isSelf={e.user_id === currentUserId} />
+            <PodiumCard
+              key={e.user_id}
+              entry={e}
+              isSelf={e.user_id === currentUserId}
+              total={top3.length}
+            />
           ))}
         </div>
       )}
