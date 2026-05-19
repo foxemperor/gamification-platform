@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { authApi } from '../api/auth'
 
@@ -10,6 +11,7 @@ interface LoginPayload {
 
 export function useLogin() {
   const { setTokens, setUser } = useAuthStore()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
 
@@ -22,13 +24,13 @@ export function useLogin() {
           { email: payload.email, password: payload.password },
           signal,
         )
-        // login возвращает { user, tokens: { access_token, refresh_token } }
         setTokens(
           data.tokens.access_token,
           data.tokens.refresh_token,
           payload.rememberMe,
         )
         setUser(data.user as Parameters<typeof setUser>[0])
+        navigate('/', { replace: true })
       } catch (err: unknown) {
         if ((err as { name?: string })?.name === 'AbortError') return
         const msg =
@@ -40,7 +42,7 @@ export function useLogin() {
         setLoading(false)
       }
     },
-    [setTokens, setUser],
+    [setTokens, setUser, navigate],
   )
 
   return { login, loading, error }
