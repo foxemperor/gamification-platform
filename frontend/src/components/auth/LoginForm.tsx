@@ -6,10 +6,6 @@ import { useLogin } from '../../hooks/useAuth'
 import { useAppToast } from '../../App'
 import styles from './AuthForm.module.css'
 
-interface Props {
-  onSwitchToRegister?: () => void
-}
-
 interface Fields {
   email:    string
   password: string
@@ -17,16 +13,16 @@ interface Fields {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
-export function LoginForm(_props: Props) {
-  const [fields,   setFields]   = useState<Fields>({ email: '', password: '' })
-  const [errors,   setErrors]   = useState<Partial<Fields>>({})
-  const [showPass, setShowPass] = useState(false)
+export function LoginForm() {
+  const [fields,     setFields]     = useState<Fields>({ email: '', password: '' })
+  const [errors,     setErrors]     = useState<Partial<Fields>>({})
+  const [showPass,   setShowPass]   = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const { login, loading, error } = useLogin()
   const toast    = useAppToast()
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => { return () => { abortRef.current?.abort() } }, [])
-
   useEffect(() => { if (error) toast(error, 'error') }, [error, toast])
 
   const validate = (): boolean => {
@@ -42,7 +38,10 @@ export function LoginForm(_props: Props) {
     if (!validate()) return
     abortRef.current?.abort()
     abortRef.current = new AbortController()
-    login({ email: fields.email, password: fields.password }, abortRef.current.signal)
+    login(
+      { email: fields.email, password: fields.password, rememberMe },
+      abortRef.current.signal,
+    )
   }
 
   const setField = (k: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,22 +86,21 @@ export function LoginForm(_props: Props) {
         }
       />
 
-      <div className={styles.forgotRow}>
-        <a href="#">Забыли пароль?</a>
+      {/* Запомнить + Забыли пароль */}
+      <div className={styles.rememberRow}>
+        <label className={styles.rememberLabel}>
+          <input
+            type="checkbox"
+            className={styles.rememberCheck}
+            checked={rememberMe}
+            onChange={e => setRememberMe(e.target.checked)}
+          />
+          Запомнить меня
+        </label>
+        <a href="#" className={styles.forgotLink}>Забыли пароль?</a>
       </div>
 
       <Button type="submit" loading={loading}>Войти в систему</Button>
-
-      <div className={styles.orRow}><span>или</span></div>
-
-      <div className={styles.socialRow}>
-        <button type="button" className={styles.socialBtn}
-          onClick={() => toast('🔷 Авторизация через Microsoft — в разработке', 'info')}
-        >Microsoft</button>
-        <button type="button" className={styles.socialBtn}
-          onClick={() => toast('🔗 SSO-авторизация — в разработке', 'info')}
-        >SSO</button>
-      </div>
     </form>
   )
 }
