@@ -7,6 +7,23 @@ import styles from './AdminUsersPage.module.css'
 
 const ROLES = ['employee', 'manager', 'admin'] as const
 
+// ── Валидация ────────────────────────────────────────────────────
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+const USERNAME_RE = /^[a-zA-Z0-9_-]{3,32}$/
+
+function getPasswordStrength(p: string): number {
+  if (!p) return 0
+  let s = 0
+  if (p.length >= 8)   s++
+  if (/[A-Z]/.test(p)) s++
+  if (/[0-9]/.test(p)) s++
+  if (/[^\w]/.test(p)) s++
+  return s
+}
+
+const STRENGTH_COLORS = ['#EF4444', '#F59E0B', '#22D3EE', '#10B981']
+const STRENGTH_LABELS = ['Очень слабый', 'Слабый', 'Хороший', 'Надёжный']
+
 export function AdminUsersPage() {
   const toast = useAppToast()
   const qc = useQueryClient()
@@ -33,7 +50,10 @@ export function AdminUsersPage() {
   const createMutation = useMutation({
     mutationFn: (data: AdminUserCreate) => adminApi.createUser(data),
     onSuccess: () => { toast('Пользователь создан', 'success'); invalidate(); setModal(null) },
-    onError: () => toast('Ошибка при создании', 'error'),
+    onError: (err: unknown) => {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast(typeof detail === 'string' ? detail : 'Ошибка при создании', 'error')
+    },
   })
 
   const deleteMutation = useMutation({
@@ -44,7 +64,6 @@ export function AdminUsersPage() {
 
   const handleSearch = () => { setPage(1); setSearch(searchInput) }
 
-  // Уникальные отделы/проекты с текущей страницы — используем для datalist в форме
   const knownDepartments = useMemo(
     () => Array.from(new Set((data?.items ?? []).map(u => u.department).filter(Boolean) as string[])).sort(),
     [data]
@@ -200,7 +219,6 @@ export function AdminUsersPage() {
         </>
       )}
 
-      {/* Модалка редактирования */}
       {modal === 'edit' && selected && (
         <UserModal
           mode="edit"
@@ -213,7 +231,6 @@ export function AdminUsersPage() {
         />
       )}
 
-      {/* Модалка создания */}
       {modal === 'create' && (
         <UserModal
           mode="create"
@@ -228,7 +245,7 @@ export function AdminUsersPage() {
   )
 }
 
-// ── Вспомогательные компоненты ───────────────────────────────────
+// ── Вспомогательные компоненты ───────────────────────────────────────
 
 function RoleBadge({ role }: { role: string }) {
   const map: Record<string, string> = {
@@ -250,7 +267,22 @@ function StatusBadge({ active }: { active: boolean }) {
   )
 }
 
-// ── Модальное окно создания/редактирования ───────────────────────
+// ── Модальное окно ───────────────────────────────────────────────────
+
+interface FormFields {
+  email:       string
+  username:    string
+  first_name:  string
+  last_name:   string
+  password:    string
+  department:  string
+  project:     string
+  role:        'employee' | 'manager' | 'admin'
+  is_active:   boolean
+  is_verified: boolean
+}
+
+type FormErrors = Partial<Record<keyof FormFields, string>>
 
 interface ModalProps {
   mode: 'create' | 'edit'
@@ -262,37 +294,96 @@ interface ModalProps {
   loading: boolean
 }
 
-function UserModal({ mode, initial, knownDepartments = [], knownProjects = [], onClose, onSubmit, loading }: ModalProps) {
-  const [form, setForm] = useState({
-    email:      initial?.email      ?? '',
-    username:   initial?.username   ?? '',
-    full_name:  initial?.full_name  ?? '',
-    password:   '',
-    department: initial?.department ?? '',
-    project:    initial?.project    ?? '',
-    role:       (initial?.role ?? 'employee') as 'employee' | 'manager' | 'admin',
-    is_active:  initial?.is_active  ?? true,
+function UserModal({
+  mode, initial, knownDepartments = [], knownProjects = [],
+  onClose, onSubmit, loading,
+}: ModalProps) {
+  const [showPass, setShowPass] = useState(false)
+  const [errors, setErrors] = useState<FormErrors>({})
+
+  // Разбиваем full_name на first_name + last_name для редактирования
+  const [nameParts] = useState(() => {
+    const parts = (initial?.full_name ?? '').split(' ')
+    return { first: parts[0] ?? '', last: parts.slice(1).join(' ') }
+  })
+
+  const [form, setForm] = useState<FormFields>({
+    email:       initial?.email      ?? '',
+    username:    initial?.username   ?? '',
+    first_name:  nameParts.first,
+    last_name:   nameParts.last,
+    password:    '',
+    department:  initial?.department ?? '',
+    project:     initial?.project    ?? '',
+    role:        (initial?.role ?? 'employee') as 'employee' | 'manager' | 'admin',
+    is_active:   initial?.is_active  ?? true,
     is_verified: initial?.is_verified ?? true,
   })
 
-  const set = (k: string, v: unknown) => setForm(p => ({ ...p, [k]: v }))
+  const set = (k: keyof FormFields, v: unknown) => {
+    setForm(p => ({ ...p, [k]: v }))
+    setErrors(e => ({ ...e, [k]: undefined }))
+  }
+
+  const strength = getPasswordStrength(form.password)
+
+  const validate = (): boolean => {
+    const e: FormErrors = {}
+
+    // Email
+    if (!EMAIL_RE.test(form.email))
+      e.email = 'Введите корректный email'
+
+    // Username
+    if (!USERNAME_RE.test(form.username))
+      e.username = 'Мин. 3 символа, только a-z, 0-9, _, -'
+
+    // Имя / Фамилия
+    if (!form.first_name.trim())
+      e.first_name = 'Введите имя'
+    if (!form.last_name.trim())
+      e.last_name = 'Введите фамилию'
+
+    // Пароль: обязателен при создании, при редактировании — опционален
+    if (mode === 'create' && form.password.length < 8)
+      e.password = 'Мин. 8 символов'
+    if (mode === 'edit' && form.password && form.password.length < 8)
+      e.password = 'Мин. 8 символов (60ставьте пустым, чтобы не менять)'
+
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validate()) return
+
+    const full_name = `${form.first_name.trim()} ${form.last_name.trim()}`.trim()
+
     if (mode === 'create') {
-      onSubmit({ ...form } as AdminUserCreate)
+      onSubmit({
+        email:       form.email,
+        username:    form.username,
+        full_name,
+        password:    form.password,
+        department:  form.department || undefined,
+        project:     form.project    || undefined,
+        role:        form.role,
+        is_active:   form.is_active,
+        is_verified: form.is_verified,
+      } as AdminUserCreate)
     } else {
-      // Отправляем только заполненные поля
-      const patch: AdminUserUpdate = {}
-      if (form.email)      patch.email      = form.email
-      if (form.username)   patch.username   = form.username
-      if (form.full_name)  patch.full_name  = form.full_name
-      if (form.password)   patch.password   = form.password
-      patch.department = form.department || undefined
-      patch.project    = form.project    || undefined
-      patch.role       = form.role
-      patch.is_active  = form.is_active
-      patch.is_verified = form.is_verified
+      const patch: AdminUserUpdate = {
+        email:       form.email,
+        username:    form.username,
+        full_name,
+        department:  form.department || undefined,
+        project:     form.project    || undefined,
+        role:        form.role,
+        is_active:   form.is_active,
+        is_verified: form.is_verified,
+      }
+      if (form.password) patch.password = form.password
       onSubmit(patch)
     }
   }
@@ -305,47 +396,134 @@ function UserModal({ mode, initial, knownDepartments = [], knownProjects = [], o
           <button className={styles.btnGhost} onClick={onClose}>✕</button>
         </div>
 
-        <form className={styles.form} onSubmit={handleSubmit}>
+        <form className={styles.form} onSubmit={handleSubmit} noValidate>
           <div className={styles.formGrid}>
-            <Field label="Email *">
-              <input className={styles.input} type="email" required={mode==='create'}
-                value={form.email} onChange={e => set('email', e.target.value)} />
+
+            {/* Имя + Фамилия */}
+            <Field label="Имя *" error={errors.first_name}>
+              <input
+                className={`${styles.input} ${errors.first_name ? styles.inputError : ''}`}
+                placeholder="Напр. Алексей"
+                value={form.first_name}
+                onChange={e => set('first_name', e.target.value)}
+              />
             </Field>
-            <Field label="Username *">
-              <input className={styles.input} required={mode==='create'}
-                value={form.username} onChange={e => set('username', e.target.value)} />
+
+            <Field label="Фамилия *" error={errors.last_name}>
+              <input
+                className={`${styles.input} ${errors.last_name ? styles.inputError : ''}`}
+                placeholder="Напр. Иванов"
+                value={form.last_name}
+                onChange={e => set('last_name', e.target.value)}
+              />
             </Field>
-            <Field label="Полное имя">
-              <input className={styles.input}
-                value={form.full_name} onChange={e => set('full_name', e.target.value)} />
+
+            {/* Email */}
+            <Field label="Email *" error={errors.email}>
+              <input
+                className={`${styles.input} ${errors.email ? styles.inputError : ''}`}
+                type="email"
+                placeholder="your@company.com"
+                value={form.email}
+                onChange={e => set('email', e.target.value)}
+              />
             </Field>
-            <Field label={mode === 'create' ? 'Пароль *' : 'Новый пароль (необязательно)'}>
-              <input className={styles.input} type="password" required={mode==='create'}
-                value={form.password} onChange={e => set('password', e.target.value)}
-                placeholder={mode === 'edit' ? 'Не менять' : 'Минимум 8 символов'} />
-              {mode === 'edit' && (
-                <small className={styles.helpText}>
-                  Оставьте поле пустым, чтобы не менять текущий пароль.
-                </small>
+
+            {/* Username */}
+            <Field label="Username *" error={errors.username}>
+              <input
+                className={`${styles.input} ${errors.username ? styles.inputError : ''}`}
+                placeholder="Напр. alexey_ivanov"
+                value={form.username}
+                onChange={e => set('username', e.target.value.toLowerCase())}
+              />
+            </Field>
+
+            {/* Пароль */}
+            <Field
+              label={mode === 'create' ? 'Пароль *' : 'Новый пароль'}
+              error={errors.password}
+              className={styles.fieldFull}
+            >
+              <div className={styles.passwordWrap}>
+                <input
+                  className={`${styles.input} ${errors.password ? styles.inputError : ''}`}
+                  type={showPass ? 'text' : 'password'}
+                  placeholder={mode === 'create' ? 'Мин. 8 символов' : 'Оставьте пустым, чтобы не менять'}
+                  value={form.password}
+                  onChange={e => set('password', e.target.value)}
+                />
+                <button
+                  type="button"
+                  className={styles.eyeBtn}
+                  aria-label={showPass ? 'Скрыть' : 'Показать'}
+                  onClick={() => setShowPass(v => !v)}
+                >
+                  {showPass ? '🙈' : '👁️'}
+                </button>
+              </div>
+
+              {/* Индикатор силы пароля */}
+              {form.password && (
+                <div className={styles.strengthWrap}>
+                  <div className={styles.strengthSegs}>
+                    {[0,1,2,3].map(i => (
+                      <div
+                        key={i}
+                        className={styles.seg}
+                        style={{
+                          background: i < strength
+                            ? STRENGTH_COLORS[strength - 1]
+                            : 'var(--border)'
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <span
+                    className={styles.strengthLabel}
+                    style={{ color: STRENGTH_COLORS[strength - 1] ?? 'var(--text-faint)' }}
+                  >
+                    {STRENGTH_LABELS[strength - 1] ?? 'Очень слабый'}
+                  </span>
+                </div>
               )}
             </Field>
+
+            {/* Отдел */}
             <Field label="Отдел">
-              <input className={styles.input} list="dep-list" placeholder="напр. Разработка"
-                value={form.department} onChange={e => set('department', e.target.value)} />
+              <input
+                className={styles.input}
+                list="dep-list"
+                placeholder="Напр. Разработка"
+                value={form.department}
+                onChange={e => set('department', e.target.value)}
+              />
               <datalist id="dep-list">
                 {knownDepartments.map(d => <option key={d} value={d} />)}
               </datalist>
             </Field>
+
+            {/* Проект */}
             <Field label="Проект">
-              <input className={styles.input} list="proj-list" placeholder="напр. GameQuest"
-                value={form.project} onChange={e => set('project', e.target.value)} />
+              <input
+                className={styles.input}
+                list="proj-list"
+                placeholder="Напр. GameQuest"
+                value={form.project}
+                onChange={e => set('project', e.target.value)}
+              />
               <datalist id="proj-list">
                 {knownProjects.map(p => <option key={p} value={p} />)}
               </datalist>
             </Field>
+
+            {/* Роль */}
             <Field label="Роль">
-              <select className={styles.input}
-                value={form.role} onChange={e => set('role', e.target.value)}>
+              <select
+                className={styles.input}
+                value={form.role}
+                onChange={e => set('role', e.target.value)}
+              >
                 {ROLES.map(r => (
                   <option key={r} value={r}>
                     {r === 'admin' ? 'Админ' : r === 'manager' ? 'Менеджер' : 'Сотрудник'}
@@ -353,6 +531,8 @@ function UserModal({ mode, initial, knownDepartments = [], knownProjects = [], o
                 ))}
               </select>
             </Field>
+
+            {/* Статусы */}
             <Field label="Статусы">
               <div className={styles.checkboxGroup}>
                 <label>
@@ -383,11 +563,21 @@ function UserModal({ mode, initial, knownDepartments = [], knownProjects = [], o
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+// ── Field — поле с лейблом и ошибкой ───────────────────────────────
+
+function Field({
+  label, error, className, children,
+}: {
+  label: string
+  error?: string
+  className?: string
+  children: React.ReactNode
+}) {
   return (
-    <div className={styles.field}>
+    <div className={`${styles.field} ${className ?? ''}`}>
       <label className={styles.label}>{label}</label>
       {children}
+      {error && <span className={styles.fieldError}>{error}</span>}
     </div>
   )
 }
