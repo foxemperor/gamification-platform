@@ -52,7 +52,7 @@ export function Sidebar() {
     queryKey: ['sidebar-notifications'],
     queryFn: () =>
       api.get<{ unread_quests: number; unread_badges: number }>(
-        '/api/v1/me/notifications/unread-counts'
+        '/me/notifications/unread-counts'
       ).then(r => r.data),
     refetchInterval: 30_000,
     enabled: !!user,
