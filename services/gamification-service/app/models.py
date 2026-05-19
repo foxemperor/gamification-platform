@@ -88,6 +88,13 @@ class XPSource(str, PyEnum):
     CHARACTER_LEVEL = "character_level"
 
 
+class CoinSource(str, PyEnum):
+    QUEST   = "quest"
+    BADGE   = "badge"
+    ADMIN   = "admin"
+    PENALTY = "penalty"
+
+
 class BadgeRarity(str, PyEnum):
     COMMON    = "common"
     RARE      = "rare"
@@ -249,6 +256,28 @@ class XPTransaction(Base):
     amount      = Column(Integer, nullable=False)
     source      = Column(_sa_enum(XPSource, "xpsource"), nullable=False)
     source_id   = Column(UUID(as_uuid=False), nullable=True)
+    description = Column(String(300), nullable=True)
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# ===================================
+# COIN ТРАНЗАКЦИИ
+# ===================================
+
+class CoinTransaction(Base):
+    """
+    Локальная история монет. Сам баланс хранится в auth-service;
+    эта таблица нужна для проверки идемпотентности (не начислять дважды)
+    и для audit-лога.
+    """
+    __tablename__ = "coin_transactions"
+    __table_args__ = {"schema": DB_SCHEMA}
+
+    id          = Column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id     = Column(UUID(as_uuid=False), nullable=False)
+    amount      = Column(Integer, nullable=False)
+    source      = Column(_sa_enum(CoinSource, "coinsource"), nullable=False)
+    source_id   = Column(UUID(as_uuid=False), nullable=True)   # quest_id / badge_id
     description = Column(String(300), nullable=True)
     created_at  = Column(DateTime(timezone=True), server_default=func.now())
 

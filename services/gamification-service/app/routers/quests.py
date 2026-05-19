@@ -17,8 +17,8 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.dependencies import get_current_user_id, require_admin
 from app.models import (
-    Quest, UserQuest, Badge, UserBadge, XPTransaction,
-    QuestStatus, UserQuestStatus, XPSource, BadgeRarity,
+    Quest, UserQuest, Badge, UserBadge, XPTransaction, CoinTransaction,
+    QuestStatus, UserQuestStatus, XPSource, CoinSource, BadgeRarity,
     xp_required_for_level, Character, CharacterEquipment, CharacterType,
 )
 from app.schemas import (
@@ -82,6 +82,37 @@ async def _award_xp(
         "level_up": new_level > old_level,
         "new_level": new_level if new_level > old_level else None,
     }
+
+
+async def _award_coins(
+    db: AsyncSession,
+    user_id: str,
+    amount: int,
+    source: CoinSource,
+    source_id: Optional[str] = None,
+    description: Optional[str] = None,
+) -> int:
+    """
+    Записывает CoinTransaction для audit-лога.
+    Баланс монет хранится в auth-service; обновление там происходит
+    через PUT /internal/users/{user_id}/coins, который вызывает auth-service.
+    Здесь мы только записываем в локальную историю.
+    Возвращает новый суммарный баланс по локальным записям.
+    """
+    tx = CoinTransaction(
+        user_id=user_id,
+        amount=amount,
+        source=source,
+        source_id=source_id,
+        description=description,
+    )
+    db.add(tx)
+
+    total = await db.scalar(
+        select(func.coalesce(func.sum(CoinTransaction.amount), 0))
+        .where(CoinTransaction.user_id == user_id)
+    )
+    return (total or 0) + amount
 
 
 async def _check_badges(db: AsyncSession, user_id: str) -> list[str]:
@@ -169,7 +200,7 @@ async def list_quests(
 
 
 # ===================================
-# МОИ КВЕСТЫ — ДО /quests/{quest_id} чтобы избежать перекрытия путей
+# МОИ КВЕСТЫ
 # ===================================
 
 @router.get("/quests/my", response_model=list[UserQuestResponse], summary="Мои квесты")
@@ -211,7 +242,7 @@ async def create_quest(
 
 
 # ===================================
-# ДЕТАЛИ КВЕСТА — ПОСЛЕ /quests/my
+# ДЕТАЛИ КВЕСТА
 # ===================================
 
 @router.get("/quests/{quest_id}", response_model=QuestResponse, summary="Детали квеста")
@@ -239,7 +270,6 @@ async def accept_quest(
     if not quest or quest.status != QuestStatus.ACTIVE:
         raise HTTPException(status_code=404, detail="Квест недоступен")
 
-    # Проверяем существующую запись UserQuest
     existing = await db.scalar(
         select(UserQuest)
         .where(UserQuest.user_id == user_id)
@@ -248,8 +278,6 @@ async def accept_quest(
     if existing:
         if existing.status == UserQuestStatus.IN_PROGRESS:
             raise HTTPException(status_code=409, detail="Квест уже в процессе")
-        # Для завершённых/проваленных квестов перезапускаем:
-        # сбрасываем статус и прогресс в IN_PROGRESS
         deadline = None
         if quest.time_limit_hours:
             deadline = datetime.now(timezone.utc) + timedelta(hours=quest.time_limit_hours)
@@ -282,10 +310,7 @@ async def accept_quest(
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="Квест уже в процессе",
-        )
+        raise HTTPException(status_code=409, detail="Квест уже в процессе")
     await db.refresh(uq)
 
     return AcceptQuestResponse(
@@ -333,11 +358,23 @@ async def complete_quest(
         f"Квест: {quest.title}",
     )
 
+    # Начисляем монеты если квест даёт награду
+    coins_earned = 0
+    if quest.coins_reward > 0:
+        coins_earned = quest.coins_reward
+        await _award_coins(
+            db, user_id, quest.coins_reward,
+            CoinSource.QUEST, quest.id,
+            f"Квест: {quest.title}",
+        )
+
     badges = await _check_badges(db, user_id)
 
     await db.commit()
 
     msg = f"Квест '{quest.title}' выполнен! +{quest.xp_reward} XP"
+    if coins_earned:
+        msg += f" +{coins_earned} монет"
     if xp_result["level_up"]:
         msg += f" 🎉 Новый уровень: {xp_result['new_level']}!"
 
@@ -345,11 +382,149 @@ async def complete_quest(
         user_quest_id=uq.id,
         quest_title=quest.title,
         xp_earned=quest.xp_reward,
-        coins_earned=quest.coins_reward,
+        coins_earned=coins_earned,
         new_level=xp_result["new_level"],
         level_up=xp_result["level_up"],
         badges_earned=badges,
         message=msg,
+    )
+
+
+# ===================================
+# RETROACTIVE ПЕРЕСЧИТАТЬ НАГРАДЫ (АДМИН)
+# ===================================
+
+from pydantic import BaseModel
+
+class RecalculateRequest(BaseModel):
+    user_id: Optional[str] = None  # None = пересчитать для всех
+
+class RecalculateResult(BaseModel):
+    user_id: str
+    quests_processed: int
+    xp_awarded: int
+    coins_awarded: int
+    badges_earned: list[str]
+
+class RecalculateResponse(BaseModel):
+    results: list[RecalculateResult]
+    total_users: int
+    total_xp_awarded: int
+    total_coins_awarded: int
+
+
+@router.post(
+    "/rewards/recalculate",
+    response_model=RecalculateResponse,
+    summary="Retroactive: начислить XP/монеты/достижения за уже пройденные квесты (админ)",
+)
+async def recalculate_rewards(
+    body: RecalculateRequest,
+    _admin: str = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Пересчитывает все COMPLETED квесты для одного пользователя (user_id)
+    или для всех пользователей (user_id=null).
+
+    Логика идемпотентности:
+    - если XPTransaction с source=QUEST и source_id=quest_id уже есть — XP не начисляем
+    - если CoinTransaction с source=QUEST и source_id=quest_id уже есть — монеты не начисляем
+    - бейджи проверяются после начисления всех наград
+    """
+    # Собираем user_ids для обработки
+    uq_query = (
+        select(UserQuest)
+        .where(UserQuest.status == UserQuestStatus.COMPLETED)
+        .options(selectinload(UserQuest.quest))
+        .order_by(UserQuest.completed_at)
+    )
+    if body.user_id:
+        uq_query = uq_query.where(UserQuest.user_id == body.user_id)
+
+    result = await db.execute(uq_query)
+    completed_uqs = result.scalars().all()
+
+    # Группируем по пользователю
+    from collections import defaultdict
+    by_user: dict[str, list[UserQuest]] = defaultdict(list)
+    for uq in completed_uqs:
+        by_user[uq.user_id].append(uq)
+
+    results: list[RecalculateResult] = []
+    total_xp = 0
+    total_coins = 0
+
+    for uid, uqs in by_user.items():
+        user_xp = 0
+        user_coins = 0
+        user_quests_processed = 0
+
+        # Получаем уже начисленные XP source_id’с для этого пользователя
+        xp_done = await db.execute(
+            select(XPTransaction.source_id)
+            .where(XPTransaction.user_id == uid)
+            .where(XPTransaction.source == XPSource.QUEST)
+        )
+        xp_done_ids = {r[0] for r in xp_done.all()}
+
+        coin_done = await db.execute(
+            select(CoinTransaction.source_id)
+            .where(CoinTransaction.user_id == uid)
+            .where(CoinTransaction.source == CoinSource.QUEST)
+        )
+        coin_done_ids = {r[0] for r in coin_done.all()}
+
+        for uq in uqs:
+            quest = uq.quest
+            if quest is None:
+                continue
+
+            awarded_something = False
+
+            # XP — если ещё не начисляли
+            if quest.id not in xp_done_ids and quest.xp_reward > 0:
+                await _award_xp(
+                    db, uid, quest.xp_reward,
+                    XPSource.QUEST, quest.id,
+                    f"[retro] Квест: {quest.title}",
+                )
+                user_xp += quest.xp_reward
+                awarded_something = True
+
+            # Монеты — если ещё не начисляли
+            if quest.id not in coin_done_ids and quest.coins_reward > 0:
+                await _award_coins(
+                    db, uid, quest.coins_reward,
+                    CoinSource.QUEST, quest.id,
+                    f"[retro] Квест: {quest.title}",
+                )
+                user_coins += quest.coins_reward
+                awarded_something = True
+
+            if awarded_something:
+                user_quests_processed += 1
+
+        # Перепроверяем бейджи после всех начислений
+        badges = await _check_badges(db, uid)
+
+        results.append(RecalculateResult(
+            user_id=uid,
+            quests_processed=user_quests_processed,
+            xp_awarded=user_xp,
+            coins_awarded=user_coins,
+            badges_earned=badges,
+        ))
+        total_xp += user_xp
+        total_coins += user_coins
+
+    await db.commit()
+
+    return RecalculateResponse(
+        results=results,
+        total_users=len(results),
+        total_xp_awarded=total_xp,
+        total_coins_awarded=total_coins,
     )
 
 
@@ -424,14 +599,14 @@ async def player_profile(
     username: Optional[str] = Query(None, description="Логин пользователя из клиента / API Gateway"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Возвращает игровой профиль пользователя.
-    username передаётся как query-параметр из API Gateway или фронтенда,
-    так как gamification-service не имеет прямого доступа к auth-service.
-    """
     total_xp = await db.scalar(
         select(func.coalesce(func.sum(XPTransaction.amount), 0))
         .where(XPTransaction.user_id == user_id)
+    ) or 0
+
+    total_coins = await db.scalar(
+        select(func.coalesce(func.sum(CoinTransaction.amount), 0))
+        .where(CoinTransaction.user_id == user_id)
     ) or 0
 
     quests_completed = await db.scalar(
@@ -451,7 +626,6 @@ async def player_profile(
         .where(UserBadge.user_id == user_id)
     ) or 0
 
-    # Вычисляем уровень и прогресс
     level = 1
     xp_acc = 0
     while xp_acc + xp_required_for_level(level) <= total_xp:
@@ -462,7 +636,6 @@ async def player_profile(
     xp_for_next = xp_required_for_level(level)
     progress_pct = round((xp_in_level / xp_for_next) * 100, 1) if xp_for_next > 0 else 0.0
 
-    # Загружаем персонажа пользователя (если создан)
     character_result = await db.execute(
         select(Character)
         .options(
@@ -484,7 +657,7 @@ async def player_profile(
         level=level,
         xp_to_next_level=xp_for_next - xp_in_level,
         xp_progress_percent=progress_pct,
-        total_coins=0,
+        total_coins=total_coins,
         quests_completed=quests_completed,
         quests_in_progress=quests_in_progress,
         badges_count=badges_count,
