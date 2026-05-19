@@ -4,7 +4,7 @@ import {
   useCallback,
   useRef,
 } from 'react'
-import { questsApi, isAbortError } from '../api/quests'
+import { questsApi, isAbortError, classifyAcceptError } from '../api/quests'
 import type { Quest, UserQuest, QuestType, QuestDifficulty } from '../api/quests'
 import { useAppToast } from '../App'
 import { SkillViewer } from '../components/SkillViewer'
@@ -129,9 +129,10 @@ interface CatalogCardProps {
   myQuests: UserQuest[]
   onAccept: (quest: Quest) => void
   onOpenSkill: (quest: Quest) => void
+  onPreview: (quest: Quest) => void
 }
 
-function CatalogCard({ quest, myQuests, onAccept, onOpenSkill }: CatalogCardProps) {
+function CatalogCard({ quest, myQuests, onAccept, onOpenSkill, onPreview }: CatalogCardProps) {
   const accepted = myQuests.find(uq => uq.quest_id === quest.id)
   const isSkill = quest.quest_type === 'skill'
 
@@ -166,7 +167,13 @@ function CatalogCard({ quest, myQuests, onAccept, onOpenSkill }: CatalogCardProp
         </div>
       </div>
 
-      <h3 className={styles.cardTitle}>{quest.title}</h3>
+      <h3
+        className={`${styles.cardTitle} ${styles.cardTitleClickable}`}
+        onClick={() => onPreview(quest)}
+        title="Нажмите для просмотра деталей"
+      >
+        {quest.title}
+      </h3>
       {quest.description && (
         <p className={styles.cardDesc}>{quest.description}</p>
       )}
@@ -288,6 +295,91 @@ function MyQuestCard({ userQuest, onComplete, onOpenSkill }: MyQuestCardProps) {
   )
 }
 
+// ─── QuestPreviewModal ────────────────────────────────────────────────────────
+// Показывает детали квеста через GET /quests/:id и позволяет принять его
+
+interface QuestPreviewModalProps {
+  questId: string
+  onAccept: () => void
+  onClose: () => void
+}
+
+function QuestPreviewModal({ questId, onAccept, onClose }: QuestPreviewModalProps) {
+  const [quest, setQuest] = useState<Quest | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const ctrl = new AbortController()
+    setLoading(true)
+    setError(null)
+    questsApi.getById(questId, ctrl.signal)
+      .then(data => { setQuest(data); setLoading(false) })
+      .catch(err => {
+        if (!isAbortError(err)) {
+          setError('Не удалось загрузить квест')
+          setLoading(false)
+        }
+      })
+    return () => ctrl.abort()
+  }, [questId])
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+
+  return (
+    <div className={styles.rewardOverlay} role="dialog" aria-modal="true" aria-label="Детали квеста">
+      <div className={styles.rewardBackdrop} onClick={onClose} />
+      <div className={styles.rewardModal}>
+        {loading && (
+          <div className={styles.loadingRow}>
+            <span className={styles.spinner} />
+            <span>Загрузка…</span>
+          </div>
+        )}
+        {error && <p style={{ color: 'var(--color-error)' }}>{error}</p>}
+        {quest && !loading && (
+          <>
+            <div className={styles.rewardEmoji}>{TYPE_ICON[quest.quest_type]}</div>
+            <h2 className={styles.rewardHeading}>{quest.title}</h2>
+            {quest.description && <p className={styles.rewardQuestTitle}>{quest.description}</p>}
+            <div className={styles.rewardCards}>
+              <div className={`${styles.rewardCard} ${styles.rewardCardXp}`}>
+                <span className={styles.rewardCardIcon}>⚡</span>
+                <span className={styles.rewardCardValue}>{quest.xp_reward}</span>
+                <span className={styles.rewardCardLabel}>XP</span>
+              </div>
+              <div className={`${styles.rewardCard} ${styles.rewardCardCoins}`}>
+                <span className={styles.rewardCardIcon}>🪙</span>
+                <span className={styles.rewardCardValue}>{quest.coins_reward}</span>
+                <span className={styles.rewardCardLabel}>монет</span>
+              </div>
+              {quest.time_limit_hours !== null && (
+                <div className={`${styles.rewardCard} ${styles.rewardCardLevel}`}>
+                  <span className={styles.rewardCardIcon}>⏳</span>
+                  <span className={styles.rewardCardValue}>{quest.time_limit_hours}</span>
+                  <span className={styles.rewardCardLabel}>часов</span>
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+              <button className={styles.rewardCloseBtn} style={{ flex: 1, background: 'var(--color-surface-offset)' }} onClick={onClose}>
+                Закрыть
+              </button>
+              <button className={styles.rewardCloseBtn} style={{ flex: 2 }} onClick={onAccept}>
+                Принять квест
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── RewardModal ──────────────────────────────────────────────────────────────
 
 interface RewardModalProps {
@@ -296,7 +388,6 @@ interface RewardModalProps {
 }
 
 function RewardModal({ data, onClose }: RewardModalProps) {
-  // Close on Escape
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', h)
@@ -366,6 +457,9 @@ export function QuestsPage() {
   const [filterType, setFilterType] = useState<QuestType | 'all'>('all')
   const [filterDiff, setFilterDiff] = useState<QuestDifficulty | 'all'>('all')
 
+  // Quest preview modal (GET /quests/:id)
+  const [previewQuestId, setPreviewQuestId] = useState<string | null>(null)
+
   // Skill viewer
   const [activeSkillQuest, setActiveSkillQuest] = useState<Quest | null>(null)
   const pendingCompleteRef = useRef<string | null>(null)
@@ -385,9 +479,6 @@ export function QuestsPage() {
 
     setLoading(true)
 
-    // Запрашиваем каталог и мои квесты независимо, чтобы сбой одного не подавлял другой.
-    // Каталог (без авторизации) загружается всегда;
-    // /quests/my загружается отдельно и ошибка там (напр., 401) не мешает отобразить каталог.
     const [catalogResult, myResult] = await Promise.allSettled([
       questsApi.getAll({ per_page: 100 }, ctrl.signal),
       questsApi.getMy(ctrl.signal),
@@ -395,14 +486,12 @@ export function QuestsPage() {
 
     if (ctrl.signal.aborted) return
 
-    // Каталог квестов — основной блок
     if (catalogResult.status === 'fulfilled') {
       setQuests(catalogResult.value.items)
     } else if (!isAbortError(catalogResult.reason)) {
       showToast('Не удалось загрузить каталог квестов', 'error')
     }
 
-    // Мои квесты — если не авторизован, просто оставляем пустыми (не показываем ошибку)
     if (myResult.status === 'fulfilled') {
       setMyQuests(Array.isArray(myResult.value) ? myResult.value : [])
     } else {
@@ -423,25 +512,40 @@ export function QuestsPage() {
     try {
       await questsApi.accept(quest.id)
       showToast(`Квест «${quest.title}» принят!`, 'success')
+      setPreviewQuestId(null)
       await loadData()
       setActiveTab('my')
     } catch (err: unknown) {
-      showToast('Не удалось принять квест', 'error')
+      if (isAbortError(err)) return
+      const kind = classifyAcceptError(err)
+      if (kind === 'already_active') {
+        showToast('Квест уже принят — переходим к активным', 'warning')
+        setPreviewQuestId(null)
+        await loadData()
+        setActiveTab('my')
+      } else if (kind === 'no_gateway') {
+        // gateway недоступен или токен ещё не готов — silent, не спамим toast
+      } else {
+        showToast('Не удалось принять квест', 'error')
+      }
     }
   }, [loadData, showToast])
 
   // ── Open skill viewer ──────────────────────────────────────────────────────
 
   const handleOpenSkill = useCallback(async (quest: Quest) => {
-    // If not yet accepted, accept first then open
     const alreadyAccepted = myQuests.some(uq => uq.quest_id === quest.id)
     if (!alreadyAccepted) {
       try {
         await questsApi.accept(quest.id)
         showToast(`Квест «${quest.title}» принят!`, 'success')
         await loadData()
-      } catch (_err: unknown) {
-        showToast('Не удалось принять квест', 'error')
+      } catch (err: unknown) {
+        if (isAbortError(err)) return
+        const kind = classifyAcceptError(err)
+        if (kind !== 'no_gateway') {
+          showToast('Не удалось принять квест', 'error')
+        }
         return
       }
     }
@@ -454,7 +558,6 @@ export function QuestsPage() {
     try {
       const result = await questsApi.complete(questId)
       const quest = quests.find(q => q.id === questId)
-      // Build reward data from response or fallback to quest defaults
       const reward: RewardData = {
         xp_earned: (result as Record<string, unknown>)?.xp_earned as number ?? quest?.xp_reward ?? 0,
         coins_earned: (result as Record<string, unknown>)?.coins_earned as number ?? quest?.coins_reward ?? 0,
@@ -620,6 +723,7 @@ export function QuestsPage() {
                   myQuests={myQuests}
                   onAccept={handleAccept}
                   onOpenSkill={handleOpenSkill}
+                  onPreview={q => setPreviewQuestId(q.id)}
                 />
               ))}
             </div>
@@ -680,6 +784,18 @@ export function QuestsPage() {
             </>
           )}
         </div>
+      )}
+
+      {/* ── Quest preview modal (GET /quests/:id) ─────────────────────────────── */}
+      {previewQuestId !== null && (
+        <QuestPreviewModal
+          questId={previewQuestId}
+          onAccept={() => {
+            const quest = quests.find(q => q.id === previewQuestId)
+            if (quest) handleAccept(quest)
+          }}
+          onClose={() => setPreviewQuestId(null)}
+        />
       )}
 
       {/* ── SkillViewer overlay ───────────────────────────────────────────────── */}

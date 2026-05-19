@@ -56,17 +56,21 @@ export const questsApi = {
   ) =>
     api.get<QuestsListResponse>('/quests', { params, signal }).then(r => r.data),
 
+  /** Квест по ID (GET /quests/:id) — для диагностики и детальной страницы */
+  getById: (questId: string, signal?: AbortSignal) =>
+    api.get<Quest>(`/quests/${questId}`, { signal }).then(r => r.data),
+
   /** Квесты текущего пользователя */
   getMy: (signal?: AbortSignal) =>
     api.get<UserQuest[]>('/quests/my', { signal }).then(r => r.data),
 
   /** Принять квест */
-  accept: (questId: string) =>
-    api.post(`/quests/${questId}/accept`).then(r => r.data),
+  accept: (questId: string, signal?: AbortSignal) =>
+    api.post(`/quests/${questId}/accept`, null, { signal }).then(r => r.data),
 
   /** Завершить квест */
-  complete: (questId: string) =>
-    api.post(`/quests/${questId}/complete`).then(r => r.data),
+  complete: (questId: string, signal?: AbortSignal) =>
+    api.post(`/quests/${questId}/complete`, null, { signal }).then(r => r.data),
 }
 
 /**
@@ -75,4 +79,26 @@ export const questsApi = {
  */
 export function isAbortError(err: unknown): boolean {
   return axios.isCancel(err) || (err instanceof DOMException && err.name === 'AbortError')
+}
+
+/**
+ * Классифицирует ошибку при принятии квеста (Bug #3)
+ *
+ * already_active — квест уже принят (409 Conflict)
+ * no_gateway     — нет связи с gateway / токен не готов (сеть / 401 / 403 / 422)
+ * generic        — неожиданная серверная ошибка (5xx, 404 и др.)
+ */
+export function classifyAcceptError(
+  err: unknown,
+): 'already_active' | 'no_gateway' | 'generic' {
+  if (!err || typeof err !== 'object') return 'no_gateway'
+  const e = err as Record<string, unknown>
+  const status = (
+    e?.response as Record<string, unknown> | undefined
+  )?.status as number | undefined
+
+  if (status === 409) return 'already_active'
+  // Нет ответа вообще (Network Error, socket hang up) или токен не готов
+  if (!status || status === 401 || status === 403 || status === 422) return 'no_gateway'
+  return 'generic'
 }
