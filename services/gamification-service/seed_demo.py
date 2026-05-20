@@ -45,29 +45,13 @@ async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False
 
 
 # ================================================================
-# ХЕШИРОВАНИЕ ПАРОЛЕЙ — используем bcrypt напрямую, не зависим от app.security
+# ХЕШИРОВАНИЕ ПАРОЛЕЙ — используем bcrypt напрямую (без passlib)
 # ================================================================
 
-def _make_hash_password():
-    """Возвращает функцию hash_password. Приоритет: passlib > bcrypt."""
-    try:
-        from passlib.context import CryptContext
-        _ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        return _ctx.hash
-    except ImportError:
-        pass
-    try:
-        import bcrypt
-        def _hash(pwd: str) -> str:
-            return bcrypt.hashpw(pwd.encode(), bcrypt.gensalt()).decode()
-        return _hash
-    except ImportError:
-        raise RuntimeError(
-            "Не удалось импортировать passlib или bcrypt. "
-            "Убедитесь, что passlib[bcrypt] есть в requirements.txt gamification-service."
-        )
-
-hash_password = _make_hash_password()
+def hash_password(pwd: str) -> str:
+    """Хэширует пароль через bcrypt напрямую, без passlib."""
+    import bcrypt
+    return bcrypt.hashpw(pwd.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 # ================================================================
@@ -208,7 +192,6 @@ async def seed_test_users(db: AsyncSession) -> dict[str, str]:
         if existing_id:
             print(f"  ℹ️  Пользователь '{u['username']}' уже есть")
             user_ids[u["username"]] = existing_id
-            # Обновляем department/project если не проставлены
             await db.execute(
                 text(f"""
                     UPDATE {AUTH_DB_SCHEMA}.users
@@ -263,8 +246,6 @@ async def seed_test_users(db: AsyncSession) -> dict[str, str]:
 
 # ================================================================
 # БЕЙДЖИ
-# condition_type: quests_completed | xp_total | level | admin_only
-# condition_value: пороговое значение для автоматической выдачи
 # ================================================================
 
 BADGES_DATA = [
@@ -273,7 +254,7 @@ BADGES_DATA = [
         "description": "Выдаётся за первый вход в систему. Принят в команду!",
         "icon_url": "🏆",
         "rarity": BadgeRarity.COMMON,
-        "condition_type": None,      # выдаётся вручную / при регистрации
+        "condition_type": None,
         "condition_value": None,
         "xp_bonus": 25,
     },
@@ -486,31 +467,24 @@ async def seed(devuser_id: str) -> None:
     async with async_session() as db:
         print(f"\n👤 devuser_id = {devuser_id}")
 
-        # 1. Архетипы
         print("\n📌 Шаг 1/5: Архетипы персонажей...")
         await seed_character_types(db)
 
-        # 2. Тестовые пользователи
         print("\n📌 Шаг 2/5: Тестовые пользователи...")
         test_user_ids = await seed_test_users(db)
 
-        # 3. Бейджи
         print("\n📌 Шаг 3/5: Бейджи...")
         badges = await seed_badges(db)
 
-        # 4. Квесты
         print("\n📌 Шаг 4/5: Квесты...")
         quests = await seed_quests(db)
 
-        # 5. Назначаем devuser: первый бейдж, первые 3 квеста
         print("\n📌 Шаг 5/5: Назначаем квесты / бейджи...")
-
         first_badge = next((b for b in badges if b.condition_type is None), badges[0])
         await assign_badge_to_user(db, devuser_id, first_badge)
         await assign_quests_to_user(db, devuser_id, quests, count=3)
         print(f"  ✅ devuser: бейдж '{first_badge.name}' + {min(3, len(quests))} квеста")
 
-        # Тестовые пользователи: разные комбинации квестов для лидерборда
         user_quest_map = {
             "alice_dev":   (quests[1:5], [first_badge]),
             "bob_backend": (quests[0:4], [first_badge, badges[1] if len(badges) > 1 else first_badge]),
