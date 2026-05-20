@@ -18,6 +18,7 @@ import argparse
 import asyncio
 import os
 import sys
+import uuid as _uuid_mod
 
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
@@ -41,6 +42,32 @@ from app.database import DB_SCHEMA
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+
+# ================================================================
+# ХЕШИРОВАНИЕ ПАРОЛЕЙ — используем bcrypt напрямую, не зависим от app.security
+# ================================================================
+
+def _make_hash_password():
+    """Возвращает функцию hash_password. Приоритет: passlib > bcrypt."""
+    try:
+        from passlib.context import CryptContext
+        _ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        return _ctx.hash
+    except ImportError:
+        pass
+    try:
+        import bcrypt
+        def _hash(pwd: str) -> str:
+            return bcrypt.hashpw(pwd.encode(), bcrypt.gensalt()).decode()
+        return _hash
+    except ImportError:
+        raise RuntimeError(
+            "Не удалось импортировать passlib или bcrypt. "
+            "Убедитесь, что passlib[bcrypt] есть в requirements.txt gamification-service."
+        )
+
+hash_password = _make_hash_password()
 
 
 # ================================================================
@@ -171,17 +198,6 @@ TEST_USERS = [
 
 async def seed_test_users(db: AsyncSession) -> dict[str, str]:
     """Создаёт 5 тестовых пользователей в auth."""
-    from app.security import hash_password  # импорт из gamification-service/app (есть в том же venv)
-
-    # Проверяем наличие hash_password у gamification-service
-    try:
-        from app.security import hash_password
-    except ImportError:
-        # Если в gamification-service нет security.py — используем passlib напрямую
-        from passlib.context import CryptContext
-        _pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        def hash_password(pwd): return _pwd_ctx.hash(pwd)
-
     user_ids: dict[str, str] = {}
 
     for u in TEST_USERS:
@@ -207,7 +223,6 @@ async def seed_test_users(db: AsyncSession) -> dict[str, str]:
                 }
             )
         else:
-            import uuid as _uuid_mod
             new_id = str(_uuid_mod.uuid4())
             await db.execute(
                 text(f"""
@@ -308,7 +323,7 @@ BADGES_DATA = [
         "xp_bonus": 500,
     },
     {
-        "name": "Вожакь пятого уровня",
+        "name": "Вожак пятого уровня",
         "description": "Достигните 5-го уровня в системе.",
         "icon_url": "🦅",
         "rarity": BadgeRarity.EPIC,
