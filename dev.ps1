@@ -7,6 +7,10 @@
 #   .\dev.ps1              - start backend services (= up)
 #   .\dev.ps1 help         - show all available commands
 #   .\dev.ps1 dev          - start backend + frontend together
+#   .\dev.ps1 offline      - start WITHOUT rebuild (no internet needed)
+#   .\dev.ps1 offline:dev  - offline + frontend together
+#   .\dev.ps1 save-images  - save all Docker images to gamification-images.tar
+#   .\dev.ps1 load-images  - load Docker images from gamification-images.tar
 #   .\dev.ps1 ui           - start frontend dev server only
 #   .\dev.ps1 ui:install   - npm install in ./frontend
 #   .\dev.ps1 ui:build     - production build -> frontend/dist/
@@ -39,6 +43,21 @@ $GRAY   = "DarkGray"
 $WHITE  = "White"
 
 $ACTIVE_SERVICES = @("postgres", "redis", "auth-service", "gamification-service", "api-gateway")
+
+# Полный список образов для сохранения/загрузки
+$DOCKER_IMAGES = @(
+    "gamification-platform-auth-service:latest",
+    "gamification-platform-api-gateway:latest",
+    "gamification-platform-gamification-service:latest",
+    "gamification-platform-celery-beat:latest",
+    "gamification-platform-celery-worker:latest",
+    "gamification-platform-integration-service:latest",
+    "gamification-platform-analytics-service:latest",
+    "postgres:16-alpine",
+    "redis:7-alpine"
+)
+
+$IMAGES_FILE = "gamification-images.tar"
 
 $HEALTH_ENDPOINTS = [ordered]@{
     "api-gateway"                = "http://localhost:8000/health"
@@ -80,6 +99,10 @@ function Write-Help {
     Write-Host "  ----------------------------------------------------------------"
     Write-Host "  .\dev.ps1                   " -NoNewline; Write-Host "start all backend services (= up)" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 up                " -NoNewline; Write-Host "start all backend services" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 offline           " -NoNewline; Write-Host "start WITHOUT rebuild — no internet needed" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 offline:dev       " -NoNewline; Write-Host "offline backend + frontend together" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 save-images       " -NoNewline; Write-Host "save all Docker images to $IMAGES_FILE" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 load-images       " -NoNewline; Write-Host "load Docker images from $IMAGES_FILE" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 stop              " -NoNewline; Write-Host "stop all services" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 restart           " -NoNewline; Write-Host "restart all services" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 restart <service> " -NoNewline; Write-Host "restart one service (e.g. auth-service)" -ForegroundColor $GRAY
@@ -157,6 +180,140 @@ function Assert-Node {
         return $false
     }
     return $true
+}
+
+# ================================================================
+# SAVE IMAGES — сохраняет все образы в tar-файл
+# ================================================================
+
+function Invoke-SaveImages {
+    Write-Header "Save Docker Images"
+
+    # Фильтруем только те образы, которые реально есть локально
+    $available = @()
+    $missing   = @()
+    foreach ($img in $DOCKER_IMAGES) {
+        $exists = docker image inspect $img 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $available += $img
+        } else {
+            $missing += $img
+        }
+    }
+
+    if ($missing.Count -gt 0) {
+        Write-Warn "These images are NOT found locally (will be skipped):"
+        foreach ($m in $missing) { Write-Info "  $m" }
+        Write-Host ""
+    }
+
+    if ($available.Count -eq 0) {
+        Write-Err "No images found! Run '.\dev.ps1 dev' first to build them."
+        return
+    }
+
+    Write-Info "Saving $($available.Count) image(s) to $IMAGES_FILE ..."
+    Write-Info "This may take 3-10 minutes depending on image sizes."
+    Write-Host ""
+
+    docker save $available -o $IMAGES_FILE
+
+    if ($LASTEXITCODE -eq 0) {
+        $sizeMB = [math]::Round((Get-Item $IMAGES_FILE).Length / 1MB, 1)
+        Write-Ok "Saved! File: $IMAGES_FILE ($sizeMB MB)"
+        Write-Info "Copy this file to a USB drive or another machine."
+        Write-Info "To load: .\dev.ps1 load-images"
+    } else {
+        Write-Err "Save failed. Check disk space and try again."
+    }
+}
+
+# ================================================================
+# LOAD IMAGES — загружает образы из tar-файла
+# ================================================================
+
+function Invoke-LoadImages {
+    Write-Header "Load Docker Images"
+
+    if (-not (Test-Path $IMAGES_FILE)) {
+        Write-Err "File not found: $IMAGES_FILE"
+        Write-Info "Run '.\dev.ps1 save-images' on a machine with internet first."
+        Write-Info "Then copy $IMAGES_FILE to this directory."
+        return
+    }
+
+    $sizeMB = [math]::Round((Get-Item $IMAGES_FILE).Length / 1MB, 1)
+    Write-Info "Loading from $IMAGES_FILE ($sizeMB MB) ..."
+    Write-Info "This may take 2-5 minutes."
+    Write-Host ""
+
+    docker load -i $IMAGES_FILE
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "Images loaded successfully!"
+        Write-Info "Now run: .\dev.ps1 offline"
+    } else {
+        Write-Err "Load failed. File may be corrupted."
+    }
+}
+
+# ================================================================
+# OFFLINE START — запуск без --build и без pull
+# ================================================================
+
+function Invoke-OfflineStart {
+    Write-Header "Gamification Platform - Offline Start"
+    Assert-EnvFile
+
+    # Проверяем что ключевые образы есть
+    $keyImages = @(
+        "gamification-platform-api-gateway:latest",
+        "gamification-platform-auth-service:latest",
+        "gamification-platform-gamification-service:latest",
+        "postgres:16-alpine",
+        "redis:7-alpine"
+    )
+    $allPresent = $true
+    foreach ($img in $keyImages) {
+        docker image inspect $img 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "Image missing: $img"
+            $allPresent = $false
+        }
+    }
+
+    if (-not $allPresent) {
+        Write-Host ""
+        Write-Warn "Some images are missing. Options:"
+        Write-Info "  1. If you have $IMAGES_FILE: .\dev.ps1 load-images"
+        Write-Info "  2. If you have internet:     .\dev.ps1 dev"
+        return
+    }
+
+    Write-Info "Starting services (no rebuild, no pull)..."
+    # --no-build гарантирует что Docker не будет пытаться пересобирать образы
+    docker compose up $ACTIVE_SERVICES --no-build -d
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host ""
+        Write-Ok "Services started!"
+        Write-Info "Waiting 15s for services to be ready..."
+        Start-Sleep -Seconds 15
+        $dbResult = Invoke-DbInit -Silent $false
+
+        if ($dbResult) {
+            Write-Host ""
+            Write-Info "Running test registration to create devuser..."
+            Invoke-Test | Out-Null
+            Start-Sleep -Seconds 2
+            Invoke-Seed -AutoMode $true
+        }
+
+        Write-Host ""
+        Write-Info "Run '.\dev.ps1 health' to verify all services are up."
+    } else {
+        Write-Err "Startup error. Check: docker logs gamification-auth-service"
+    }
 }
 
 # ================================================================
@@ -539,6 +696,29 @@ $cmd = $Command.ToLower()
 
 if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
     Write-Help
+
+} elseif ($cmd -eq "save-images") {
+    Invoke-SaveImages
+
+} elseif ($cmd -eq "load-images") {
+    Invoke-LoadImages
+
+} elseif ($cmd -eq "offline") {
+    Invoke-OfflineStart
+
+} elseif ($cmd -eq "offline:dev") {
+    Invoke-OfflineStart
+    Write-Host ""
+    if (-not (Assert-Node)) { exit 1 }
+    if (-not (Test-Path "frontend/node_modules")) {
+        Write-Err "frontend/node_modules not found! Cannot start frontend offline."
+        Write-Info "Run '.\dev.ps1 ui:install' while connected to internet first."
+        exit 1
+    }
+    Write-Info "Starting frontend (http://localhost:3000)..."
+    Set-Location frontend
+    npm run dev
+    Set-Location ..
 
 } elseif ($cmd -eq "up" -or $cmd -eq "") {
     Write-Header "Gamification Platform - Start"
