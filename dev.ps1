@@ -99,15 +99,15 @@ function Write-Help {
     Write-Host "  ----------------------------------------------------------------"
     Write-Host "  .\dev.ps1                   " -NoNewline; Write-Host "start all backend services (= up)" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 up                " -NoNewline; Write-Host "start all backend services" -ForegroundColor $GRAY
-    Write-Host "  .\dev.ps1 offline           " -NoNewline; Write-Host "start WITHOUT rebuild — no internet needed" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 offline           " -NoNewline; Write-Host "start WITHOUT rebuild - no internet needed" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 offline:dev       " -NoNewline; Write-Host "offline backend + frontend together" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 save-images       " -NoNewline; Write-Host "save all Docker images to $IMAGES_FILE" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 load-images       " -NoNewline; Write-Host "load Docker images from $IMAGES_FILE" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 stop              " -NoNewline; Write-Host "stop all services" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 restart           " -NoNewline; Write-Host "restart all services" -ForegroundColor $GRAY
-    Write-Host "  .\dev.ps1 restart <service> " -NoNewline; Write-Host "restart one service (e.g. auth-service)" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 restart [service] " -NoNewline; Write-Host "restart one service (e.g. auth-service)" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 rebuild           " -NoNewline; Write-Host "full rebuild without Docker cache" -ForegroundColor $GRAY
-    Write-Host "  .\dev.ps1 rebuild <service> " -NoNewline; Write-Host "rebuild one service only" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 rebuild [service] " -NoNewline; Write-Host "rebuild one service only" -ForegroundColor $GRAY
     Write-Host ""
 
     Write-Host "  FRONTEND (Node.js / Vite)" -ForegroundColor $YELLOW
@@ -119,22 +119,22 @@ function Write-Help {
     Write-Host "  .\dev.ps1 dev               " -NoNewline; Write-Host "start backend + frontend together" -ForegroundColor $GRAY
     Write-Host ""
 
-    Write-Host "  LOGS & MONITORING" -ForegroundColor $YELLOW
+    Write-Host "  LOGS AND MONITORING" -ForegroundColor $YELLOW
     Write-Host "  ----------------------------------------------------------------"
     Write-Host "  .\dev.ps1 logs              " -NoNewline; Write-Host "live logs of all services" -ForegroundColor $GRAY
-    Write-Host "  .\dev.ps1 logs <service>    " -NoNewline; Write-Host "live logs of one service" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 logs [service]    " -NoNewline; Write-Host "live logs of one service" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 health            " -NoNewline; Write-Host "HTTP health check all services" -ForegroundColor $GRAY
     Write-Host ""
 
-    Write-Host "  DATABASE & SEED" -ForegroundColor $YELLOW
+    Write-Host "  DATABASE AND SEED" -ForegroundColor $YELLOW
     Write-Host "  ----------------------------------------------------------------"
     Write-Host "  .\dev.ps1 db                " -NoNewline; Write-Host "open psql (PostgreSQL CLI)" -ForegroundColor $GRAY
-    Write-Host "  .\dev.ps1 db:init           " -NoNewline; Write-Host "check schemas & run migrations (safe, idempotent)" -ForegroundColor $GRAY
+    Write-Host "  .\dev.ps1 db:init           " -NoNewline; Write-Host "check schemas, run migrations (safe, idempotent)" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 db:status         " -NoNewline; Write-Host "show current Alembic migration state" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 seed              " -NoNewline; Write-Host "seed demo data: quests, badges, character types" -ForegroundColor $GRAY
     Write-Host ""
 
-    Write-Host "  TESTING & UTILS" -ForegroundColor $YELLOW
+    Write-Host "  TESTING AND UTILS" -ForegroundColor $YELLOW
     Write-Host "  ----------------------------------------------------------------"
     Write-Host "  .\dev.ps1 test              " -NoNewline; Write-Host "automated 6-step API test scenario" -ForegroundColor $GRAY
     Write-Host "  .\dev.ps1 open              " -NoNewline; Write-Host "open Swagger UI in browser" -ForegroundColor $GRAY
@@ -193,7 +193,7 @@ function Invoke-SaveImages {
     $available = @()
     $missing   = @()
     foreach ($img in $DOCKER_IMAGES) {
-        $exists = docker image inspect $img 2>$null
+        docker image inspect $img 2>$null | Out-Null
         if ($LASTEXITCODE -eq 0) {
             $available += $img
         } else {
@@ -285,13 +285,12 @@ function Invoke-OfflineStart {
     if (-not $allPresent) {
         Write-Host ""
         Write-Warn "Some images are missing. Options:"
-        Write-Info "  1. If you have $IMAGES_FILE: .\dev.ps1 load-images"
-        Write-Info "  2. If you have internet:     .\dev.ps1 dev"
+        Write-Info "  1. If you have ${IMAGES_FILE}: .\dev.ps1 load-images"
+        Write-Info "  2. If you have internet:      .\dev.ps1 dev"
         return
     }
 
     Write-Info "Starting services (no rebuild, no pull)..."
-    # --no-build гарантирует что Docker не будет пытаться пересобирать образы
     docker compose up $ACTIVE_SERVICES --no-build -d
 
     if ($LASTEXITCODE -eq 0) {
@@ -391,7 +390,7 @@ function Invoke-DbInit {
         return $false
     }
 
-    # ── Проверяем наличие схем ──
+    # -- Проверяем наличие схем --
     Write-Info "Checking database schemas..."
 
     $authSchemaExists = docker exec gamification-postgres psql `
@@ -413,7 +412,7 @@ function Invoke-DbInit {
     $authTablesCount = $authTablesCount.Trim()
     $gamTablesCount  = $gamTablesCount.Trim()
 
-    # ── Статус схем ──
+    # -- Статус схем --
     Write-Host ""
     Write-Host "  Schema Status:" -ForegroundColor $CYAN
 
@@ -429,7 +428,7 @@ function Invoke-DbInit {
         Write-Warn "  schema 'gamification'  MISSING"
     }
 
-    # ── Проверяем нужно ли накатывать миграции ──
+    # -- Проверяем нужно ли накатывать миграции --
     $needsMigration = ($authSchemaExists -ne "1") -or ($gamSchemaExists -ne "1") `
                    -or ([int]$authTablesCount -eq 0) -or ([int]$gamTablesCount -eq 0)
 
@@ -440,7 +439,7 @@ function Invoke-DbInit {
         return $true
     }
 
-    # ── Предлагаем накатить миграции ──
+    # -- Предлагаем накатить миграции --
     Write-Host ""
     Write-Warn "One or more schemas/tables are missing."
     Write-Host ""
@@ -455,7 +454,7 @@ function Invoke-DbInit {
     Write-Info "Running Alembic migrations..."
     Write-Host ""
 
-    # ── auth-service migrations ──
+    # -- auth-service migrations --
     Write-Host "  [auth-service]" -ForegroundColor $YELLOW
     $authContainer = docker ps --filter "name=gamification-auth-service" --filter "status=running" -q
     if ($authContainer) {
@@ -467,7 +466,7 @@ function Invoke-DbInit {
             Write-Info "  Check logs: docker logs gamification-auth-service --tail 30"
         }
     } else {
-        Write-Warn "  auth-service container not running — starting temporarily..."
+        Write-Warn "  auth-service container not running - starting temporarily..."
         docker compose run --rm --no-deps auth-service python -m alembic upgrade head
         if ($LASTEXITCODE -eq 0) {
             Write-Ok "  auth-service migrations done"
@@ -478,7 +477,7 @@ function Invoke-DbInit {
 
     Write-Host ""
 
-    # ── gamification-service migrations ──
+    # -- gamification-service migrations --
     Write-Host "  [gamification-service]" -ForegroundColor $YELLOW
     $gamContainer = docker ps --filter "name=gamification-gamification-service" --filter "status=running" -q
     if ($gamContainer) {
@@ -490,7 +489,7 @@ function Invoke-DbInit {
             Write-Info "  Check logs: docker logs gamification-gamification-service --tail 30"
         }
     } else {
-        Write-Warn "  gamification-service container not running — starting temporarily..."
+        Write-Warn "  gamification-service container not running - starting temporarily..."
         docker compose run --rm --no-deps gamification-service python -m alembic upgrade head
         if ($LASTEXITCODE -eq 0) {
             Write-Ok "  gamification-service migrations done"
@@ -501,7 +500,7 @@ function Invoke-DbInit {
 
     Write-Host ""
 
-    # ── Итоговая проверка ──
+    # -- Итоговая проверка --
     Write-Info "Verifying final state..."
 
     $authFinal = docker exec gamification-postgres psql `
@@ -537,7 +536,7 @@ function Invoke-DbStatus {
         return
     }
 
-    Write-Host "  Schemas & Tables:" -ForegroundColor $CYAN
+    Write-Host "  Schemas and Tables:" -ForegroundColor $CYAN
     docker exec gamification-postgres psql -U gamification_user -d gamification_db -c `
         "SELECT table_schema, COUNT(*) as tables FROM information_schema.tables WHERE table_schema IN ('auth','gamification','public') GROUP BY table_schema ORDER BY table_schema;"
 
@@ -553,8 +552,8 @@ function Invoke-DbStatus {
         docker exec gamification-auth-service python -m alembic current
     }
 
-    $gamContainer = docker ps --filter "name=gamification-gamification-service" --filter "status=running" -q
-    if ($gamContainer) {
+    $gamContainer2 = docker ps --filter "name=gamification-gamification-service" --filter "status=running" -q
+    if ($gamContainer2) {
         Write-Host ""
         Write-Host "  gamification-service alembic current:" -ForegroundColor $CYAN
         docker exec gamification-gamification-service python -m alembic current
@@ -596,7 +595,7 @@ function Invoke-Health {
     if ($allOk) {
         Write-Ok "All backend services are up!"
     } else {
-        Write-Warn "Some services are down. Check: docker logs <container-name>"
+        Write-Warn "Some services are down. Check: docker logs [container-name]"
     }
 }
 
@@ -735,7 +734,6 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
         Start-Sleep -Seconds 15
         $dbResult = Invoke-DbInit -Silent $false
 
-        # Автоматический seed на свежей БД: регистрируем devuser и сидируем данные
         if ($dbResult) {
             Write-Host ""
             Write-Info "Running test registration to create devuser..."
@@ -791,7 +789,6 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
     Set-Location ..
 
 } elseif ($cmd -eq "seed") {
-    # Сначала убеждаемся что devuser зарегистрирован
     $uidCheck = docker exec gamification-postgres psql `
         -U gamification_user -d gamification_db -t -A -c `
         "SELECT id FROM auth.users WHERE username = 'devuser' LIMIT 1;" 2>$null
