@@ -75,6 +75,7 @@ async def leaderboard_xp(
             SUM(xt.amount)              AS total_xp,
             u.username,
             u.full_name,
+            u.avatar_url,
             u.department,
             u.project                   AS project_name,
             u.position
@@ -83,7 +84,7 @@ async def leaderboard_xp(
         WHERE u.is_active = true
           {period_filter}
           {project_filter}
-        GROUP BY xt.user_id, u.username, u.full_name, u.department, u.project, u.position
+        GROUP BY xt.user_id, u.username, u.full_name, u.avatar_url, u.department, u.project, u.position
         ORDER BY total_xp DESC
         LIMIT :limit
     """)
@@ -134,6 +135,7 @@ async def leaderboard_xp(
                 user_id=uid,
                 username=row.username,
                 full_name=row.full_name,
+                avatar_url=row.avatar_url,
                 total_xp=total_xp,
                 level=_calc_level(total_xp),
                 total_coins=0,

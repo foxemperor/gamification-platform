@@ -23,6 +23,18 @@ function initials(e: LeaderboardEntry): string {
     .join('')
 }
 
+/** Аватар игрока: картинка из avatar_url, иначе инициалы. */
+function AvatarBox({ entry, className }: { entry: LeaderboardEntry; className: string }) {
+  return (
+    <div className={className} style={{ overflow: 'hidden' }}>
+      {entry.avatar_url
+        ? <img src={entry.avatar_url} alt={displayName(entry)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : initials(entry)}
+    </div>
+  )
+}
+
 function levelThreshold(level: number): number {
   return 100 * (level - 1) * level / 2
 }
@@ -79,7 +91,7 @@ function PodiumCard({
         isSelf ? s.podiumSelf : '',
       ].join(' ')}
     >
-      <div className={s.podiumAvatar}>{initials(entry)}</div>
+      <AvatarBox entry={entry} className={s.podiumAvatar} />
       <div className={s.podiumMedal}>{MEDAL[entry.rank - 1]}</div>
       <div className={s.podiumName}>{displayName(entry)}</div>
       <div className={s.podiumLevel}>Ур. {entry.level}</div>
@@ -122,7 +134,7 @@ function TableRow({ entry, isSelf }: { entry: LeaderboardEntry; isSelf: boolean 
       </td>
       <td>
         <div className={s.playerCell}>
-          <div className={s.avatar}>{initials(entry)}</div>
+          <AvatarBox entry={entry} className={s.avatar} />
           <div className={s.playerInfo}>
             <div className={s.playerName}>
               {displayName(entry)}

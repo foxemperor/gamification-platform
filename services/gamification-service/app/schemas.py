@@ -316,6 +316,7 @@ class LeaderboardEntryResponse(BaseModel):
     user_id: str
     username: str
     full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
     total_xp: int
     level: int
     total_coins: int

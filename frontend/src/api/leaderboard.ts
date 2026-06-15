@@ -9,6 +9,7 @@ export interface LeaderboardEntry {
   user_id: string
   username: string
   full_name: string | null
+  avatar_url: string | null
   total_xp: number
   level: number
   total_coins: number

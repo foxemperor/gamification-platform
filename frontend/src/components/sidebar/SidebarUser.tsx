@@ -47,8 +47,14 @@ export function SidebarUser({ mini }: Props) {
       className={[styles.user, mini ? styles.mini : ''].filter(Boolean).join(' ')}
       style={{ position: 'relative' }}
     >
-      <div className={styles.avatar} title={displayName}>
-        {initials || '👤'}
+      <div className={styles.avatar} title={displayName} style={{ overflow: 'hidden' }}>
+        {user?.avatar_url
+          ? <img
+              src={user.avatar_url}
+              alt={displayName}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          : (initials || '👤')}
       </div>
       {!mini && (
         <>

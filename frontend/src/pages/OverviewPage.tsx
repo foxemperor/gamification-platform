@@ -298,7 +298,12 @@ function MiniLeaderboard({
         return (
           <div key={e.user_id} className={`${s.miniLbRow} ${isMe ? s.miniLbRowMe : ''}`}>
             <span className={s.miniLbRank}>{MEDALS[i] ?? `#${e.rank}`}</span>
-            <div className={s.miniLbAvatar}>{name.slice(0, 2).toUpperCase()}</div>
+            <div className={s.miniLbAvatar} style={{ overflow: 'hidden' }}>
+              {e.avatar_url
+                ? <img src={e.avatar_url} alt={name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : name.slice(0, 2).toUpperCase()}
+            </div>
             <span className={s.miniLbName}>
               {name}{isMe && <span className={s.miniLbYou}> (ты)</span>}
             </span>
@@ -423,7 +428,12 @@ export function OverviewPage() {
       {/* Header */}
       <header className={s.header}>
         <div className={s.headerLeft}>
-          <div className={s.avatar}>{initials}</div>
+          <div className={s.avatar} style={{ overflow: 'hidden' }}>
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt={displayName}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : initials}
+          </div>
           <div>
             <h1 className={s.greeting}>Привет, {displayName} 👋</h1>
             <p className={s.greetingSub}>
