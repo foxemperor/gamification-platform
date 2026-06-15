@@ -605,15 +605,18 @@ async def player_profile(
     ) or 0
 
     # ─────────────────────────────────────────────────────────────
-    # Данные учётной записи берём напрямую из таблицы public.users
-    # auth-service (auth- и gamification-сервисы делят одну физическую
-    # БД gamification_db, см. database.py). Так монеты, имя и аватар —
-    # единый источник истины с сайдбаром, без рассинхрона.
+    # Данные учётной записи берём напрямую из таблицы auth.users
+    # auth-service. Auth- и gamification-сервисы делят одну физическую
+    # БД gamification_db, но в разных схемах: auth-service кладёт свои
+    # таблицы в схему "auth" (см. auth-service/app/database.py:DB_SCHEMA),
+    # а gamification-service — в схему "gamification".
+    # Так монеты, имя и аватар — единый источник истины с сайдбаром,
+    # без рассинхрона.
     # ─────────────────────────────────────────────────────────────
     account = (await db.execute(
         text(
             "SELECT full_name, username, coins, avatar_url "
-            "FROM public.users WHERE id = :uid"
+            "FROM auth.users WHERE id = :uid"
         ),
         {"uid": user_id},
     )).mappings().first()
