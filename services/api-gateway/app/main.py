@@ -28,6 +28,7 @@ from app.middleware.rate_limit import RateLimitMiddleware
 from app.routers import health, auth, users, quests, leaderboard, integrations
 from app.celery_app import process_gamification_event
 from app.routers import profile
+from app.routers import character
 from app.routers import auth as auth_router
 from app.routers import admin
 
@@ -191,6 +192,7 @@ app.include_router(leaderboard.router, prefix="/api/v1/leaderboard", tags=["Lead
 app.include_router(integrations.router, prefix="/api/v1/integrations", tags=["Integrations"])
 
 app.include_router(profile.router, prefix="/api/v1/profile", tags=["Profile"]) 
+app.include_router(character.router, prefix="/api/v1/character", tags=["Character"]) 
 
 # ===================================
 # CELERY ENDPOINT

@@ -19,6 +19,7 @@ export interface AuthUserResponse {
   username:            string
   email:               string
   full_name:           string | null
+  avatar_url:          string | null
   role:                string
   xp:                  number
   level:               number
@@ -54,4 +55,10 @@ export const authApi = {
 
   getMe: (signal?: AbortSignal) =>
     api.get<AuthUserResponse>('/auth/me', { signal }).then((r) => r.data),
+
+  /** Обновление профиля: имя, аватар, bio. Возвращает обновлённого пользователя. */
+  updateMe: (
+    payload: { full_name?: string; avatar_url?: string; bio?: string },
+    signal?: AbortSignal,
+  ) => api.patch<AuthUserResponse>('/auth/me', payload, { signal }).then((r) => r.data),
 }

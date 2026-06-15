@@ -4,6 +4,7 @@ import { OverviewPage }        from './pages/OverviewPage'
 import { QuestsPage }          from './pages/QuestsPage'
 import { LeaderboardPage }     from './pages/LeaderboardPage'
 import { AchievementsPage }    from './pages/AchievementsPage'
+import { SettingsPage }        from './pages/SettingsPage'
 import { AdminUsersPage }      from './pages/admin/AdminUsersPage'
 import { AdminOverviewPage }   from './pages/admin/AdminOverviewPage'
 import { AdminQuestsPage }     from './pages/admin/AdminQuestsPage'
@@ -57,6 +58,7 @@ export default function App() {
           username:     u.username,
           email:        u.email,
           full_name:    u.full_name,
+          avatar_url:    u.avatar_url,
           role:         u.role,
           department:   null,
           project:      null,
@@ -91,7 +93,7 @@ export default function App() {
           <Route path="/achievements"  element={<AchievementsPage />} />
           <Route path="/members"       element={<ComingSoon title="Участники" />} />
           <Route path="/events"        element={<ComingSoon title="События" />} />
-          <Route path="/settings"      element={<ComingSoon title="Настройки" />} />
+          <Route path="/settings"      element={<SettingsPage />} />
 
           {/* Админ-панель */}
           <Route path="/admin"             element={<AdminRoute><AdminOverviewPage /></AdminRoute>} />

@@ -29,7 +29,7 @@ export function useLogin() {
           data.tokens.refresh_token,
           payload.rememberMe,
         )
-        setUser(data.user as Parameters<typeof setUser>[0])
+        setUser(data.user as unknown as Parameters<typeof setUser>[0])
         navigate('/', { replace: true })
       } catch (err: unknown) {
         if ((err as { name?: string })?.name === 'AbortError') return

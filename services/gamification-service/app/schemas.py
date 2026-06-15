@@ -290,6 +290,7 @@ class PlayerProfileResponse(BaseModel):
     user_id: str
     username: str
     full_name: Optional[str]
+    avatar_url: Optional[str] = None
     total_xp: int
     level: int
     xp_to_next_level: int

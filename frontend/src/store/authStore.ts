@@ -1,11 +1,11 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface User {
   id: string
   username: string
   email: string
   full_name: string | null
+  avatar_url: string | null
   role: string
   department: string | null
   project: string | null
@@ -27,6 +27,8 @@ interface AuthState {
 
   setTokens: (accessToken: string, refreshToken: string, rememberMe: boolean) => void
   setUser: (user: User) => void
+  /** Частичное обновление полей текущего пользователя (напр. после смены аватара) */
+  updateUser: (patch: Partial<User>) => void
   logout: () => void
 }
 
@@ -99,6 +101,15 @@ export const useAuthStore = create<AuthState>()((set) => ({
     set((s) => {
       const next = { ...s, user }
       persistAuth(next)
+      return { user }
+    })
+  },
+
+  updateUser: (patch) => {
+    set((s) => {
+      if (!s.user) return {}
+      const user = { ...s.user, ...patch }
+      persistAuth({ ...s, user })
       return { user }
     })
   },

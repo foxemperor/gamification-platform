@@ -40,7 +40,7 @@ export function SidebarXP({ mini }: Props) {
   const pct     = profile ? Math.min(100, Math.round(profile.xp_progress_percent)) : 0
 
   // Персонаж: показываем имя в mini-режиме если уже есть
-  const charName = profile?.character?.name ?? null
+  const charName = profile?.character?.character_type?.name ?? null
 
   const formatXp = (n: number | null) =>
     n === null ? '—' : n.toLocaleString('ru')

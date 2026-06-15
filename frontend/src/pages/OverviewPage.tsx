@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { meApi, type PlayerProfile } from '../api/me'
+import { meApi, type PlayerProfile, type Character } from '../api/me'
 import { questsApi, type UserQuest } from '../api/quests'
 import { leaderboardApi, type LeaderboardEntry } from '../api/leaderboard'
+import { CharacterSprite } from '../components/CharacterSprite'
 import s from './OverviewPage.module.css'
 
 // ────── helpers ──────
@@ -45,55 +46,83 @@ function resolveInitials(displayName: string, email?: string | null): string {
 }
 
 // ────── CharacterCard ──────
+// Карточка персонажа игрока. НЕ дублирует статистику из правых карточек
+// (Уровень / XP / Монеты / Бейджи) — показывает самого персонажа:
+// аватар или спрайт класса, имя, архетип и бонусы-мультипликаторы.
+const ARCHETYPE_LABEL: Record<string, string> = {
+  warrior: '⚔️ Воин', mage: '🔮 Маг', rogue: '🗡️ Разбойник', engineer: '🛠️ Инженер',
+}
+
 function CharacterCard({
-  profile, displayName, user,
+  profile, displayName, user, character,
 }: {
   profile: PlayerProfile
   displayName: string
   user: { email?: string } | null
+  character: Character | null
 }) {
-  const xpPct    = calcXpPct(profile)
-  const initials = resolveInitials(displayName, user?.email)
-
-  const stats: { label: string; value: string | number }[] = [
-    { label: 'Квесты',      value: profile.quests_completed },
-    { label: 'Монеты',      value: profile.total_coins.toLocaleString() },
-    { label: 'Бейджи',      value: profile.badges_count },
-    { label: 'В процессе',  value: profile.quests_in_progress },
-    { label: 'Стрик',       value: `${profile.streak_days ?? 0} д.` },
-  ]
+  const initials  = resolveInitials(displayName, user?.email)
+  const avatarUrl = profile.avatar_url
 
   return (
-    <div className={s.characterCard}>
+    <div className={`${s.characterCard} ${s.charCardPad}`}>
       <div className={s.charBanner}>
-        <span className={s.charLevelBadge}>LVL {profile.level}</span>
+        <span className={s.charLevelBadge}>LVL {profile.level}</span>
         {profile.rank_all_time != null && (
           <span className={s.charRankBadge}>#{profile.rank_all_time}</span>
         )}
       </div>
+
+      {/* Аватар пользователя */}
       <div className={s.charAvatarWrap}>
-        <div className={s.charAvatar}>{initials}</div>
+        <div className={s.charAvatar}>
+          {avatarUrl
+            ? <img className={s.charAvatarImg} src={avatarUrl} alt={displayName} />
+            : initials}
+        </div>
       </div>
+
       <p className={s.charName}>{displayName}</p>
       {profile.position && <p className={s.charPosition}>{profile.position}</p>}
-      <div className={s.charXpWrap}>
-        <div className={s.charXpLabels}>
-          <span>{profile.total_xp.toLocaleString()} XP</span>
-          <span>LVL {profile.level + 1}</span>
-        </div>
-        <div className={s.charXpTrack}>
-          <div className={s.charXpFill} style={{ width: `${xpPct}%` }} />
-        </div>
-        <p className={s.charXpHint}>ещё {profile.xp_to_next_level.toLocaleString()} XP до следующего уровня</p>
-      </div>
-      <div className={s.charStats}>
-        {stats.map(st => (
-          <div key={st.label} className={s.charStat}>
-            <span className={s.charStatVal}>{st.value}</span>
-            <span className={s.charStatLabel}>{st.label}</span>
+
+      {/* Персонаж игрока */}
+      {character ? (
+        <>
+          <div className={s.charSprite}>
+            <CharacterSprite
+              className={s.charSpriteBody}
+              slug={character.character_type.slug}
+              skinColor={character.skin_color}
+              hairColor={character.hair_color}
+              eyesColor={character.eyes_color}
+            />
           </div>
-        ))}
-      </div>
+          <span className={s.charArchetype}>
+            {ARCHETYPE_LABEL[character.character_type.slug] ?? character.character_type.name}
+            {' · '}LVL {character.level}
+          </span>
+          {character.character_type.bonus_description && (
+            <p className={s.charBonus}>{character.character_type.bonus_description}</p>
+          )}
+          <div className={s.charMultipliers}>
+            <div className={s.charMult}>
+              <span className={s.charMultVal}>×{character.xp_multiplier.toFixed(2)}</span>
+              <span className={s.charMultLabel}>XP бонус</span>
+            </div>
+            <div className={s.charMult}>
+              <span className={s.charMultVal}>×{character.coin_multiplier.toFixed(2)}</span>
+              <span className={s.charMultLabel}>Монеты</span>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className={s.charCreateHint}>
+          <p className={s.charCreateText}>
+            🎭 У вас ещё нет персонажа. Создайте героя, чтобы получить бонусы к XP и монетам.
+          </p>
+          <Link to="/settings" className={s.charCreateBtn}>Создать персонажа</Link>
+        </div>
+      )}
     </div>
   )
 }
@@ -318,6 +347,7 @@ export function OverviewPage() {
   const user = useAuthStore(st => st.user)
 
   const [profile,        setProfile]        = useState<PlayerProfile | null>(null)
+  const [character,      setCharacter]       = useState<Character | null>(null)
   const [myQuests,       setMyQuests]        = useState<UserQuest[]>([])
   const [lbEntries,      setLbEntries]       = useState<LeaderboardEntry[]>([])
   const [profileLoading, setProfileLoading]  = useState(true)
@@ -341,6 +371,12 @@ export function OverviewPage() {
       .then(p  => { if (!sig.aborted) setProfile(p) })
       .catch(() => { /* silent — покажем fallback-карточку */ })
       .finally(() => { if (!sig.aborted) setProfileLoading(false) })
+
+    // Персонаж игрока (может отсутствовать — тогда 404, показываем подсказку создать)
+    meApi
+      .getMyCharacter(sig)
+      .then(c => { if (!sig.aborted) setCharacter(c) })
+      .catch(() => { if (!sig.aborted) setCharacter(null) })
 
     // Мои квесты — getMy() возвращает UserQuest[] напрямую
     setQuestsLoading(true)
@@ -407,7 +443,7 @@ export function OverviewPage() {
         {profileLoading ? (
           <div className={`${s.characterCard} ${s.skel}`} style={{ minHeight: 380 }} />
         ) : profile != null ? (
-          <CharacterCard profile={profile} displayName={displayName} user={user} />
+          <CharacterCard profile={profile} displayName={displayName} user={user} character={character} />
         ) : (
           <FallbackCharacterCard user={user} displayName={displayName} />
         )}

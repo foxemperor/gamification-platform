@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, update, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -604,10 +604,25 @@ async def player_profile(
         .where(XPTransaction.user_id == user_id)
     ) or 0
 
-    total_coins = await db.scalar(
-        select(func.coalesce(func.sum(CoinTransaction.amount), 0))
-        .where(CoinTransaction.user_id == user_id)
-    ) or 0
+    # ─────────────────────────────────────────────────────────────
+    # Данные учётной записи берём напрямую из таблицы public.users
+    # auth-service (auth- и gamification-сервисы делят одну физическую
+    # БД gamification_db, см. database.py). Так монеты, имя и аватар —
+    # единый источник истины с сайдбаром, без рассинхрона.
+    # ─────────────────────────────────────────────────────────────
+    account = (await db.execute(
+        text(
+            "SELECT full_name, username, coins, avatar_url "
+            "FROM public.users WHERE id = :uid"
+        ),
+        {"uid": user_id},
+    )).mappings().first()
+
+    account_full_name: Optional[str] = account["full_name"] if account else None
+    account_username: Optional[str] = account["username"] if account else None
+    # Баланс монет — авторитетный из users.coins (тот же, что в сайдбаре).
+    total_coins = (account["coins"] if account else 0) or 0
+    account_avatar_url: Optional[str] = account["avatar_url"] if account else None
 
     quests_completed = await db.scalar(
         select(func.count(UserQuest.id))
@@ -651,8 +666,9 @@ async def player_profile(
 
     return PlayerProfileResponse(
         user_id=user_id,
-        username=username or "",
-        full_name=None,
+        username=account_username or username or "",
+        full_name=account_full_name,
+        avatar_url=account_avatar_url,
         total_xp=total_xp,
         level=level,
         xp_to_next_level=xp_for_next - xp_in_level,
