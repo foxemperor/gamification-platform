@@ -37,6 +37,7 @@ from app.models import (
     Badge, BadgeRarity, Quest, QuestDifficulty, QuestStatus, QuestType,
     UserBadge, UserQuest, UserQuestStatus,
     CharacterType, CharacterTypeSlug,
+    CosmeticItem, CosmeticSlot, CosmeticVisibility, UnlockType,
 )
 from app.database import DB_SCHEMA
 
@@ -104,6 +105,111 @@ async def seed_character_types(db: AsyncSession) -> None:
         else:
             db.add(CharacterType(**ct_data))
             print(f"  ✅ Архетип создан: {ct_data['name']}")
+    await db.flush()
+
+
+# ================================================================
+# КОСМЕТИЧЕСКИЕ ПРЕДМЕТЫ (ИНВЕНТАРЬ)
+# ================================================================
+# Часть предметов открыта сразу (visibility=OPEN), часть закрыта
+# (visibility=LOCKED) с разными условиями разблокировки (LEVEL / QUEST /
+# ACHIEVEMENT). Эндпоинт GET /character/inventory покажет условия.
+
+COSMETICS_DATA = [
+    # ── Открытые базовые предметы (доступны всем сразу) ──
+    {
+        "slug": "hair_short_basic", "name": "Короткая стрижка",
+        "description": "Аккуратная короткая причёска на каждый день.",
+        "slot": CosmeticSlot.HAIR, "rarity": BadgeRarity.COMMON,
+        "visibility": CosmeticVisibility.OPEN, "unlock_type": UnlockType.NONE,
+    },
+    {
+        "slug": "hair_long_basic", "name": "Длинные волосы",
+        "description": "Свободные длинные волосы.",
+        "slot": CosmeticSlot.HAIR, "rarity": BadgeRarity.COMMON,
+        "visibility": CosmeticVisibility.OPEN, "unlock_type": UnlockType.NONE,
+    },
+    {
+        "slug": "torso_tshirt", "name": "Базовая футболка",
+        "description": "Простая удобная футболка.",
+        "slot": CosmeticSlot.TORSO, "rarity": BadgeRarity.COMMON,
+        "visibility": CosmeticVisibility.OPEN, "unlock_type": UnlockType.NONE,
+    },
+    {
+        "slug": "torso_hoodie", "name": "Худи разработчика",
+        "description": "Уютное худи для долгих код-сессий.",
+        "slot": CosmeticSlot.TORSO, "rarity": BadgeRarity.RARE,
+        "visibility": CosmeticVisibility.OPEN, "unlock_type": UnlockType.NONE,
+    },
+    {
+        "slug": "eyes_calm", "name": "Спокойный взгляд",
+        "description": "Уверенный и спокойный взгляд.",
+        "slot": CosmeticSlot.EYES, "rarity": BadgeRarity.COMMON,
+        "visibility": CosmeticVisibility.OPEN, "unlock_type": UnlockType.NONE,
+    },
+
+    # ── Закрытые: разблокируются по уровню персонажа (LEVEL) ──
+    {
+        "slug": "head_crown", "name": "Корона лидера",
+        "description": "Золотая корона для истинных лидеров команды.",
+        "slot": CosmeticSlot.HEAD, "rarity": BadgeRarity.EPIC,
+        "visibility": CosmeticVisibility.LOCKED, "unlock_type": UnlockType.LEVEL,
+        "unlock_value": 5,
+    },
+    {
+        "slug": "head_acc_glasses", "name": "Умные очки",
+        "description": "Стильные очки для фокусировки.",
+        "slot": CosmeticSlot.HEAD_ACCESSORY, "rarity": BadgeRarity.RARE,
+        "visibility": CosmeticVisibility.LOCKED, "unlock_type": UnlockType.LEVEL,
+        "unlock_value": 3,
+    },
+
+    # ── Закрытые: разблокируются за количество квестов (QUEST) ──
+    {
+        "slug": "weapon_main_sword", "name": "Клинок ветерана",
+        "description": "Острый меч для тех, кто прошёл множество испытаний.",
+        "slot": CosmeticSlot.WEAPON_MAIN, "rarity": BadgeRarity.EPIC,
+        "visibility": CosmeticVisibility.LOCKED, "unlock_type": UnlockType.QUEST,
+        "unlock_value": 5,
+    },
+    {
+        "slug": "weapon_sec_shield", "name": "Щит защитника",
+        "description": "Надёжный щит, полученный за упорство.",
+        "slot": CosmeticSlot.WEAPON_SECONDARY, "rarity": BadgeRarity.RARE,
+        "visibility": CosmeticVisibility.LOCKED, "unlock_type": UnlockType.QUEST,
+        "unlock_value": 3,
+    },
+
+    # ── Закрытые: разблокируются за достижение (ACHIEVEMENT) ──
+    # unlock_ref проставляется в seed_cosmetics по названию бейджа.
+    {
+        "slug": "torso_acc_cape", "name": "Плащ легенды",
+        "description": "Эпичный плащ для обладателей легендарных наград.",
+        "slot": CosmeticSlot.TORSO_ACCESSORY, "rarity": BadgeRarity.LEGENDARY,
+        "visibility": CosmeticVisibility.LOCKED, "unlock_type": UnlockType.ACHIEVEMENT,
+        "unlock_badge_name": "Мастер квестов",
+    },
+]
+
+
+async def seed_cosmetics(db: AsyncSession) -> None:
+    """Создаёт каталог косметических предметов для вкладки «Инвентарь»."""
+    for c in COSMETICS_DATA:
+        existing = await db.scalar(select(CosmeticItem).where(CosmeticItem.slug == c["slug"]))
+        if existing:
+            print(f"  ℹ️  Предмет '{c['name']}' уже есть")
+            continue
+        data = dict(c)
+        badge_name = data.pop("unlock_badge_name", None)
+        unlock_ref = None
+        if badge_name:
+            badge = await db.scalar(select(Badge).where(Badge.name == badge_name))
+            if badge:
+                unlock_ref = badge.id
+            else:
+                print(f"  ⚠️  Бейдж '{badge_name}' не найден для предмета '{c['name']}'")
+        db.add(CosmeticItem(unlock_ref=unlock_ref, **data))
+        print(f"  ✅ Предмет создан: {c['name']} [{c['slot'].value} / {c['visibility'].value}]")
     await db.flush()
 
 
@@ -469,6 +575,9 @@ async def seed(devuser_id: str) -> None:
 
         print("\n📌 Шаг 1/5: Архетипы персонажей...")
         await seed_character_types(db)
+
+        print("\n📌 Шаг 1b: Косметические предметы (инвентарь)...")
+        await seed_cosmetics(db)
 
         print("\n📌 Шаг 2/5: Тестовые пользователи...")
         test_user_ids = await seed_test_users(db)

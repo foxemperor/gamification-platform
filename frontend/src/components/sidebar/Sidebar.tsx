@@ -75,6 +75,7 @@ export function Sidebar() {
       label: 'Достижения',
       badge: notif?.unread_badges || undefined,
     },
+    { to: '/inventory',    icon: '🎒', label: 'Инвентарь' },
   ]
 
   const cls = [styles.sidebar, mini ? styles.mini : ''].filter(Boolean).join(' ')

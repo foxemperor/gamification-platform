@@ -243,6 +243,11 @@ function MyQuestCard({ userQuest, onComplete, onOpenSkill }: MyQuestCardProps) {
 
       <h3 className={styles.cardTitle}>{quest.title}</h3>
 
+      {/* Описание задания — показываем и для квестов В процессе, и для выполненных */}
+      {quest.description && (
+        <p className={styles.cardDesc}>{quest.description}</p>
+      )}
+
       {/* Progress bar */}
       {!isCompleted && (
         <div className={styles.progressWrap}>

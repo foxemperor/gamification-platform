@@ -18,12 +18,14 @@ from app.database import get_db
 from app.dependencies import get_current_user_id
 from app.models import (
     Character, CharacterType, CharacterEquipment,
-    CosmeticItem, UnlockedCosmetic, CosmeticVisibility,
+    CosmeticItem, UnlockedCosmetic, CosmeticVisibility, UnlockType,
+    Badge,
 )
 from app.schemas import (
     CharacterResponse, CharacterTypeResponse,
     CosmeticItemResponse, UnlockedCosmeticResponse,
     CharacterCreateRequest, CharacterEquipRequest,
+    CosmeticCatalogItemResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -247,3 +249,97 @@ async def list_my_unlocked_cosmetics(
         .order_by(UnlockedCosmetic.unlocked_at.desc())
     )
     return result.scalars().all()
+
+
+# ===================================
+# ИНВЕНТАРЬ (каталог + статус разблокировки)
+# ===================================
+
+async def _unlock_requirement_text(
+    db: AsyncSession, item: CosmeticItem
+) -> str | None:
+    """Человекочитаемое условие разблокировки предмета.
+
+    Возвращает None для открытых (OPEN) предметов — у них нет условия.
+    """
+    if item.visibility == CosmeticVisibility.OPEN or item.unlock_type == UnlockType.NONE:
+        return None
+    if item.unlock_type == UnlockType.LEVEL and item.unlock_value:
+        return f"Достигни {item.unlock_value} уровня персонажа"
+    if item.unlock_type == UnlockType.QUEST and item.unlock_value:
+        return f"Выполни {item.unlock_value} квестов"
+    if item.unlock_type == UnlockType.ACHIEVEMENT:
+        # unlock_ref указывает на конкретный бейдж — подставим его название.
+        if item.unlock_ref:
+            badge = await db.scalar(select(Badge).where(Badge.id == item.unlock_ref))
+            if badge:
+                return f"Получи достижение «{badge.name}»"
+        return "Получи особое достижение"
+    if item.unlock_type == UnlockType.ADMIN:
+        return "Выдаётся администратором / за особые заслуги"
+    return "Особое условие разблокировки"
+
+
+@router.get(
+    "/inventory",
+    response_model=List[CosmeticCatalogItemResponse],
+    summary="Инвентарь: каталог косметики со статусом разблокировки",
+)
+async def get_inventory(
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Возвращает весь видимый каталог косметики с вычисленными для текущего
+    пользователя флагами is_unlocked / is_equipped и текстом условия
+    разблокировки. Это единственный источник данных для вкладки «Инвентарь»:
+    фронт не дублирует логику доступности предметов.
+
+    Открытыми (доступными) считаются предметы с visibility=OPEN, а также
+    те, что присутствуют в unlocked_cosmetics пользователя.
+    """
+    # Все видимые предметы (кроме скрытых).
+    items = (await db.execute(
+        select(CosmeticItem)
+        .where(CosmeticItem.visibility != CosmeticVisibility.HIDDEN)
+        .order_by(CosmeticItem.slot, CosmeticItem.name)
+    )).scalars().all()
+
+    # Множество разблокированных предметов пользователя.
+    unlocked_ids = set((await db.execute(
+        select(UnlockedCosmetic.cosmetic_item_id)
+        .where(UnlockedCosmetic.user_id == user_id)
+    )).scalars().all())
+
+    # Множество надетых предметов (по персонажу пользователя).
+    equipped_ids: set[str] = set()
+    character = await db.scalar(select(Character).where(Character.user_id == user_id))
+    if character:
+        equipped_ids = set((await db.execute(
+            select(CharacterEquipment.cosmetic_item_id)
+            .where(CharacterEquipment.character_id == character.id)
+        )).scalars().all())
+
+    result: List[CosmeticCatalogItemResponse] = []
+    for it in items:
+        is_unlocked = it.visibility == CosmeticVisibility.OPEN or it.id in unlocked_ids
+        requirement = None if is_unlocked else await _unlock_requirement_text(db, it)
+        result.append(
+            CosmeticCatalogItemResponse(
+                id=it.id,
+                name=it.name,
+                slug=it.slug,
+                description=it.description,
+                preview_url=it.preview_url,
+                slot=it.slot,
+                rarity=it.rarity,
+                visibility=it.visibility,
+                unlock_type=it.unlock_type,
+                unlock_value=it.unlock_value,
+                allowed_character_types=it.allowed_character_types,
+                is_unlocked=is_unlocked,
+                is_equipped=it.id in equipped_ids,
+                unlock_requirement=requirement,
+            )
+        )
+    return result

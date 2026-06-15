@@ -657,3 +657,133 @@
   .emptyBtn { margin-left: 0; }
   .statsRow { grid-template-columns: 1fr 1fr; }
 }
+
+/* ────── Карточка персонажа: шапка (архетип + уровень) ────── */
+.charHeaderRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.charHeaderRow .charArchetype {
+  margin: 0;
+}
+
+/* ────── Активный инвентарь в карточке персонажа ────── */
+.inventoryBlock {
+  width: 100%;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.inventoryHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.inventoryTitle {
+  font-family: var(--font-d);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.inventoryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  font-size: 15px;
+  line-height: 1;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+.inventoryBtn:hover {
+  background: var(--primary-dim);
+  border-color: var(--border-focus);
+  transform: rotate(20deg);
+}
+
+/* Сетка надетых предметов */
+.equipGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.equipSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: var(--surface-alt);
+  border: 1px dashed var(--border);
+  min-height: 56px;
+  justify-content: center;
+}
+.equipSlotFilled {
+  border-style: solid;
+  border-color: var(--border-focus);
+  background: var(--surface-high);
+}
+.equipIcon {
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0.55;
+}
+.equipSlotFilled .equipIcon {
+  opacity: 1;
+}
+.equipName {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Пустой инвентарь */
+.inventoryEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 8px;
+  border-radius: 12px;
+  background: var(--surface-alt);
+  border: 1px dashed var(--border);
+}
+.inventoryEmptyIcon {
+  font-size: 26px;
+  opacity: 0.6;
+}
+.inventoryEmptyText {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+.inventoryEmptyBtn {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: var(--primary-dim);
+  transition: all 0.15s ease;
+}
+.inventoryEmptyBtn:hover {
+  background: var(--primary-glow);
+}

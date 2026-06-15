@@ -105,6 +105,31 @@ export interface PlayerProfile {
   character: Character | null
 }
 
+// ────── Инвентарь (косметический каталог) ──────
+
+/**
+ * Элемент каталога инвентаря — косметический предмет с флагами
+ * разблокировки/надетости для текущего пользователя.
+ * Возвращается эндпоинтом GET /character/inventory.
+ */
+export interface CosmeticCatalogItem {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  preview_url: string | null
+  slot: string
+  rarity: string
+  visibility: string
+  unlock_type: string
+  /** Открыт ли предмет для пользователя */
+  is_unlocked: boolean
+  /** Надет ли предмет сейчас */
+  is_equipped: boolean
+  /** Человекочитаемое условие разблокировки (null если предмет открыт) */
+  unlock_requirement: string | null
+}
+
 export const meApi = {
   /** Профиль игрока с актуальным XP/монетами/именем/аватаром */
   getProfile: (userId: string) =>
@@ -125,4 +150,21 @@ export const meApi = {
     hair_color?: string
     eyes_color?: string
   }) => api.post<Character>('/character/create', payload).then(r => r.data),
+
+  /**
+   * Полный каталог косметических предметов с флагами
+   * разблокировки/надетости для текущего пользователя.
+   */
+  getInventory: (signal?: AbortSignal) =>
+    api.get<CosmeticCatalogItem[]>('/character/inventory', { signal }).then(r => r.data),
+
+  /**
+   * Надеть/снять косметический предмет.
+   * cosmetic_item_id=null снимает предмет в указанном слоте.
+   */
+  equipItem: (payload: {
+    slot: string
+    cosmetic_item_id: string | null
+    color?: string | null
+  }) => api.patch<Character>('/character/equipment', payload).then(r => r.data),
 }

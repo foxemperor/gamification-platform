@@ -1,0 +1,413 @@
+/* InventoryPage — стили в духе проекта (тёмная тема, циановый акцент) */
+
+.page {
+  padding: 2rem;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary, #e2e8f0);
+  margin: 0 0 0.25rem;
+}
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #94a3b8);
+  margin: 0;
+  max-width: 520px;
+}
+.headerBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface-2, #1e293b);
+  border: 1px solid var(--border, #334155);
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  min-width: 100px;
+  text-align: center;
+}
+.headerBadgeCount {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent, #06b6d4);
+  line-height: 1;
+}
+.headerBadgeLabel {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #94a3b8);
+  margin-top: 0.25rem;
+}
+
+/* ── Нет персонажа ── */
+.noChar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2.5rem 1rem;
+  border: 1px dashed var(--border, #334155);
+  border-radius: 16px;
+  background: var(--surface-2, #1e293b);
+  text-align: center;
+}
+.noCharIcon { font-size: 2.5rem; }
+.noCharText {
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.9rem;
+  margin: 0;
+  max-width: 420px;
+}
+.noCharBtn {
+  margin-top: 0.25rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 10px;
+  background: var(--accent, #06b6d4);
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+/* ── Раскладка: превью слева + каталог справа ── */
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+/* ── Превью персонажа ── */
+.preview {
+  position: sticky;
+  top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border-radius: 16px;
+  border: 1px solid var(--border, #334155);
+  background: var(--surface-2, #1e293b);
+}
+.previewSprite {
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--surface-3, #0f172a);
+}
+.previewSpriteBody { width: 110px; height: 110px; }
+.previewName {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary, #e2e8f0);
+  margin: 0.25rem 0 0;
+}
+.previewLevel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--accent, #06b6d4);
+  margin: 0;
+}
+.previewEquip {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border, #334155);
+}
+.previewEquipTitle {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary, #94a3b8);
+  margin: 0 0 0.5rem;
+}
+.previewEquipList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.previewEquipItem {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.5rem;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-primary, #e2e8f0);
+}
+.previewEquipName { font-weight: 600; }
+.previewEquipSlot {
+  grid-column: 2;
+  font-size: 0.68rem;
+  color: var(--text-secondary, #94a3b8);
+}
+.previewEmpty {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #94a3b8);
+  margin: 0;
+}
+
+/* ── Каталог ── */
+.catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Фильтр ── */
+.filterRow {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.filterBtn {
+  padding: 0.4rem 0.9rem;
+  border-radius: 99px;
+  border: 1px solid var(--border, #334155);
+  background: var(--surface-2, #1e293b);
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.filterBtn:hover {
+  border-color: var(--accent, #06b6d4);
+  color: var(--text-primary, #e2e8f0);
+}
+.filterBtnActive {
+  background: var(--accent, #06b6d4);
+  border-color: var(--accent, #06b6d4);
+  color: #0f172a;
+  font-weight: 600;
+}
+
+/* ── Секции по слотам ── */
+.slotSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.slotTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary, #e2e8f0);
+  margin: 0;
+}
+.slotTitleIcon { font-size: 1.1rem; }
+
+/* ── Сетка предметов ── */
+.itemsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.itemCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.1rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--border, #334155);
+  background: var(--surface-2, #1e293b);
+  position: relative;
+  text-align: center;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.itemCard:not(.itemLocked):hover {
+  transform: translateY(-2px);
+  border-color: var(--accent, #06b6d4);
+}
+.itemLocked {
+  opacity: 0.7;
+}
+.itemEquipped {
+  box-shadow: 0 0 0 1px var(--accent, #06b6d4) inset;
+}
+
+.itemIconWrap {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--surface-3, #0f172a);
+}
+.itemIcon { font-size: 26px; line-height: 1; }
+.itemLocked .itemIcon { filter: grayscale(1); opacity: 0.5; }
+.lockOverlay {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  font-size: 14px;
+  background: var(--surface-2, #1e293b);
+  border-radius: 50%;
+  padding: 2px;
+}
+.equippedMark {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent, #06b6d4);
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.itemName {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-primary, #e2e8f0);
+  margin: 0;
+}
+.itemDesc {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #94a3b8);
+  margin: 0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.itemRarity {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Условие разблокировки для закрытых предметов */
+.unlockHint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 10px;
+  background: var(--surface-3, #0f172a);
+  border: 1px dashed var(--border, #334155);
+  width: 100%;
+}
+.unlockHintIcon { font-size: 13px; flex-shrink: 0; }
+.unlockHintText {
+  font-size: 0.72rem;
+  color: var(--text-secondary, #94a3b8);
+  line-height: 1.35;
+  text-align: left;
+}
+
+/* Кнопки надеть/снять */
+.itemBtn {
+  margin-top: 0.25rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 9px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+.itemBtn:disabled { opacity: 0.55; cursor: default; }
+.itemBtnPrimary {
+  background: var(--accent, #06b6d4);
+  color: #0f172a;
+}
+.itemBtnPrimary:not(:disabled):hover { filter: brightness(1.08); }
+.itemBtnGhost {
+  background: transparent;
+  border-color: var(--border, #334155);
+  color: var(--text-secondary, #94a3b8);
+}
+.itemBtnGhost:not(:disabled):hover {
+  border-color: var(--accent, #06b6d4);
+  color: var(--text-primary, #e2e8f0);
+}
+
+/* ── Пусто / ошибка / скелет ── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.9rem;
+  text-align: center;
+}
+.emptyIcon { font-size: 2.5rem; }
+
+.errorBox {
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--border, #334155);
+  background: var(--surface-2, #1e293b);
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.875rem;
+}
+.retryBtn {
+  background: none;
+  border: none;
+  color: var(--accent, #06b6d4);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.skelGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+.skel {
+  min-height: 200px;
+  border-radius: 14px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2, #1e293b) 25%,
+    var(--surface-3, #0f172a) 50%,
+    var(--surface-2, #1e293b) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

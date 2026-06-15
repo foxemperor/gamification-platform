@@ -25,7 +25,7 @@ from app.schemas import (
     QuestCreate, QuestUpdate, QuestResponse, QuestListResponse,
     UserQuestResponse, AcceptQuestResponse, CompleteQuestResponse,
     UserBadgeResponse, XPHistoryResponse, XPTransactionResponse,
-    PlayerProfileResponse, CharacterResponse,
+    PlayerProfileResponse, CharacterResponse, BadgeResponse,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["quests"])
@@ -93,12 +93,18 @@ async def _award_coins(
     description: Optional[str] = None,
 ) -> int:
     """
-    Записывает CoinTransaction для audit-лога.
-    Баланс монет хранится в auth-service; обновление там происходит
-    через PUT /internal/users/{user_id}/coins, который вызывает auth-service.
-    Здесь мы только записываем в локальную историю.
-    Возвращает новый суммарный баланс по локальным записям.
+    Начисляет (или списывает) монеты пользователю.
+
+    Авторитетный баланс монет хранится в auth.users.coins (тот же столбец,
+    что показывает сайдбар и эндпоинт профиля). auth- и gamification-сервисы
+    делят одну физическую БД gamification_db в разных схемах, поэтому мы
+    обновляем баланс напрямую UPDATE-ом в схему auth — без HTTP-вызова
+    к auth-service. Параллельно пишем CoinTransaction в схему gamification
+    как audit-лог (история начислений).
+
+    Возвращает новый авторитетный баланс из auth.users.coins.
     """
+    # 1. Audit-запись в локальную историю gamification-схемы.
     tx = CoinTransaction(
         user_id=user_id,
         amount=amount,
@@ -107,12 +113,20 @@ async def _award_coins(
         description=description,
     )
     db.add(tx)
+    await db.flush()
 
-    total = await db.scalar(
-        select(func.coalesce(func.sum(CoinTransaction.amount), 0))
-        .where(CoinTransaction.user_id == user_id)
+    # 2. Обновляем авторитетный баланс в auth.users и возвращаем новое значение.
+    #    COALESCE на случай NULL, GREATEST — чтобы баланс не ушёл в минус.
+    new_balance = await db.scalar(
+        text(
+            "UPDATE auth.users "
+            "SET coins = GREATEST(COALESCE(coins, 0) + :amount, 0) "
+            "WHERE id = :uid "
+            "RETURNING coins"
+        ),
+        {"amount": amount, "uid": user_id},
     )
-    return (total or 0) + amount
+    return int(new_balance) if new_balance is not None else 0
 
 
 async def _check_badges(db: AsyncSession, user_id: str) -> list[str]:
@@ -544,6 +558,20 @@ async def my_badges(
         .order_by(UserBadge.earned_at.desc())
     )
     return [UserBadgeResponse.model_validate(ub) for ub in result.scalars().all()]
+
+
+@router.get("/badges", response_model=list[BadgeResponse], summary="Каталог всех бейджей")
+async def list_all_badges(db: AsyncSession = Depends(get_db)):
+    """
+    Полный каталог бейджей с условиями разблокировки (condition_type/value).
+    Фронт сопоставляет этот список с /badges/my, чтобы показать,
+    какие достижения открыты, а какие закрыты и что нужно для их открытия.
+    Публичный эндпоинт — один и тот же каталог для всех.
+    """
+    result = await db.execute(
+        select(Badge).order_by(Badge.condition_value.asc(), Badge.name)
+    )
+    return [BadgeResponse.model_validate(b) for b in result.scalars().all()]
 
 
 # ===================================

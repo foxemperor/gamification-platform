@@ -5,6 +5,10 @@ import { meApi, type PlayerProfile, type Character } from '../api/me'
 import { questsApi, type UserQuest } from '../api/quests'
 import { leaderboardApi, type LeaderboardEntry } from '../api/leaderboard'
 import { CharacterSprite } from '../components/CharacterSprite'
+import {
+  badgesApi, type Badge,
+  describeBadgeCondition, badgeIcon, RARITY_RING,
+} from '../api/badges'
 import s from './OverviewPage.module.css'
 
 // ────── helpers ──────
@@ -53,41 +57,33 @@ const ARCHETYPE_LABEL: Record<string, string> = {
   warrior: '⚔️ Воин', mage: '🔮 Маг', rogue: '🗡️ Разбойник', engineer: '🛠️ Инженер',
 }
 
-function CharacterCard({
-  profile, displayName, user, character,
-}: {
-  profile: PlayerProfile
-  displayName: string
-  user: { email?: string } | null
-  character: Character | null
-}) {
-  const initials  = resolveInitials(displayName, user?.email)
-  const avatarUrl = profile.avatar_url
+const SLOT_ICON: Record<string, string> = {
+  hair: '💇', head: '🎩', head_accessory: '👓', eyes: '👁️',
+  face_expression: '😀', torso: '👕', torso_accessory: '🎀',
+  legs: '👖', weapon_main: '🗡️', weapon_secondary: '🛡️',
+}
+
+const EQUIP_SLOTS = [
+  'hair', 'head', 'head_accessory', 'eyes',
+  'torso', 'torso_accessory', 'weapon_main', 'weapon_secondary',
+]
+
+function CharacterCard({ character }: { character: Character | null }) {
+  const equippedBySlot = new Map<string, Character['equipment'][number]>()
+  for (const eq of character?.equipment ?? []) equippedBySlot.set(eq.slot, eq)
+  const hasEquipment = (character?.equipment?.length ?? 0) > 0
 
   return (
     <div className={`${s.characterCard} ${s.charCardPad}`}>
-      <div className={s.charBanner}>
-        <span className={s.charLevelBadge}>LVL {profile.level}</span>
-        {profile.rank_all_time != null && (
-          <span className={s.charRankBadge}>#{profile.rank_all_time}</span>
-        )}
-      </div>
-
-      {/* Аватар пользователя */}
-      <div className={s.charAvatarWrap}>
-        <div className={s.charAvatar}>
-          {avatarUrl
-            ? <img className={s.charAvatarImg} src={avatarUrl} alt={displayName} />
-            : initials}
-        </div>
-      </div>
-
-      <p className={s.charName}>{displayName}</p>
-      {profile.position && <p className={s.charPosition}>{profile.position}</p>}
-
-      {/* Персонаж игрока */}
       {character ? (
         <>
+          <div className={s.charHeaderRow}>
+            <span className={s.charArchetype}>
+              {ARCHETYPE_LABEL[character.character_type.slug] ?? character.character_type.name}
+            </span>
+            <span className={s.charLevelBadge}>LVL {character.level}</span>
+          </div>
+
           <div className={s.charSprite}>
             <CharacterSprite
               className={s.charSpriteBody}
@@ -97,10 +93,6 @@ function CharacterCard({
               eyesColor={character.eyes_color}
             />
           </div>
-          <span className={s.charArchetype}>
-            {ARCHETYPE_LABEL[character.character_type.slug] ?? character.character_type.name}
-            {' · '}LVL {character.level}
-          </span>
           {character.character_type.bonus_description && (
             <p className={s.charBonus}>{character.character_type.bonus_description}</p>
           )}
@@ -113,6 +105,46 @@ function CharacterCard({
               <span className={s.charMultVal}>×{character.coin_multiplier.toFixed(2)}</span>
               <span className={s.charMultLabel}>Монеты</span>
             </div>
+          </div>
+
+          {/* Активный инвентарь */}
+          <div className={s.inventoryBlock}>
+            <div className={s.inventoryHead}>
+              <span className={s.inventoryTitle}>Активный инвентарь</span>
+              <Link
+                to="/inventory"
+                className={s.inventoryBtn}
+                title="Открыть инвентарь"
+                aria-label="Открыть инвентарь"
+              >
+                🔧
+              </Link>
+            </div>
+            {hasEquipment ? (
+              <div className={s.equipGrid}>
+                {EQUIP_SLOTS.map(slot => {
+                  const eq = equippedBySlot.get(slot)
+                  return (
+                    <div
+                      key={slot}
+                      className={`${s.equipSlot} ${eq ? s.equipSlotFilled : ''}`}
+                      title={eq ? eq.cosmetic_item.name : 'Слот пуст'}
+                    >
+                      <span className={s.equipIcon}>{SLOT_ICON[slot] ?? '▫️'}</span>
+                      {eq && <span className={s.equipName}>{eq.cosmetic_item.name}</span>}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className={s.inventoryEmpty}>
+                <span className={s.inventoryEmptyIcon}>🎒</span>
+                <p className={s.inventoryEmptyText}>Инвентарь пуст</p>
+                <Link to="/inventory" className={s.inventoryEmptyBtn}>
+                  Выбрать предметы 🔧
+                </Link>
+              </div>
+            )}
           </div>
         </>
       ) : (
@@ -317,28 +349,26 @@ function MiniLeaderboard({
 }
 
 // ────── BadgesGrid ──────
-const BADGE_ICONS: Record<string, string> = {
-  first_quest: '🎯', week_streak: '🔥', top10: '🏆',
-  coins_1000: '🪙', level_10: '⚡', quests_50: '📜',
-}
-const BADGE_NAMES: Record<string, string> = {
-  first_quest: 'Первый квест', week_streak: 'Неделя подряд', top10: 'Топ-10',
-  coins_1000: '1000 монет', level_10: 'Уровень 10', quests_50: '50 квестов',
-}
-
-function BadgesGrid({ count }: { count: number }) {
+// Бейджи из реальных данных: каталог (/badges) + полученные (/badges/my).
+// Открытым считается ровно тот бейдж, чей id есть в earnedIds —
+// больше никакой разблокировки «по индексу».
+function BadgesGrid({ catalog, earnedIds }: { catalog: Badge[]; earnedIds: Set<string> }) {
+  if (catalog.length === 0) {
+    return <div className={s.inlineHint}>Каталог достижений пуст</div>
+  }
   return (
     <div className={s.badgesGrid}>
-      {Object.keys(BADGE_ICONS).map((code, i) => {
-        const unlocked = i < count
+      {catalog.slice(0, 6).map(b => {
+        const unlocked = earnedIds.has(b.id)
         return (
           <div
-            key={code}
+            key={b.id}
             className={`${s.badgeItem} ${unlocked ? '' : s.badgeLocked}`}
-            title={BADGE_NAMES[code]}
+            title={unlocked ? b.name : `${b.name} — ${describeBadgeCondition(b)}`}
+            style={unlocked ? { borderColor: RARITY_RING[b.rarity] } : undefined}
           >
-            <span className={s.badgeIcon}>{BADGE_ICONS[code]}</span>
-            <span className={s.badgeName}>{BADGE_NAMES[code]}</span>
+            <span className={s.badgeIcon}>{badgeIcon(b)}</span>
+            <span className={s.badgeName}>{b.name}</span>
             {!unlocked && <span className={s.badgeLockIcon}>🔒</span>}
           </div>
         )
@@ -355,6 +385,8 @@ export function OverviewPage() {
   const [character,      setCharacter]       = useState<Character | null>(null)
   const [myQuests,       setMyQuests]        = useState<UserQuest[]>([])
   const [lbEntries,      setLbEntries]       = useState<LeaderboardEntry[]>([])
+  const [badgeCatalog,   setBadgeCatalog]    = useState<Badge[]>([])
+  const [earnedBadgeIds, setEarnedBadgeIds]  = useState<Set<string>>(new Set())
   const [profileLoading, setProfileLoading]  = useState(true)
   const [questsLoading,  setQuestsLoading]   = useState(true)
   const [questsErr,      setQuestsErr]       = useState(false)
@@ -413,6 +445,15 @@ export function OverviewPage() {
       .catch(() => { /* silent */ })
       .finally(() => { if (!sig.aborted) setLbLoading(false) })
 
+    // Достижения: каталог + полученные бейджи из реальных данных
+    Promise.all([badgesApi.getCatalog(sig), badgesApi.getMine(sig)])
+      .then(([catalog, mine]) => {
+        if (sig.aborted) return
+        setBadgeCatalog(catalog)
+        setEarnedBadgeIds(new Set(mine.map(ub => ub.badge.id)))
+      })
+      .catch(() => { /* silent */ })
+
     return () => ac.abort()
   }, [user?.id])
 
@@ -453,7 +494,7 @@ export function OverviewPage() {
         {profileLoading ? (
           <div className={`${s.characterCard} ${s.skel}`} style={{ minHeight: 380 }} />
         ) : profile != null ? (
-          <CharacterCard profile={profile} displayName={displayName} user={user} character={character} />
+          <CharacterCard character={character} />
         ) : (
           <FallbackCharacterCard user={user} displayName={displayName} />
         )}
@@ -570,8 +611,9 @@ export function OverviewPage() {
             <section className={s.section}>
               <div className={s.sectionHead}>
                 <h2 className={s.sectionTitle}>Достижения</h2>
+                <Link to="/achievements" className={s.sectionLink}>Все достижения →</Link>
               </div>
-              <BadgesGrid count={profile.badges_count} />
+              <BadgesGrid catalog={badgeCatalog} earnedIds={earnedBadgeIds} />
             </section>
           )}
 

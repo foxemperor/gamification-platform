@@ -227,6 +227,18 @@ class CosmeticItemResponse(OrmBase):
     allowed_character_types: Optional[list]
 
 
+class CosmeticCatalogItemResponse(CosmeticItemResponse):
+    """Предмет каталога с вычисленным статусом разблокировки для пользователя.
+
+    Расширяет CosmeticItemResponse полями, которые фронт использует, чтобы
+    показать, что предмет уже доступен, надет, или закрыт и что нужно для
+    его открытия — без дублирования логики на клиенте.
+    """
+    is_unlocked: bool = False
+    is_equipped: bool = False
+    unlock_requirement: Optional[str] = None
+
+
 class CharacterEquipmentResponse(OrmBase):
     """Надетый предмет."""
     id: str

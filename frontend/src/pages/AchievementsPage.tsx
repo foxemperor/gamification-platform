@@ -1,33 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { meApi, type PlayerProfile } from '../api/me'
+import {
+  badgesApi, type Badge as ApiBadge,
+  badgeIcon, describeBadgeCondition, badgeProgress,
+  RARITY_RING, RARITY_LABEL,
+} from '../api/badges'
 import s from './AchievementsPage.module.css'
 
-// ────── Типы ──────
-interface Badge {
-  code: string
-  icon: string
-  name: string
-  description: string
+// ────── Тип для отображения (реальный бейдж + статус открытия) ──────
+interface DisplayBadge {
+  badge: ApiBadge
   unlocked: boolean
-  xp_reward?: number
+  /** Прогресс к условию разблокировки (null если неизмерим) */
+  progress: { value: number; max: number } | null
 }
-
-// ────── Каталог бейджей (синхронизирован с бэкендом) ──────
-const BADGE_CATALOG: Omit<Badge, 'unlocked'>[] = [
-  { code: 'first_quest',  icon: '🎯', name: 'Первый квест',     description: 'Выполни свой первый квест',        xp_reward: 50  },
-  { code: 'week_streak',  icon: '🔥', name: 'Неделя подряд',    description: '7 дней активности без перерыва',    xp_reward: 100 },
-  { code: 'top10',        icon: '🏆', name: 'Топ-10',           description: 'Войди в топ-10 рейтинга',          xp_reward: 200 },
-  { code: 'coins_1000',   icon: '🪙', name: '1000 монет',       description: 'Накопи 1000 монет',                xp_reward: 75  },
-  { code: 'level_10',     icon: '⚡', name: 'Уровень 10',       description: 'Достигни 10-го уровня',            xp_reward: 300 },
-  { code: 'quests_50',    icon: '📜', name: '50 квестов',       description: 'Выполни 50 квестов суммарно',       xp_reward: 500 },
-  { code: 'streak_30',    icon: '🌟', name: 'Месяц подряд',     description: '30 дней активности без перерыва',   xp_reward: 400 },
-  { code: 'quests_10',    icon: '🚀', name: '10 квестов',       description: 'Выполни 10 квестов суммарно',       xp_reward: 150 },
-  { code: 'first_badge',  icon: '🎖️', name: 'Коллекционер',    description: 'Получи первый бейдж',              xp_reward: 25  },
-  { code: 'top3',         icon: '👑', name: 'Пьедестал',        description: 'Войди в топ-3 рейтинга',           xp_reward: 500 },
-  { code: 'coins_5000',   icon: '💰', name: '5000 монет',       description: 'Накопи 5000 монет',                xp_reward: 200 },
-  { code: 'level_5',      icon: '🌱', name: 'Уровень 5',        description: 'Достигни 5-го уровня',             xp_reward: 100 },
-]
 
 // ────── helpers ──────
 function calcXpPct(profile: PlayerProfile): number {
@@ -43,21 +30,43 @@ function calcXpPct(profile: PlayerProfile): number {
 }
 
 // ────── BadgeCard ──────
-function BadgeCard({ badge }: { badge: Badge }) {
+function BadgeCard({ item }: { item: DisplayBadge }) {
+  const { badge, unlocked, progress } = item
+  const ring = RARITY_RING[badge.rarity]
+  const pct = progress && progress.max > 0
+    ? Math.min(100, Math.round((progress.value / progress.max) * 100))
+    : 0
   return (
-    <div className={`${s.badgeCard} ${badge.unlocked ? s.badgeUnlocked : s.badgeLocked}`}>
+    <div
+      className={`${s.badgeCard} ${unlocked ? s.badgeUnlocked : s.badgeLocked}`}
+      style={unlocked ? { borderColor: ring } : undefined}
+    >
       <div className={s.badgeIconWrap}>
-        <span className={s.badgeIcon}>{badge.icon}</span>
-        {!badge.unlocked && <span className={s.lockOverlay}>🔒</span>}
+        <span className={s.badgeIcon}>{badgeIcon(badge)}</span>
+        {!unlocked && <span className={s.lockOverlay}>🔒</span>}
       </div>
       <div className={s.badgeInfo}>
         <p className={s.badgeName}>{badge.name}</p>
-        <p className={s.badgeDesc}>{badge.description}</p>
-        {badge.xp_reward != null && (
-          <span className={s.badgeReward}>+{badge.xp_reward} XP</span>
+        <p className={s.badgeDesc}>
+          {unlocked ? (badge.description ?? describeBadgeCondition(badge)) : describeBadgeCondition(badge)}
+        </p>
+        <div className={s.badgeMetaRow}>
+          <span className={s.badgeRarity} style={{ color: ring }}>{RARITY_LABEL[badge.rarity]}</span>
+          {badge.xp_bonus > 0 && (
+            <span className={s.badgeReward}>+{badge.xp_bonus} XP</span>
+          )}
+        </div>
+        {/* Прогресс к открытию для закрытых бейджей */}
+        {!unlocked && progress && (
+          <div className={s.badgeProgressWrap}>
+            <div className={s.badgeProgressTrack}>
+              <div className={s.badgeProgressFill} style={{ width: `${pct}%`, background: ring }} />
+            </div>
+            <span className={s.badgeProgressLabel}>{progress.value} / {progress.max}</span>
+          </div>
         )}
       </div>
-      {badge.unlocked && <div className={s.unlockedMark}>✓</div>}
+      {unlocked && <div className={s.unlockedMark}>✓</div>}
     </div>
   )
 }
@@ -97,9 +106,11 @@ function StatItem({ icon, label, value }: { icon: string; label: string; value: 
 export function AchievementsPage() {
   const user = useAuthStore(st => st.user)
 
-  const [profile, setProfile]   = useState<PlayerProfile | null>(null)
-  const [loading, setLoading]   = useState(true)
-  const [filter,  setFilter]    = useState<'all' | 'unlocked' | 'locked'>('all')
+  const [profile,  setProfile]  = useState<PlayerProfile | null>(null)
+  const [catalog,  setCatalog]  = useState<ApiBadge[]>([])
+  const [earnedIds, setEarnedIds] = useState<Set<string>>(new Set())
+  const [loading,  setLoading]  = useState(true)
+  const [filter,   setFilter]   = useState<'all' | 'unlocked' | 'locked'>('all')
 
   const abortRef = useRef<AbortController | null>(null)
 
@@ -107,27 +118,42 @@ export function AchievementsPage() {
     if (!user?.id) return
     abortRef.current?.abort()
     const ac = new AbortController()
+    const sig = ac.signal
     abortRef.current = ac
 
     setLoading(true)
-    meApi
-      .getProfile(user.id)
-      .then(p => { if (!ac.signal.aborted) setProfile(p) })
+    Promise.all([
+      meApi.getProfile(user.id),
+      badgesApi.getCatalog(sig),
+      badgesApi.getMine(sig),
+    ])
+      .then(([p, cat, mine]) => {
+        if (sig.aborted) return
+        setProfile(p)
+        setCatalog(cat)
+        setEarnedIds(new Set(mine.map(ub => ub.badge.id)))
+      })
       .catch(() => {})
-      .finally(() => { if (!ac.signal.aborted) setLoading(false) })
+      .finally(() => { if (!sig.aborted) setLoading(false) })
 
     return () => ac.abort()
   }, [user?.id])
 
-  const unlockedCount = profile?.badges_count ?? 0
-  const totalCount    = BADGE_CATALOG.length
-  const xpPct         = profile ? calcXpPct(profile) : 0
+  const stats = {
+    quests_completed: profile?.quests_completed ?? 0,
+    total_xp: profile?.total_xp ?? 0,
+  }
 
-  // Первые unlockedCount бейджей считаем разблокированными
-  const badges: Badge[] = BADGE_CATALOG.map((b, i) => ({
-    ...b,
-    unlocked: i < unlockedCount,
+  // Реальный каталог: открыт = id в earnedIds. Прогресс — из реальной статистики.
+  const badges: DisplayBadge[] = catalog.map(b => ({
+    badge: b,
+    unlocked: earnedIds.has(b.id),
+    progress: badgeProgress(b, stats),
   }))
+
+  const unlockedCount = badges.filter(b => b.unlocked).length
+  const totalCount    = badges.length
+  const xpPct         = profile ? calcXpPct(profile) : 0
 
   const filtered = badges.filter(b => {
     if (filter === 'unlocked') return b.unlocked
@@ -253,7 +279,7 @@ export function AchievementsPage() {
               </div>
             ) : (
               <div className={s.badgesGrid}>
-                {filtered.map(b => <BadgeCard key={b.code} badge={b} />)}
+                {filtered.map(b => <BadgeCard key={b.badge.id} item={b} />)}
               </div>
             )}
           </section>
