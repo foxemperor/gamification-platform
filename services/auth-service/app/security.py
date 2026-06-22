@@ -41,7 +41,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # JWT
 # ===================================
 
-def create_access_token(user_id: uuid.UUID, email: str, username: str) -> str:
+def create_access_token(
+    user_id: uuid.UUID,
+    email: str,
+    username: str,
+    is_superuser: bool = False,
+    role: Optional[str] = None,
+) -> str:
     """Создаёт краткосрочный access токен (30 минут)"""
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
@@ -50,13 +56,22 @@ def create_access_token(user_id: uuid.UUID, email: str, username: str) -> str:
         "sub": str(user_id),
         "email": email,
         "username": username,
+        "is_superuser": bool(is_superuser),
         "exp": expire,
         "type": "access",
     }
+    if role is not None:
+        payload["role"] = role
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def create_refresh_token(user_id: uuid.UUID, email: str, username: str) -> str:
+def create_refresh_token(
+    user_id: uuid.UUID,
+    email: str,
+    username: str,
+    is_superuser: bool = False,
+    role: Optional[str] = None,
+) -> str:
     """Создаёт долгосрочный refresh токен (7 дней)"""
     expire = datetime.now(timezone.utc) + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
@@ -65,9 +80,12 @@ def create_refresh_token(user_id: uuid.UUID, email: str, username: str) -> str:
         "sub": str(user_id),
         "email": email,
         "username": username,
+        "is_superuser": bool(is_superuser),
         "exp": expire,
         "type": "refresh",
     }
+    if role is not None:
+        payload["role"] = role
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 

@@ -1,7 +1,6 @@
 """
 Конфигурация Auth Service
 =========================
-Автор: Dmitry Koval
 """
 
 from typing import List
@@ -37,6 +36,23 @@ class Settings(BaseSettings):
 
     # Логирование
     LOG_LEVEL: str = Field(default="INFO")
+
+    # ===================================
+    # SUPERUSER (создаётся автоматически при старте)
+    # ===================================
+    SUPERUSER_EMAIL: str = Field(default="admin@gamequest.com")
+    SUPERUSER_USERNAME: str = Field(default="admin")
+    SUPERUSER_PASSWORD: str = Field(default="ChangeMe123!")
+
+    # ===================================
+    # DEV USER — простой сотрудник, чтобы разработчик мог
+    # сразу сравнить интерфейс админа и обычного пользователя.
+    # Создаётся ТОЛЬКО когда ENVIRONMENT == "development".
+    # ===================================
+    SEED_DEV_USER: bool = Field(default=True)
+    DEV_USER_EMAIL: str = Field(default="dev@test.com")
+    DEV_USER_USERNAME: str = Field(default="devuser")
+    DEV_USER_PASSWORD: str = Field(default="DevPass123!")
 
     class Config:
         env_file = ".env"

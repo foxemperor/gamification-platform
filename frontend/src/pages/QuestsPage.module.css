@@ -1,0 +1,972 @@
+/* QuestsPage — полный CSS с нуля */
+
+/* ─── Keyframes ──────────────────────────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0 }
+  to   { opacity: 1 }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes scalePop {
+  0%   { transform: scale(0.85); opacity: 0 }
+  70%  { transform: scale(1.06) }
+  100% { transform: scale(1);    opacity: 1 }
+}
+
+@keyframes pulseDot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.5) }
+  50%       { box-shadow: 0 0 0 6px rgba(34, 211, 238, 0) }
+}
+
+@keyframes pulseLevelCard {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.4), var(--shadow-card) }
+  50%       { box-shadow: 0 0 0 10px rgba(167, 139, 250, 0), var(--shadow-card) }
+}
+
+@keyframes spinArc {
+  to { transform: rotate(360deg) }
+}
+
+@keyframes rewardCardIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.92) }
+  to   { opacity: 1; transform: translateY(0) scale(1) }
+}
+
+/* ─── Page ───────────────────────────────────────────────────────────────── */
+
+.page {
+  padding: 28px 32px 48px;
+  max-width: 1100px;
+  margin: 0 auto;
+  animation: fadeIn 0.3s ease both;
+}
+
+/* ─── Page Header ─────────────────────────────────────────────────────────── */
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.pageHeaderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pageTitle {
+  font-family: var(--font-d);
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.pageSubtitle {
+  font-family: var(--font-b);
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.activeCounter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(34, 211, 238, 0.07);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 99px;
+  padding: 6px 14px;
+  font-family: var(--font-b);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.activeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: pulseDot 1.6s infinite;
+  flex-shrink: 0;
+}
+
+/* ─── Tabs ────────────────────────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  background: none;
+  font-family: var(--font-b);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.18s, border-color 0.18s;
+  outline: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tabActive {
+  color: var(--primary) !important;
+  border-bottom-color: var(--primary) !important;
+}
+
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--primary);
+  color: #0a0f1e;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ─── Tab content ─────────────────────────────────────────────────────────── */
+
+.tabContent {
+  animation: slideUp 0.25s ease both;
+}
+
+/* ─── Loading ─────────────────────────────────────────────────────────────── */
+
+.loadingRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 0;
+  color: var(--text-muted);
+  font-family: var(--font-b);
+  font-size: 14px;
+}
+
+.spinner {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spinArc 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ─── Controls ────────────────────────────────────────────────────────────── */
+
+.controlsRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.searchWrap {
+  flex: 1;
+  min-width: 180px;
+  position: relative;
+}
+
+/* Magnifier icon via background-image */
+.searchWrap::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 9px 14px 9px 36px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-b);
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  box-sizing: border-box;
+}
+
+.searchInput::placeholder {
+  color: var(--text-faint);
+}
+
+.searchInput:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
+}
+
+/* Hide default clear button in some browsers */
+.searchInput::-webkit-search-cancel-button { display: none }
+
+.filterRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filterSelect {
+  padding: 9px 12px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-b);
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.18s;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+.filterSelect:focus {
+  border-color: var(--border-focus);
+}
+
+.resetBtn {
+  padding: 8px 14px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-b);
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+  white-space: nowrap;
+}
+
+.resetBtn:hover {
+  background: var(--surface-high);
+  color: var(--text);
+  border-color: var(--border-focus);
+}
+
+/* ─── Quest Grid ──────────────────────────────────────────────────────────── */
+
+.questGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+/* ─── Empty State ─────────────────────────────────────────────────────────── */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: var(--font-b);
+  font-size: 15px;
+}
+
+.emptyIcon {
+  font-size: 40px;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+/* ─── Base Card ───────────────────────────────────────────────────────────── */
+
+.catalogCard,
+.myCard {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 18px 16px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  overflow: hidden;
+  animation: slideUp 0.3s ease both;
+}
+
+.catalogCard:hover,
+.myCard:not(.myCardCompleted):not(.myCardFailed):hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card), 0 8px 24px rgba(0, 0, 0, 0.25);
+  border-color: var(--border-focus);
+}
+
+/* Left accent bar — color by type */
+.cardAccentBar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+/* Accent bar colors per type */
+.typePersonal    .cardAccentBar { background: var(--primary) }
+.typeTeam        .cardAccentBar { background: var(--success) }
+.typeSkill       .cardAccentBar { background: var(--accent) }
+.typeDaily       .cardAccentBar { background: var(--streak) }
+.typeIntegration .cardAccentBar { background: var(--accent-soft) }
+
+/* Skill card: accent border */
+.catalogCardSkill {
+  border-color: rgba(167, 139, 250, 0.3);
+  box-shadow: var(--shadow-card), 0 0 0 0 rgba(167, 139, 250, 0);
+}
+
+.catalogCardSkill:hover {
+  border-color: rgba(167, 139, 250, 0.6) !important;
+  box-shadow: var(--shadow-card), 0 4px 20px rgba(167, 139, 250, 0.15) !important;
+}
+
+/* Completed / failed card states */
+.myCardCompleted {
+  opacity: 0.62;
+}
+
+.myCardFailed {
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.myCardFailed .cardAccentBar {
+  background: var(--danger) !important;
+}
+
+/* ─── Card Header ─────────────────────────────────────────────────────────── */
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.myCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.typeIcon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+  filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.25));
+}
+
+.typeSkill .typeIcon {
+  filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.4));
+}
+
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+/* ─── Badges ──────────────────────────────────────────────────────────────── */
+
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+/* Type badges */
+.typePersonal    { color: var(--primary);     background: rgba(34, 211, 238, 0.1);   border: 1px solid rgba(34, 211, 238, 0.2) }
+.typeTeam        { color: var(--success);     background: rgba(52, 211, 153, 0.1);   border: 1px solid rgba(52, 211, 153, 0.2) }
+.typeSkill       { color: var(--accent);      background: rgba(167, 139, 250, 0.1);  border: 1px solid rgba(167, 139, 250, 0.2) }
+.typeDaily       { color: var(--streak);      background: rgba(249, 115, 22, 0.1);   border: 1px solid rgba(249, 115, 22, 0.2) }
+.typeIntegration { color: var(--accent-soft); background: rgba(196, 181, 253, 0.1);  border: 1px solid rgba(196, 181, 253, 0.2) }
+
+/* Difficulty badges */
+.diffEasy   { color: var(--success);  background: rgba(52, 211, 153, 0.1);   border: 1px solid rgba(52, 211, 153, 0.2) }
+.diffMedium { color: var(--warning);  background: rgba(251, 191, 36, 0.1);   border: 1px solid rgba(251, 191, 36, 0.2) }
+.diffHard   { color: var(--danger);   background: rgba(248, 113, 113, 0.1);  border: 1px solid rgba(248, 113, 113, 0.2) }
+.diffEpic   { color: #e879f9;         background: rgba(232, 121, 249, 0.1);  border: 1px solid rgba(232, 121, 249, 0.2) }
+
+/* Status badges */
+.badgeAccepted   { color: var(--primary);  background: rgba(34, 211, 238, 0.08); border: 1px solid rgba(34, 211, 238, 0.2) }
+.badgeInProgress { color: var(--warning);  background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.2) }
+.badgeCompleted  { color: var(--success);  background: rgba(52, 211, 153, 0.08);  border: 1px solid rgba(52, 211, 153, 0.2) }
+.badgeFailed     { color: var(--danger);   background: rgba(248, 113, 113, 0.08); border: 1px solid rgba(248, 113, 113, 0.2) }
+
+/* ─── Card Title & Description ────────────────────────────────────────────── */
+
+.cardTitle {
+  font-family: var(--font-d);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.cardDesc {
+  font-family: var(--font-b);
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── Card Footer (catalog) ───────────────────────────────────────────────── */
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.rewardRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rewardXp {
+  font-family: var(--font-d);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.rewardCoins {
+  font-family: var(--font-d);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--reward);
+}
+
+.timeChip {
+  font-family: var(--font-b);
+  font-size: 11px;
+  color: var(--text-faint);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 2px 8px;
+}
+
+/* ─── Accept / Action buttons ─────────────────────────────────────────────── */
+
+.acceptBtn {
+  flex-shrink: 0;
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-family: var(--font-b);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--grad-btn);
+  color: #0a0f1e;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.acceptBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(34, 211, 238, 0.3);
+}
+
+.acceptBtn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.acceptBtn:disabled,
+.acceptBtnDone {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.acceptBtnSkill {
+  background: linear-gradient(135deg, var(--accent), var(--primary));
+}
+
+/* ─── Progress bar ────────────────────────────────────────────────────────── */
+
+.progressWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.progressBar {
+  height: 6px;
+  background: var(--surface-alt);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--grad-btn);
+  transition: width 0.4s ease;
+}
+
+.progressFillFailed {
+  background: var(--danger);
+}
+
+.progressLabel {
+  font-family: var(--font-b);
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: right;
+}
+
+/* ─── Countdown ───────────────────────────────────────────────────────────── */
+
+.countdown {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
+.countdownOrange {
+  color: var(--streak);
+  border-color: rgba(249, 115, 22, 0.3);
+  background: rgba(249, 115, 22, 0.07);
+}
+
+.countdownRed {
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.07);
+}
+
+.countdownExpired {
+  color: var(--danger) !important;
+  border-color: rgba(248, 113, 113, 0.4) !important;
+  background: rgba(248, 113, 113, 0.1) !important;
+  letter-spacing: 0.01em;
+  font-family: var(--font-b) !important;
+}
+
+/* ─── My card actions ─────────────────────────────────────────────────────── */
+
+.myCardActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.actionBtn {
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-family: var(--font-b);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.actionBtnPrimary {
+  background: var(--grad-btn);
+  color: #0a0f1e;
+  font-weight: 700;
+}
+
+.actionBtnPrimary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(34, 211, 238, 0.3);
+}
+
+.actionBtnSecondary {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.actionBtnSecondary:hover {
+  background: var(--surface-high);
+  color: var(--text);
+  border-color: rgba(167, 139, 250, 0.4);
+}
+
+/* ─── Completed row ───────────────────────────────────────────────────────── */
+
+.completedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.completedMeta {
+  font-family: var(--font-b);
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* ─── My sections ─────────────────────────────────────────────────────────── */
+
+.mySection {
+  margin-bottom: 32px;
+}
+
+.mySectionTitle {
+  font-family: var(--font-d);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sectionCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 99px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* ─── Reward overlay ──────────────────────────────────────────────────────── */
+
+.rewardOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease both;
+}
+
+.rewardBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 14, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+
+.rewardModal {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  animation: scalePop 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.rewardEmoji {
+  font-size: 52px;
+  line-height: 1;
+  filter: drop-shadow(0 0 16px rgba(34, 211, 238, 0.3));
+}
+
+.rewardHeading {
+  font-family: var(--font-d);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.rewardQuestTitle {
+  font-family: var(--font-b);
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.rewardCards {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.rewardCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  min-width: 96px;
+  animation: rewardCardIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  box-shadow: var(--shadow-card);
+}
+
+.rewardCard:nth-child(1) { animation-delay: 0.05s }
+.rewardCard:nth-child(2) { animation-delay: 0.12s }
+.rewardCard:nth-child(3) { animation-delay: 0.20s }
+
+.rewardCardXp {
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+}
+
+.rewardCardCoins {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.rewardCardLevel {
+  background: rgba(167, 139, 250, 0.1);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  animation: pulseLevelCard 1.8s infinite, rewardCardIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.2s;
+}
+
+.rewardCardIcon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.rewardCardValue {
+  font-family: var(--font-d);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+
+.rewardCardXp    .rewardCardValue { color: var(--primary) }
+.rewardCardCoins .rewardCardValue { color: var(--reward) }
+.rewardCardLevel .rewardCardValue { color: var(--accent) }
+
+.rewardCardLabel {
+  font-family: var(--font-b);
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ─── Badges in reward ────────────────────────────────────────────────────── */
+
+.badgesSection {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.badgesTitle {
+  font-family: var(--font-b);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0;
+}
+
+.badgesList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.badgeEarned {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--reward);
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 99px;
+  padding: 4px 12px;
+}
+
+/* ─── Reward close button ─────────────────────────────────────────────────── */
+
+.rewardCloseBtn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 12px;
+  background: var(--grad-btn);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-b);
+  font-size: 15px;
+  font-weight: 700;
+  color: #0a0f1e;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.rewardCloseBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(34, 211, 238, 0.35);
+}
+
+.rewardCloseBtn:active {
+  transform: translateY(0);
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .page {
+    padding: 20px 16px 40px;
+  }
+
+  .pageTitle {
+    font-size: 24px;
+  }
+
+  .pageHeader {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .controlsRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filterRow {
+    flex-wrap: wrap;
+  }
+
+  .questGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .rewardModal {
+    padding: 24px 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tabs {
+    gap: 0;
+  }
+
+  .tab {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .cardFooter {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .acceptBtn {
+    width: 100%;
+  }
+}

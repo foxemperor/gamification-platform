@@ -6,12 +6,13 @@ Gamification Service — Pydantic схемы
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.models import (
     QuestType, QuestDifficulty, QuestStatus,
     UserQuestStatus, XPSource, BadgeRarity,
+    CharacterTypeSlug, CosmeticSlot, CosmeticVisibility, UnlockType,
 )
 
 
@@ -29,7 +30,7 @@ class OrmBase(BaseModel):
 # ===================================
 
 class QuestCreate(BaseModel):
-    """Создание нового квеста (только для администраторов)."""
+    """Создание нового квеста."""
     title: str = Field(..., min_length=3, max_length=200)
     description: Optional[str] = Field(None, max_length=2000)
     quest_type: QuestType = QuestType.PERSONAL
@@ -69,7 +70,7 @@ class QuestResponse(OrmBase):
 
 class QuestListResponse(BaseModel):
     """Список квестов с пагинацией."""
-    items: list[QuestResponse]
+    items: List[QuestResponse]
     total: int
     page: int
     per_page: int
@@ -120,9 +121,9 @@ class CompleteQuestResponse(BaseModel):
     quest_title: str
     xp_earned: int
     coins_earned: int
-    new_level: Optional[int] = None       # Если был level up
+    new_level: Optional[int] = None
     level_up: bool = False
-    badges_earned: list[str] = []         # Названия новых бейджей
+    badges_earned: List[str] = []
     message: str
 
 
@@ -143,11 +144,21 @@ class BadgeResponse(OrmBase):
     created_at: datetime
 
 
+class BadgeListResponse(BaseModel):
+    """Список бейджей с пагинацией (админ)."""
+    items: List[BadgeResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+
 class UserBadgeResponse(OrmBase):
     """Бейдж пользователя с датой получения."""
     id: str
     user_id: str
     earned_at: datetime
+    is_new: bool
     badge: BadgeResponse
 
 
@@ -166,9 +177,18 @@ class XPTransactionResponse(OrmBase):
     created_at: datetime
 
 
+class XPTransactionListResponse(BaseModel):
+    """Список XP-транзакций с пагинацией (админ)."""
+    items: List[XPTransactionResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+
 class XPHistoryResponse(BaseModel):
     """История XP пользователя с пагинацией."""
-    items: list[XPTransactionResponse]
+    items: List[XPTransactionResponse]
     total: int
     total_xp_earned: int
     total_xp_spent: int
@@ -177,30 +197,125 @@ class XPHistoryResponse(BaseModel):
 
 
 # ===================================
+# СХЕМЫ ПЕРСОНАЖЕЙ
+# ===================================
+
+class CharacterTypeResponse(OrmBase):
+    """Архетип персонажа."""
+    id: str
+    slug: CharacterTypeSlug
+    name: str
+    description: Optional[str]
+    icon_url: Optional[str]
+    coin_multiplier_base: float
+    xp_multiplier_base: float
+    bonus_description: Optional[str]
+
+
+class CosmeticItemResponse(OrmBase):
+    """Косметический предмет."""
+    id: str
+    name: str
+    slug: str
+    description: Optional[str]
+    preview_url: Optional[str]
+    slot: CosmeticSlot
+    rarity: BadgeRarity
+    visibility: CosmeticVisibility
+    unlock_type: UnlockType
+    unlock_value: Optional[int]
+    allowed_character_types: Optional[list]
+
+
+class CosmeticCatalogItemResponse(CosmeticItemResponse):
+    """Предмет каталога с вычисленным статусом разблокировки для пользователя.
+
+    Расширяет CosmeticItemResponse полями, которые фронт использует, чтобы
+    показать, что предмет уже доступен, надет, или закрыт и что нужно для
+    его открытия — без дублирования логики на клиенте.
+    """
+    is_unlocked: bool = False
+    is_equipped: bool = False
+    unlock_requirement: Optional[str] = None
+
+
+class CharacterEquipmentResponse(OrmBase):
+    """Надетый предмет."""
+    id: str
+    slot: CosmeticSlot
+    color: Optional[str]
+    equipped_at: datetime
+    cosmetic_item: CosmeticItemResponse
+
+
+class CharacterResponse(OrmBase):
+    """Полный персонаж пользователя."""
+    id: str
+    user_id: str
+    level: int
+    experience: int
+    coin_multiplier: float
+    xp_multiplier: float
+    skin_color: Optional[str]
+    hair_color: Optional[str]
+    eyes_color: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    character_type: CharacterTypeResponse
+    equipment: List[CharacterEquipmentResponse] = []
+
+
+class UnlockedCosmeticResponse(OrmBase):
+    """Разблокированная косметика пользователя."""
+    id: str
+    user_id: str
+    unlocked_at: datetime
+    cosmetic_item: CosmeticItemResponse
+
+
+class CharacterCreateRequest(BaseModel):
+    """Запрос на создание персонажа — выбор архетипа."""
+    character_type_slug: CharacterTypeSlug
+    skin_color: Optional[str] = Field("#F5C5A3", pattern=r"^#[0-9A-Fa-f]{6}$")
+    hair_color: Optional[str] = Field("#2C1810", pattern=r"^#[0-9A-Fa-f]{6}$")
+    eyes_color: Optional[str] = Field("#4A90D9", pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
+class CharacterEquipRequest(BaseModel):
+    """Запрос на надевание/снятие предмета."""
+    cosmetic_item_id: Optional[str] = Field(None, description="None = снять предмет со слота")
+    slot: CosmeticSlot
+    color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
+# ===================================
 # СХЕМЫ ПРОФИЛЯ ИГРОКА
 # ===================================
 
 class PlayerProfileResponse(BaseModel):
-    """Игровой профиль пользователя."""
+    """Игровой профиль пользователя.
+
+    Прогрессия рассчитывается по формуле:
+        xp_required_for_level(N) = BASE_XP_PER_LEVEL * N ^ XP_LEVEL_MULTIPLIER
+                                 = 100 * N^1.5  (дефолтные значения из config.py)
+    """
     user_id: str
     username: str
     full_name: Optional[str]
-
-    # Прогрессия
+    avatar_url: Optional[str] = None
     total_xp: int
     level: int
     xp_to_next_level: int
     xp_progress_percent: float
     total_coins: int
-
-    # Статистика
     quests_completed: int
     quests_in_progress: int
     badges_count: int
-
-    # Рейтинг
     rank_all_time: Optional[int] = None
     rank_weekly: Optional[int] = None
+    streak_days: int = 0
+    position: Optional[str] = None
+    character: Optional[CharacterResponse] = None
 
 
 # ===================================
@@ -212,18 +327,23 @@ class LeaderboardEntryResponse(BaseModel):
     rank: int
     user_id: str
     username: str
-    full_name: Optional[str]
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
     total_xp: int
     level: int
     total_coins: int
     quests_completed: int
     badges_count: int
+    # Поля из auth.users — отдел, проект, должность
+    department: Optional[str] = None
+    project_name: Optional[str] = None
+    position: Optional[str] = None
 
 
 class LeaderboardResponse(BaseModel):
     """Лидерборд с метаданными периода."""
-    period: str   # "weekly", "monthly", "all_time"
-    entries: list[LeaderboardEntryResponse]
+    period: str
+    entries: List[LeaderboardEntryResponse]
     total_players: int
     updated_at: datetime
 
@@ -259,3 +379,63 @@ class AwardXPResponse(BaseModel):
     new_level: int
     level_up: bool
     message: str
+
+
+# ===================================
+# АДМИНСКИЕ СХЕМЫ
+# ===================================
+
+class BadgeCreate(BaseModel):
+    """Создание нового бейджа."""
+    name: str = Field(..., min_length=2, max_length=100)
+    description: Optional[str] = Field(None, max_length=2000)
+    icon_url: Optional[str] = Field(None, max_length=500)
+    rarity: BadgeRarity = BadgeRarity.COMMON
+    condition_type: Optional[str] = Field(None, max_length=50)
+    condition_value: Optional[int] = Field(None, ge=0)
+    xp_bonus: int = Field(0, ge=0, le=10000)
+
+
+class BadgeUpdate(BaseModel):
+    """Частичное обновление бейджа."""
+    name: Optional[str] = Field(None, min_length=2, max_length=100)
+    description: Optional[str] = Field(None, max_length=2000)
+    icon_url: Optional[str] = Field(None, max_length=500)
+    rarity: Optional[BadgeRarity] = None
+    condition_type: Optional[str] = Field(None, max_length=50)
+    condition_value: Optional[int] = Field(None, ge=0)
+    xp_bonus: Optional[int] = Field(None, ge=0, le=10000)
+
+
+class AdminGrantXPRequest(BaseModel):
+    """Ручное начисление/списание XP администратором.
+
+    При положительном amount — начисление (source по умолчанию ADMIN).
+    При отрицательном amount — штраф (source по умолчанию PENALTY).
+    """
+    user_id: str
+    amount: int = Field(..., ge=-50000, le=50000)
+    description: Optional[str] = Field(None, max_length=300)
+    source: Optional[XPSource] = Field(
+        None,
+        description="Если None — автоматически ADMIN или PENALTY в зависимости от знака amount",
+    )
+    source_id: Optional[str] = Field(None, description="UUID источника, если есть")
+
+
+class AdminRevokeXPRequest(BaseModel):
+    """Устарело — используйте AdminGrantXPRequest с отрицательным amount."""
+    user_id: str
+    amount: int = Field(..., ge=1, le=50000)
+    description: Optional[str] = Field(None, max_length=300)
+
+
+class AdminUserStatsResponse(BaseModel):
+    """Статистика пользователя для админ-панели."""
+    user_id: str
+    username: str
+    total_xp: int
+    level: int
+    total_coins: int
+    quests_completed: int
+    badges_count: int

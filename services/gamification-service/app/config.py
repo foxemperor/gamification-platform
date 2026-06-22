@@ -5,8 +5,17 @@ Gamification Service — конфигурация
 Автор: Dmitry Koval
 """
 
+import os
+
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+
+# Дефолт JWT-секрета должен совпадать с auth-service (см. services/auth-service/app/config.py).
+# Иначе токены, выписанные auth-service, не проходят верификацию здесь и пользователь
+# получает 401 на каждом админ-запросе.
+_DEFAULT_JWT_SECRET = "your_super_secret_key_change_in_production"
+_DEFAULT_JWT_ALGORITHM = "HS256"
 
 
 class Settings(BaseSettings):
@@ -24,8 +33,10 @@ class Settings(BaseSettings):
 
     # === Auth Service (для верификации JWT) ===
     AUTH_SERVICE_URL: str = "http://auth-service:8001"
-    JWT_SECRET_KEY: str = "your-super-secret-jwt-key-change-in-production"
-    JWT_ALGORITHM: str = "HS256"
+    # JWT_SECRET_KEY имеет приоритет; если он не выставлен — используется SECRET_KEY
+    # (это имя переменной, которое выставляет docker-compose для всех сервисов).
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY") or os.getenv("SECRET_KEY") or _DEFAULT_JWT_SECRET
+    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM") or os.getenv("ALGORITHM") or _DEFAULT_JWT_ALGORITHM
 
     # === CORS ===
     CORS_ORIGINS: list[str] = [

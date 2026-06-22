@@ -12,8 +12,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import create_tables
-from app.routers import auth
+from app.database import ensure_schema, run_migrations
+from app.routers import admin, auth
+from app.seed import create_dev_user, create_superuser
 
 # ===================================
 # ЛОГИРОВАНИЕ
@@ -32,10 +33,23 @@ logger = logging.getLogger("auth-service")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Actions on startup and shutdown."""
     logger.info("🚀 Auth Service запускается...")
-    await create_tables()
-    logger.info("✅ Таблицы БД готовы")
+    # 1. Создаём схему если её нет (Alembic это не делает)
+    await ensure_schema()
+    # 2. Применяем все миграции (идемпотентно)
+    logger.info("⏳ Применяем миграции...")
+    run_migrations()
+    logger.info("✅ БД готова")
+    # 3. Сидим суперюзера (идемпотентно)
+    try:
+        await create_superuser()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"⚠️ Не удалось создать суперюзера: {e}")
+    # 4. Только в development — сидим тестового пользователя (идемпотентно)
+    try:
+        await create_dev_user()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"⚠️ Не удалось создать dev-пользователя: {e}")
     yield
     logger.info("🔴 Auth Service останавливается")
 
@@ -72,6 +86,7 @@ app.add_middleware(
 # ===================================
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 
 
 # ===================================

@@ -1,0 +1,78 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; }
+
+body {
+  background: var(--bg);
+  background-image: var(--grad-bg);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-b);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  transition: background-color .3s, color .3s;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { opacity: .85; }
+
+input, button, select, textarea {
+  font-family: var(--font-b);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Native <select> dropdowns — обеспечиваем контраст текста и фона
+   во всех темах. По умолчанию некоторые ОС/темы рисуют <option>
+   полупрозрачным или используют цвет body, из-за чего пункт списка
+   почти сливается с фоном до наведения. Здесь мы явно фиксируем
+   цвета (>= 4.5:1 контраста к фону тем).
+   ───────────────────────────────────────────────────────────── */
+select {
+  color: var(--text);
+  background-color: var(--surface);
+}
+
+select option,
+select optgroup {
+  /* В темных темах option рендерится на белом по умолчанию (Chromium, Linux),
+     и наоборот, поэтому фиксируем явный фон под цвет surface и текст под --text. */
+  color: var(--text);
+  background-color: var(--surface);
+}
+
+/* Специфичные правила на тему — в Firefox/Chromium некоторых платформ
+   стили на option вне раскрывающегося списка не наследуются от select. */
+[data-theme="aurora"] select option,
+[data-theme="aurora"] select optgroup {
+  color: #E8F4F8;
+  background-color: #0D1321;
+}
+[data-theme="obsidian"] select option,
+[data-theme="obsidian"] select optgroup {
+  color: #F3F4F6;
+  background-color: #161B26;
+}
+[data-theme="ivory"] select option,
+[data-theme="ivory"] select optgroup {
+  color: #1A1D2E;
+  background-color: #FFFFFF;
+}
+
+select option:checked,
+select option:hover {
+  background-color: var(--primary-dim, rgba(127,127,127,.2));
+  color: var(--text);
+}
+
+/* datalist option styling (где поддерживается) */
+datalist option {
+  color: var(--text);
+  background-color: var(--surface);
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface-alt); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }

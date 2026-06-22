@@ -1,0 +1,28 @@
+"""Добавление поля position в таблицу users
+
+Revision ID: 0002
+Revises: 0001
+Create Date: 2026-05-08 10:14:00
+"""
+from typing import Sequence, Union
+from alembic import op
+import sqlalchemy as sa
+
+revision: str = '0002'
+down_revision: Union[str, None] = '0001'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+SCHEMA = 'auth'
+
+
+def upgrade() -> None:
+    op.add_column(
+        'users',
+        sa.Column('position', sa.String(100), nullable=True),
+        schema=SCHEMA,
+    )
+
+
+def downgrade() -> None:
+    op.drop_column('users', 'position', schema=SCHEMA)

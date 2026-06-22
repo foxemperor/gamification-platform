@@ -17,8 +17,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.config import settings
-from app.database import create_tables, engine
-from app.routers import quests, leaderboard
+from app.database import ensure_schema, run_migrations, engine
+from app.routers import quests, leaderboard, admin
+from app.routers import notifications
+from app.routers import system_metrics
+from app.routers import character
 
 # ===================================
 # ЛОГИРОВАНИЕ
@@ -38,14 +41,17 @@ logger = logging.getLogger("gamification-service")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Инициализация ресурсов при старте, освобождение при остановке."""
     logger.info("🚀 Запуск Gamification Service...")
 
-    # Создаём таблицы (idempotent)
-    await create_tables()
+    # 1. Создаём схему если её нет (Alembic это не делает)
+    await ensure_schema()
+
+    # 2. Применяем все миграции (идемпотентно)
+    logger.info("⏳ Применяем миграции...")
+    run_migrations()
     logger.info("✅ БД готова")
 
-    # Проверяем Redis
+    # 3. Проверяем Redis
     try:
         redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
         await redis.ping()
@@ -56,9 +62,8 @@ async def lifespan(app: FastAPI):
 
     logger.info(f"✅ {settings.SERVICE_NAME} запущен в режиме '{settings.ENVIRONMENT}'")
 
-    yield  # ← сервис работает
+    yield
 
-    # Завершение работы
     logger.info("🛑 Остановка Gamification Service...")
     await engine.dispose()
     logger.info("✅ Соединения с БД закрыты")
@@ -101,6 +106,10 @@ app.add_middleware(
 
 app.include_router(quests.router)
 app.include_router(leaderboard.router)
+app.include_router(admin.router)
+app.include_router(notifications.router)
+app.include_router(system_metrics.router)
+app.include_router(character.router)
 
 
 # ===================================
@@ -114,21 +123,13 @@ async def health():
 
 @app.get("/health/ready", tags=["health"], summary="Проверка готовности (БД + Redis)")
 async def health_ready():
-    """
-    Используется Kubernetes readiness probe.
-    Проверяет связь с PostgreSQL и Redis.
-    """
     checks = {}
-
-    # PostgreSQL
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         checks["postgres"] = "ok"
     except Exception as e:
         checks["postgres"] = f"error: {e}"
-
-    # Redis
     try:
         redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
         await redis.ping()
@@ -136,7 +137,6 @@ async def health_ready():
         checks["redis"] = "ok"
     except Exception as e:
         checks["redis"] = f"error: {e}"
-
     all_ok = all(v == "ok" for v in checks.values())
     return JSONResponse(
         status_code=200 if all_ok else 503,
@@ -144,11 +144,6 @@ async def health_ready():
     )
 
 
-@app.get("/", tags=["health"], summary="Корневой маршрут", include_in_schema=False)
+@app.get("/", tags=["health"], include_in_schema=False)
 async def root():
-    return {
-        "service": settings.SERVICE_NAME,
-        "version": "1.0.0",
-        "docs": "/docs",
-        "health": "/health",
-    }
+    return {"service": settings.SERVICE_NAME, "version": "1.0.0", "docs": "/docs"}
