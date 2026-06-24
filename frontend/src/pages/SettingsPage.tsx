@@ -2,7 +2,7 @@
  * SettingsPage — настройки учётной записи пользователя.
  *
  * Три секции:
- *   1. Профиль       — отображаемое имя (full_name) и дата рождения (birthday).
+ *   1. Профиль       — отображаемое имя (full_name), bio и дата рождения (birthday).
  *   2. Аватар        — выбор из пресетов ИЛИ загрузка своего файла.
  *                      Загруженный файл конвертируется в data-URL и сохраняется
  *                      в users.avatar_url (Text), без отдельного файлового бэкенда.
@@ -78,6 +78,7 @@ export function SettingsPage() {
 
   // ── Профиль / аватар ──
   const [fullName, setFullName]     = useState(user?.full_name ?? '')
+  const [bio, setBio]               = useState((user as any)?.bio ?? '')
   const [birthday, setBirthday]     = useState<string>(toDateInputValue(user?.birthday as string | null))
   const [avatarUrl, setAvatarUrl]   = useState<string | null>(user?.avatar_url ?? null)
   const [savingProfile, setSavingProfile] = useState(false)
@@ -100,7 +101,8 @@ export function SettingsPage() {
     setFullName(user?.full_name ?? '')
     setAvatarUrl(user?.avatar_url ?? null)
     setBirthday(toDateInputValue(user?.birthday as string | null))
-  }, [user?.full_name, user?.avatar_url, user?.birthday])
+    setBio((user as any)?.bio ?? '')
+  }, [user?.full_name, user?.avatar_url, user?.birthday, (user as any)?.bio])
 
   useEffect(() => {
     const ac = new AbortController()
@@ -119,7 +121,6 @@ export function SettingsPage() {
   const previewAvatar = avatarUrl
   const initials = initialsOf(fullName, user.email)
 
-  // Преобразуем equipment персонажа для CharacterRenderer (точно как в InventoryPage)
   const rendererEquipment: EquipSlot[] = (character?.equipment ?? []).map(eq => ({
     slot: eq.slot,
     name: eq.cosmetic_item.name,
@@ -164,12 +165,14 @@ export function SettingsPage() {
       const updated = await authApi.updateMe({
         full_name: fullName.trim(),
         avatar_url: avatarUrl ?? '',
+        bio: bio.trim(),
         birthday: birthday || null,
       })
       updateUser({
         full_name: updated.full_name,
         avatar_url: updated.avatar_url,
-        birthday: updated.birthday,
+        bio: (updated as any).bio,
+        birthday: (updated as any).birthday,
       })
       toast('Профиль сохранён', 'success')
     } catch {
@@ -213,7 +216,7 @@ export function SettingsPage() {
           <span className={s.cardIcon}>👤</span>
           <div>
             <h2 className={s.cardTitle}>Профиль</h2>
-            <p className={s.cardDesc}>Имя и дата рождения, которые видят другие участники команды</p>
+            <p className={s.cardDesc}>Имя, о себе и дата рождения — видны другим участникам команды</p>
           </div>
         </div>
 
@@ -228,6 +231,21 @@ export function SettingsPage() {
             placeholder="Например: Иван Иванов"
             maxLength={120}
           />
+        </div>
+
+        <div className={s.field}>
+          <label className={s.label} htmlFor="bio">О себе</label>
+          <textarea
+            id="bio"
+            className={s.input}
+            value={bio}
+            onChange={e => setBio(e.target.value)}
+            placeholder="Расскажите немного о себе, своих навыках или интересах…"
+            maxLength={300}
+            rows={3}
+            style={{ resize: 'vertical', minHeight: '72px' }}
+          />
+          <span className={s.uploadHint}>{bio.length}/300 символов</span>
         </div>
 
         <div className={s.field}>
@@ -320,7 +338,6 @@ export function SettingsPage() {
         {charLoading ? (
           <p className={s.cardDesc}>Загрузка…</p>
         ) : character ? (
-          /* ── Персонаж уже создан: CharacterRenderer с косметикой ── */
           <>
             <div className={s.charExisting}>
               <button
@@ -368,7 +385,6 @@ export function SettingsPage() {
             </p>
           </>
         ) : (
-          /* ── Создание персонажа: CharacterRenderer без экипировки ── */
           <>
             <div className={s.archGrid}>
               {types.map(t => {
@@ -408,7 +424,6 @@ export function SettingsPage() {
                 <input className={s.colorInput} type="color" value={eyes} onChange={e => setEyes(e.target.value)} />
               </div>
 
-              {/* Живое превью: тот же CharacterRenderer, equipment=[] */}
               <div className={s.previewBox}>
                 <CharacterRenderer
                   slug={selSlug}

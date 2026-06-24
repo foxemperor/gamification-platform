@@ -24,7 +24,6 @@ function calcXpPct(profile: PlayerProfile): number {
   return Math.min(100, Math.max(2, Math.round(((profile.total_xp - start) / range) * 100)))
 }
 
-/** Пустая строка или null/undefined → undefined, чтобы || работал корректно */
 function nonEmpty(v: string | null | undefined): string | undefined {
   return v && v.trim() ? v.trim() : undefined
 }
@@ -49,10 +48,6 @@ function resolveInitials(displayName: string, email?: string | null): string {
   return (email?.slice(0, 2) ?? '??').toUpperCase()
 }
 
-/**
- * Форматирует дату рождения в читаемый вид.
- * Если сегодня день рождения — добавляет 🎂.
- */
 function formatBirthday(iso: string): { text: string; isToday: boolean } {
   const date = new Date(iso)
   const now = new Date()
@@ -476,7 +471,7 @@ export function OverviewPage() {
             <p className={s.greeting}>
               {birthdayInfo?.isToday ? '🎂 С днём рождения, ' : 'Привет, '}{displayName}!
             </p>
-            <p className={s.greetingSub}>
+            <div className={s.greetingSub}>
               {profile?.position && <span>{profile.position}</span>}
               {profile?.rank_all_time != null && (
                 <span className={s.rankBadge}>#{profile.rank_all_time} в топе</span>
@@ -486,8 +481,11 @@ export function OverviewPage() {
                   {birthdayInfo.isToday ? '🎂 Сегодня ДР!' : `🎂 ${birthdayInfo.text}`}
                 </span>
               )}
-            </p>
-            {profile?.bio && <p className={s.profileBio}>{profile.bio}</p>}
+            </div>
+            {/* Кнопка настроек профиля вместо статичного bio */}
+            <Link to="/settings" className={s.editProfileBtn} title="Редактировать профиль">
+              ✏️ Редактировать профиль
+            </Link>
           </div>
         </div>
       </div>
