@@ -1,13 +1,13 @@
-﻿"""
-API Gateway - Р“Р»Р°РІРЅР°СЏ С‚РѕС‡РєР° РІС…РѕРґР° РґР»СЏ Gamification Platform
+"""
+API Gateway - Главная точка входа для Gamification Platform
 ============================================================
 
-Р­С‚РѕС‚ РјРѕРґСѓР»СЊ СЃРѕР·РґР°С‘С‚ FastAPI РїСЂРёР»РѕР¶РµРЅРёРµ, РєРѕС‚РѕСЂРѕРµ:
-- РџСЂРёРЅРёРјР°РµС‚ РІСЃРµ РІС…РѕРґСЏС‰РёРµ HTTP Р·Р°РїСЂРѕСЃС‹
-- РњР°СЂС€СЂСѓС‚РёР·РёСЂСѓРµС‚ Р·Р°РїСЂРѕСЃС‹ Рє СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёРј РјРёРєСЂРѕСЃРµСЂРІРёСЃР°Рј
-- РћР±РµСЃРїРµС‡РёРІР°РµС‚ Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёСЋ Рё Р°РІС‚РѕСЂРёР·Р°С†РёСЋ
-- Р›РѕРіРёСЂСѓРµС‚ РІСЃРµ Р·Р°РїСЂРѕСЃС‹
-- РџСЂРµРґРѕСЃС‚Р°РІР»СЏРµС‚ WebSocket РґР»СЏ real-time СѓРІРµРґРѕРјР»РµРЅРёР№
+Этот модуль создаёт FastAPI приложение, которое:
+- Принимает все входящие HTTP запросы
+- Маршрутизирует запросы к соответствующим микросервисам
+- Обеспечивает аутентификацию и авторизацию
+- Логирует все запросы
+- Предоставляет WebSocket для real-time уведомлений
 
 Author: Dmitry Koval
 Date: 06.03.2026
@@ -32,12 +32,14 @@ from app.routers import character
 from app.routers import badges
 from app.routers import auth as auth_router
 from app.routers import admin
+from app.routers import members
+from app.routers import notifications
 
 import logging
 import sys
 
 # ===================================
-# РќРђРЎРўР РћР™РљРђ Р›РћР“РР РћР’РђРќРРЇ
+# НАСТРОЙКА ЛОГИРОВАНИЯ
 # ===================================
 
 logging.basicConfig(
@@ -56,24 +58,17 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator:
     """
-    РЈРїСЂР°РІР»РµРЅРёРµ Р¶РёР·РЅРµРЅРЅС‹Рј С†РёРєР»РѕРј РїСЂРёР»РѕР¶РµРЅРёСЏ:
-    - Startup: РїРѕРґРєР»СЋС‡РµРЅРёРµ Рє Р‘Р”, Redis, РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ СЃРµСЂРІРёСЃРѕРІ
-    - Shutdown: Р·Р°РєСЂС‹С‚РёРµ СЃРѕРµРґРёРЅРµРЅРёР№
+    Управление жизненным циклом приложения:
+    - Startup: подключение к БД, Redis, инициализация сервисов
+    - Shutdown: закрытие соединений
     """
-    logger.info("рџљЂ Starting Gamification Platform API Gateway...")
-    logger.info(f"рџ“Ќ Environment: {settings.ENVIRONMENT}")
-    logger.info(f"рџ”§ Debug mode: {settings.DEBUG}")
-    
-    # TODO: РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїРѕРґРєР»СЋС‡РµРЅРёР№ Рє Р‘Р” Рё Redis
-    # await database.connect()
-    # await redis.connect()
-    
+    logger.info("🚀 Starting Gamification Platform API Gateway...")
+    logger.info(f"📌 Environment: {settings.ENVIRONMENT}")
+    logger.info(f"🔧 Debug mode: {settings.DEBUG}")
+
     yield
-    
-    logger.info("рџ›‘ Shutting down API Gateway...")
-    # TODO: Р—Р°РєСЂС‹С‚РёРµ РїРѕРґРєР»СЋС‡РµРЅРёР№
-    # await database.disconnect()
-    # await redis.disconnect()
+
+    logger.info("🛑 Shutting down API Gateway...")
 
 
 # ===================================
@@ -83,8 +78,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description=(
-        "API Gateway РґР»СЏ РїР»Р°С‚С„РѕСЂРјС‹ РіРµР№РјРёС„РёРєР°С†РёРё СЂР°СЃРїСЂРµРґРµР»С‘РЅРЅС‹С… РєРѕРјР°РЅРґ. "
-        "РћР±РµСЃРїРµС‡РёРІР°РµС‚ РјР°СЂС€СЂСѓС‚РёР·Р°С†РёСЋ Р·Р°РїСЂРѕСЃРѕРІ Рє РјРёРєСЂРѕСЃРµСЂРІРёСЃР°Рј: "
+        "API Gateway для платформы геймификации распределённых команд. "
+        "Обеспечивает маршрутизацию запросов к микросервисам: "
         "Auth, Gamification, Integration, Analytics."
     ),
     version="0.1.0",
@@ -100,7 +95,7 @@ app = FastAPI(
 # MIDDLEWARE
 # ===================================
 
-# CORS - СЂР°Р·СЂРµС€Р°РµРј Р·Р°РїСЂРѕСЃС‹ СЃ С„СЂРѕРЅС‚РµРЅРґР°
+# CORS - разрешаем запросы с фронтенда
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -109,10 +104,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# РљР°СЃС‚РѕРјРЅРѕРµ Р»РѕРіРёСЂРѕРІР°РЅРёРµ Р·Р°РїСЂРѕСЃРѕРІ
+# Кастомное логирование запросов
 app.add_middleware(LoggingMiddleware)
 
-# Rate limiting РґР»СЏ Р·Р°С‰РёС‚С‹ РѕС‚ DDoS
+# Rate limiting для защиты от DDoS
 if settings.ENVIRONMENT == "production":
     app.add_middleware(RateLimitMiddleware, max_requests=100, window_seconds=60)
 
@@ -123,9 +118,6 @@ if settings.ENVIRONMENT == "production":
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    """
-    РћР±СЂР°Р±РѕС‚С‡РёРє HTTP РёСЃРєР»СЋС‡РµРЅРёР№
-    """
     logger.error(f"HTTP Exception: {exc.status_code} - {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
@@ -139,15 +131,12 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """
-    РћР±СЂР°Р±РѕС‚С‡РёРє РѕС€РёР±РѕРє РІР°Р»РёРґР°С†РёРё Pydantic
-    """
     logger.error(f"Validation Error: {exc.errors()}")
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": True,
-            "message": "РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё РґР°РЅРЅС‹С…",
+            "message": "Ошибка валидации данных",
             "details": exc.errors(),
         },
     )
@@ -155,85 +144,83 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    """
-    РћР±СЂР°Р±РѕС‚С‡РёРє РІСЃРµС… РѕСЃС‚Р°Р»СЊРЅС‹С… РёСЃРєР»СЋС‡РµРЅРёР№
-    """
     logger.exception(f"Unhandled exception: {str(exc)}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": True,
-            "message": "Р’РЅСѓС‚СЂРµРЅРЅСЏСЏ РѕС€РёР±РєР° СЃРµСЂРІРµСЂР°",
+            "message": "Внутренняя ошибка сервера",
             "detail": str(exc) if settings.DEBUG else "Internal server error",
         },
     )
 
 
 # ===================================
-# Р РћРЈРўР•Р Р«
+# РОУТЕРЫ
 # ===================================
 
-# Health check СЌРЅРґРїРѕРёРЅС‚С‹
+# Health check эндпоинты
 app.include_router(health.router, tags=["Health"])
 
-# РђСѓС‚РµРЅС‚РёС„РёРєР°С†РёСЏ (РїСЂРѕРєСЃРёСЂСѓРµС‚ РЅР° auth-service)
+# Аутентификация (проксирует на auth-service)
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 
-# РџРѕР»СЊР·РѕРІР°С‚РµР»Рё
+# Пользователи
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 
-# РљРІРµСЃС‚С‹ Рё РіРµР№РјРёС„РёРєР°С†РёСЏ
+# Квесты и геймификация
 app.include_router(quests.router, prefix="/api/v1/quests", tags=["Quests"])
 
-# Р›РёРґРµСЂР±РѕСЂРґС‹
+# Лидерборды
 app.include_router(leaderboard.router, prefix="/api/v1/leaderboard", tags=["Leaderboard"])
 
-# РРЅС‚РµРіСЂР°С†РёРё (GitHub, Jira, Slack)
+# Интеграции (GitHub, Jira, Slack)
 app.include_router(integrations.router, prefix="/api/v1/integrations", tags=["Integrations"])
 
-app.include_router(profile.router, prefix="/api/v1/profile", tags=["Profile"]) 
-app.include_router(character.router, prefix="/api/v1/character", tags=["Character"]) 
-app.include_router(badges.router, prefix="/api/v1/badges", tags=["Badges"]) 
+# Профиль, персонаж, бейджи
+app.include_router(profile.router, prefix="/api/v1/profile", tags=["Profile"])
+app.include_router(character.router, prefix="/api/v1/character", tags=["Character"])
+app.include_router(badges.router, prefix="/api/v1/badges", tags=["Badges"])
+
+# Участники платформы (список пользователей с XP/уровнем)
+app.include_router(members.router, prefix="/api/v1/members", tags=["Members"])
+
+# Уведомления (unread-counts, mark-viewed)
+app.include_router(notifications.router, prefix="/api/v1/me/notifications", tags=["Notifications"])
+
 
 # ===================================
 # CELERY ENDPOINT
 # ===================================
 
-# Р­РЅРґРїРѕРёРЅС‚: РџСЂРёРЅРёРјР°РµС‚ СЃРѕР±С‹С‚РёРµ Рё РѕС‚РїСЂР°РІР»СЏРµС‚ РІ С€РёРЅСѓ (Celery)
 @app.post("/api/v1/events/complete-task", tags=["Events"])
 async def complete_task_event(user_id: int, task_name: str):
     """
-    РџСЂРёРЅРёРјР°РµС‚ СЃРѕР±С‹С‚РёРµ Рѕ Р·Р°РІРµСЂС€РµРЅРёРё Р·Р°РґР°С‡Рё Рё РїРµСЂРµРґР°РµС‚ РµРіРѕ РІ С€РёРЅСѓ СЃРѕРѕР±С‰РµРЅРёР№.
+    Принимает событие о завершении задачи и передаёт его в шину сообщений.
     """
     payload = {
         "user_id": user_id,
         "task_name": task_name,
-        "points": 50,  # Р‘Р°Р·РѕРІР°СЏ РЅР°РіСЂР°РґР°
-        "status": "pending"
+        "points": 50,
+        "status": "pending",
     }
-
-    # Р’Р«Р—РћР’ Р—РђР”РђР§Р CELERY (РћС‚РїСЂР°РІРєР° РІ С€РёРЅСѓ СЃРѕРѕР±С‰РµРЅРёР№)
-    # .delay() РѕС‚РїСЂР°РІР»СЏРµС‚ Р·Р°РґР°С‡Сѓ РІ Redis, РЅРµ РґРѕР¶РёРґР°СЏСЃСЊ РµС‘ РІС‹РїРѕР»РЅРµРЅРёСЏ
     task = process_gamification_event.delay(payload)
-
     return {
-        "message": "РЎРѕР±С‹С‚РёРµ РѕС‚РїСЂР°РІР»РµРЅРѕ РІ С€РёРЅСѓ СЃРѕРѕР±С‰РµРЅРёР№",
+        "message": "Событие отправлено в шину сообщений",
         "task_id": task.id,
-        "data": payload
+        "data": payload,
     }
+
 
 # ===================================
-# ROOT ENDPOINT
+# ROOT / HEALTHCHECK
 # ===================================
 
 @app.get("/", tags=["Root"])
 async def root():
-    """
-    РљРѕСЂРЅРµРІРѕР№ СЌРЅРґРїРѕРёРЅС‚ СЃ РёРЅС„РѕСЂРјР°С†РёРµР№ РѕР± API
-    """
     return {
-        "message": "рџЋ® Gamification Platform API Gateway",
+        "message": "🎮 Gamification Platform API Gateway",
         "version": "0.1.0",
         "environment": settings.ENVIRONMENT,
         "docs": "/docs",
@@ -246,19 +233,15 @@ async def root():
         },
     }
 
-# ===================================
-# HEALTHCHECK
-# ===================================
+
 @app.get("/health", tags=["System"])
-async def health():
-    """
-    Р­РЅРґРїРѕРёРЅС‚ РґР»СЏ РїСЂРѕРІРµСЂРєРё Р·РґРѕСЂРѕРІСЊСЏ СЃРµСЂРІРёСЃР° (Healthcheck)
-    """
+async def health_check():
     return {
         "status": "healthy",
         "service": "api-gateway",
-        "version": "0.1.0"
+        "version": "0.1.0",
     }
+
 
 # ===================================
 # ENTRYPOINT FOR UVICORN
@@ -274,4 +257,3 @@ if __name__ == "__main__":
         reload=settings.DEBUG,
         log_level=settings.LOG_LEVEL.lower(),
     )
-
