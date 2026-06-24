@@ -1,7 +1,7 @@
 import asyncio
 from logging.config import fileConfig
 
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -53,6 +53,11 @@ def do_run_migrations(connection: Connection) -> None:
 async def run_async_migrations() -> None:
     from app.database import engine
     async with engine.connect() as connection:
+        # Создаём схему auth если она ещё не существует.
+        # Alembic не умеет делать это автоматически — без этой строки
+        # первая миграция падает с InvalidSchemaNameError.
+        await connection.execute(text("CREATE SCHEMA IF NOT EXISTS auth"))
+        await connection.commit()
         await connection.run_sync(do_run_migrations)
     await engine.dispose()
 
