@@ -64,6 +64,37 @@ class UserResponse(BaseModel):
 
 
 # ===================================
+# MEMBERS SCHEMAS
+# ===================================
+
+MemberScope = Literal["all", "project", "department", "team"]
+
+
+class MemberEntry(BaseModel):
+    """Запись участника для вкладки 'Участники'"""
+    user_id: uuid.UUID
+    full_name: Optional[str] = None
+    username: str
+    avatar_url: Optional[str] = None
+    role: str
+    level: int
+    department: Optional[str] = None
+    project_name: Optional[str] = None
+    position: Optional[str] = None
+    manager_id: Optional[uuid.UUID] = None
+    is_self: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class MembersListResponse(BaseModel):
+    scope: MemberScope
+    search: Optional[str] = None
+    total: int
+    items: list[MemberEntry]
+
+
+# ===================================
 # ADMIN SCHEMAS
 # ===================================
 
@@ -76,6 +107,7 @@ class AdminUserCreate(BaseModel):
     project: Optional[str] = Field(None, max_length=100)
     position: Optional[str] = Field(None, max_length=100)
     role: Literal["employee", "manager", "admin"] = "employee"
+    manager_id: Optional[uuid.UUID] = None
     is_active: bool = True
     is_verified: bool = True
 
@@ -89,11 +121,13 @@ class AdminUserUpdate(BaseModel):
     project: Optional[str] = Field(None, max_length=100)
     position: Optional[str] = Field(None, max_length=100)
     role: Optional[Literal["employee", "manager", "admin"]] = None
+    manager_id: Optional[uuid.UUID] = None
     is_active: Optional[bool] = None
     is_verified: Optional[bool] = None
 
 
 class AdminUserResponse(UserResponse):
+    manager_id: Optional[uuid.UUID] = None
     is_superuser: bool
     last_login_at: Optional[datetime] = None
     updated_at: datetime

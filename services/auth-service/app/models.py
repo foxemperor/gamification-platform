@@ -6,9 +6,9 @@ SQLAlchemy модели Auth Service
 
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Boolean, Integer, DateTime, Text
+from sqlalchemy import String, Boolean, Integer, DateTime, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -35,6 +35,21 @@ class User(Base):
 
     # Роль: employee | manager | admin
     role: Mapped[str] = mapped_column(String(20), default="employee", nullable=False)
+
+    # Менеджер (self-referential FK, nullable — у менеджеров и суперюзеров = NULL)
+    manager_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    # Связь: текущий пользователь -> его менеджер
+    manager: Mapped["User | None"] = relationship(
+        "User",
+        foreign_keys=[manager_id],
+        remote_side="User.id",
+        lazy="select",
+    )
 
     # Геймификация
     xp: Mapped[int]    = mapped_column(Integer, default=0, nullable=False)
