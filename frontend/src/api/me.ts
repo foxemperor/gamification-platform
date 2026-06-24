@@ -55,6 +55,7 @@ export interface PlayerProfile {
   full_name: string | null
   avatar_url: string | null
   bio: string | null
+  birthday: string | null
   total_xp: number
   level: number
   xp_to_next_level: number

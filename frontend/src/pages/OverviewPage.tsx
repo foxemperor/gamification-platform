@@ -49,6 +49,19 @@ function resolveInitials(displayName: string, email?: string | null): string {
   return (email?.slice(0, 2) ?? '??').toUpperCase()
 }
 
+/**
+ * Форматирует дату рождения в читаемый вид.
+ * Если сегодня день рождения — добавляет 🎂.
+ */
+function formatBirthday(iso: string): { text: string; isToday: boolean } {
+  const date = new Date(iso)
+  const now = new Date()
+  const isToday =
+    date.getMonth() === now.getMonth() && date.getDate() === now.getDate()
+  const text = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+  return { text, isToday }
+}
+
 // ────── CharacterCard ──────
 // Карточка персонажа игрока. НЕ дублирует статистику из правых карточек
 // (Уровень / XP / Монеты / Бейджи) — показывает самого персонажа:
@@ -367,18 +380,19 @@ function BadgesGrid({ catalog, earnedIds }: { catalog: Badge[]; earnedIds: Set<s
   }
   return (
     <div className={s.badgesGrid}>
-      {catalog.slice(0, 6).map(b => {
-        const unlocked = earnedIds.has(b.id)
+      {catalog.map(b => {
+        const earned = earnedIds.has(b.id)
+        const ringColor = RARITY_RING[b.rarity] ?? RARITY_RING.common
         return (
           <div
             key={b.id}
-            className={`${s.badgeItem} ${unlocked ? '' : s.badgeLocked}`}
-            title={unlocked ? b.name : `${b.name} — ${describeBadgeCondition(b)}`}
-            style={unlocked ? { borderColor: RARITY_RING[b.rarity] } : undefined}
+            className={`${s.badgeItem} ${earned ? '' : s.badgeLocked}`}
+            style={earned ? { outline: `2px solid ${ringColor}`, outlineOffset: '2px' } : undefined}
+            title={`${b.name}\n${describeBadgeCondition(b)}`}
           >
             <span className={s.badgeIcon}>{badgeIcon(b)}</span>
             <span className={s.badgeName}>{b.name}</span>
-            {!unlocked && <span className={s.badgeLockIcon}>🔒</span>}
+            {!earned && <span className={s.badgeLockIcon}>🔒</span>}
           </div>
         )
       })}
@@ -386,238 +400,178 @@ function BadgesGrid({ catalog, earnedIds }: { catalog: Badge[]; earnedIds: Set<s
   )
 }
 
-// ────── Page ──────
-export function OverviewPage() {
-  const user = useAuthStore(st => st.user)
+// ────── OverviewPage ──────
+export default function OverviewPage() {
+  const { user } = useAuthStore()
 
-  const [profile,        setProfile]        = useState<PlayerProfile | null>(null)
-  const [character,      setCharacter]       = useState<Character | null>(null)
-  const [myQuests,       setMyQuests]        = useState<UserQuest[]>([])
-  const [lbEntries,      setLbEntries]       = useState<LeaderboardEntry[]>([])
-  const [badgeCatalog,   setBadgeCatalog]    = useState<Badge[]>([])
-  const [earnedBadgeIds, setEarnedBadgeIds]  = useState<Set<string>>(new Set())
-  const [profileLoading, setProfileLoading]  = useState(true)
-  const [questsLoading,  setQuestsLoading]   = useState(true)
-  const [questsErr,      setQuestsErr]       = useState(false)
-  const [lbLoading,      setLbLoading]       = useState(true)
+  const [profile,    setProfile]    = useState<PlayerProfile | null>(null)
+  const [quests,     setQuests]     = useState<UserQuest[]>([])
+  const [lbEntries,  setLbEntries]  = useState<LeaderboardEntry[]>([])
+  const [badgeCatalog, setBadgeCatalog] = useState<Badge[]>([])
+  const [earnedIds,  setEarnedIds]  = useState<Set<string>>(new Set())
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState<string | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (!user?.id) return
     abortRef.current?.abort()
-    const ac  = new AbortController()
-    const sig = ac.signal
+    const ac = new AbortController()
     abortRef.current = ac
 
-    // Профиль игрока
-    setProfileLoading(true)
-    meApi
-      .getProfile(user.id)
-      .then(p  => { if (!sig.aborted) setProfile(p) })
-      .catch(() => { /* silent — покажем fallback-карточку */ })
-      .finally(() => { if (!sig.aborted) setProfileLoading(false) })
+    setLoading(true)
+    setError(null)
 
-    // Персонаж игрока (может отсутствовать — тогда 404, показываем подсказку создать)
-    meApi
-      .getMyCharacter(sig)
-      .then(c => { if (!sig.aborted) setCharacter(c) })
-      .catch(() => { if (!sig.aborted) setCharacter(null) })
-
-    // Мои квесты — getMy() возвращает UserQuest[] напрямую
-    setQuestsLoading(true)
-    questsApi
-      .getMy(sig)
-      .then((list: UserQuest[]) => {
-        if (sig.aborted) return
-        setMyQuests(
-          (Array.isArray(list) ? list : [])
-            .filter(q => q.status === 'in_progress')
-            .slice(0, 4),
-        )
-        setQuestsErr(false)
-      })
-      .catch(err => {
-        if (sig.aborted) return
-        const isAbort =
-          (err instanceof DOMException && err.name === 'AbortError') ||
-          (typeof err?.message === 'string' && err.message === 'canceled')
-        if (!isAbort) setQuestsErr(true)
-      })
-      .finally(() => { if (!sig.aborted) setQuestsLoading(false) })
-
-    // Лидерборд top-5
-    setLbLoading(true)
-    leaderboardApi
-      .getXP('all_time', 5, sig)
-      .then(res => { if (!sig.aborted) setLbEntries(res.entries) })
-      .catch(() => { /* silent */ })
-      .finally(() => { if (!sig.aborted) setLbLoading(false) })
-
-    // Достижения: каталог + полученные бейджи из реальных данных
-    Promise.all([badgesApi.getCatalog(sig), badgesApi.getMine(sig)])
-      .then(([catalog, mine]) => {
-        if (sig.aborted) return
-        setBadgeCatalog(catalog)
-        setEarnedBadgeIds(new Set(mine.map(ub => ub.badge.id)))
-      })
-      .catch(() => { /* silent */ })
+    Promise.all([
+      meApi.getProfile(user.id),
+      questsApi.getMy({ status: 'in_progress', limit: 6 }, ac.signal).catch(() => ({ items: [] as UserQuest[] })),
+      leaderboardApi.getTop({ limit: 5 }).catch(() => []),
+      badgesApi.getCatalog(ac.signal).catch(() => [] as Badge[]),
+      badgesApi.getMy(ac.signal).catch(() => [] as Badge[]),
+    ]).then(([prof, questsRes, lb, catalog, earned]) => {
+      if (ac.signal.aborted) return
+      setProfile(prof)
+      setQuests(Array.isArray(questsRes) ? questsRes : (questsRes?.items ?? []))
+      setLbEntries(Array.isArray(lb) ? lb : [])
+      setBadgeCatalog(Array.isArray(catalog) ? catalog : [])
+      setEarnedIds(new Set((Array.isArray(earned) ? earned : []).map((b: Badge) => b.id)))
+    }).catch(err => {
+      if (ac.signal.aborted) return
+      setError(err?.message ?? 'Ошибка загрузки')
+    }).finally(() => {
+      if (!ac.signal.aborted) setLoading(false)
+    })
 
     return () => ac.abort()
   }, [user?.id])
 
   const displayName = resolveDisplayName(profile, user)
   const initials    = resolveInitials(displayName, user?.email)
-  const level       = profile?.level ?? user?.level ?? 1
-  const rank        = profile?.rank_all_time ?? null
-  const streakDays  = profile?.streak_days ?? 0
+
+  // День рождения
+  const birthdayInfo = profile?.birthday ? formatBirthday(profile.birthday) : null
+
+  if (loading) {
+    return (
+      <div className={s.page}>
+        <div className={s.skel} />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className={s.page}>
+        <p className={s.inlineHint}>
+          ⚠️ {error}.{' '}
+          <button className={s.retryBtn} onClick={() => window.location.reload()}>Повторить</button>
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className={s.page}>
-
-      {/* Header */}
-      <header className={s.header}>
+      {/* ── Шапка ── */}
+      <div className={s.header}>
         <div className={s.headerLeft}>
-          <div className={s.avatar} style={{ overflow: 'hidden' }}>
+          <div className={s.avatar}>
             {profile?.avatar_url
-              ? <img src={profile.avatar_url} alt={displayName}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : initials}
+              ? <img src={profile.avatar_url} alt={displayName} className={s.charAvatarImg} />
+              : initials
+            }
           </div>
           <div>
-            <h1 className={s.greeting}>Привет, {displayName} 👋</h1>
+            <p className={s.greeting}>
+              {birthdayInfo?.isToday ? '🎂 С днём рождения, ' : 'Привет, '}{displayName}!
+            </p>
             <p className={s.greetingSub}>
-              Уровень {level}
-              {rank != null && (
-                <> · <span className={s.rankBadge}>#{rank} в рейтинге</span></>
+              {profile?.position && <span>{profile.position}</span>}
+              {profile?.rank_all_time != null && (
+                <span className={s.rankBadge}>#{profile.rank_all_time} в топе</span>
+              )}
+              {birthdayInfo && (
+                <span className={s.birthdayChip}>
+                  {birthdayInfo.isToday ? '🎂 Сегодня ДР!' : `🎂 ${birthdayInfo.text}`}
+                </span>
               )}
             </p>
-            {profile?.bio && (
-              <p className={s.profileBio}>{profile.bio}</p>
-            )}
+            {profile?.bio && <p className={s.profileBio}>{profile.bio}</p>}
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main grid */}
+      {/* ── Основная сетка ── */}
       <div className={s.mainGrid}>
+        {/* Левая колонка — персонаж */}
+        {profile?.character
+          ? <CharacterCard character={profile.character} />
+          : <FallbackCharacterCard user={user} displayName={displayName} />
+        }
 
-        {/* CharacterCard */}
-        {profileLoading ? (
-          <div className={`${s.characterCard} ${s.skel}`} style={{ minHeight: 380 }} />
-        ) : profile != null ? (
-          <CharacterCard character={character} />
-        ) : (
-          <FallbackCharacterCard user={user} displayName={displayName} />
-        )}
-
-        {/* Right column */}
+        {/* Правая колонка */}
         <div className={s.rightCol}>
+          {profile && (
+            <>
+              {/* Stat cards */}
+              <div className={s.statsRow}>
+                <StatCard icon="⭐" label="Уровень" value={`LVL ${profile.level}`} accent />
+                <StatCard icon="✨" label="Всего XP" value={profile.total_xp.toLocaleString()} />
+                <StatCard icon="🪙" label="Монеты" value={profile.total_coins.toLocaleString()} />
+                <StatCard icon="🏅" label="Бейджи" value={profile.badges_count} />
+              </div>
 
-          {/* Stats row */}
-          {profileLoading ? (
-            <div className={s.statsRow}>
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className={`${s.statCard} ${s.skel}`} style={{ minHeight: 88 }} />
-              ))}
-            </div>
-          ) : profile != null ? (
-            <div className={s.statsRow}>
-              <StatCard
-                icon="⚡" label="Уровень" value={profile.level}
-                sub={`${profile.quests_completed} квестов`} accent
-              />
-              <StatCard
-                icon="🔮" label="Всего XP" value={profile.total_xp.toLocaleString()}
-                sub={`${profile.quests_in_progress} в процессе`}
-              />
-              <StatCard
-                icon="🪙" label="Монеты" value={profile.total_coins.toLocaleString()}
-                sub="на балансе"
-              />
-              <StatCard
-                icon="🏅" label="Бейджи" value={profile.badges_count}
-                sub={rank != null ? `#${rank} в рейтинге` : 'нет позиции'}
-              />
-            </div>
-          ) : (
-            <div className={s.statsRow}>
-              <StatCard icon="⚡" label="Уровень"  value={user?.level ?? 1} sub="игрока" accent />
-              <StatCard icon="🔮" label="Всего XP" value={(user?.xp ?? 0).toLocaleString()} />
-              <StatCard icon="🪙" label="Монеты"   value={(user?.coins ?? 0).toLocaleString()} sub="на балансе" />
-              <StatCard icon="🏅" label="Бейджи"   value="—" sub="нет данных" />
-            </div>
+              {/* XP Bar */}
+              <XPBar profile={profile} />
+            </>
           )}
 
-          {/* XP Bar */}
-          {!profileLoading && profile != null && <XPBar profile={profile} />}
-
-          {/* Активные квесты */}
-          <section className={s.section}>
+          {/* Квесты в процессе */}
+          <div className={s.section}>
             <div className={s.sectionHead}>
-              <h2 className={s.sectionTitle}>Активные квесты</h2>
+              <h2 className={s.sectionTitle}>📋 Активные квесты</h2>
               <Link to="/quests" className={s.sectionLink}>Все квесты →</Link>
             </div>
-            {questsLoading ? (
+            {quests.length > 0 ? (
               <div className={s.questsGrid}>
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className={`${s.questCard} ${s.skel}`} style={{ minHeight: 100 }} />
-                ))}
-              </div>
-            ) : questsErr ? (
-              <div className={s.inlineHint}>
-                ⚠️ Не удалось загрузить квесты — 
-                <button
-                  className={s.retryBtn}
-                  onClick={() => window.location.reload()}
-                >
-                  повторить
-                </button>
-              </div>
-            ) : myQuests.length > 0 ? (
-              <div className={s.questsGrid}>
-                {myQuests.map(q => <QuestCard key={q.id} q={q} />)}
+                {quests.map(q => <QuestCard key={q.id} q={q} />)}
               </div>
             ) : (
               <div className={s.emptyQuests}>
-                <span className={s.emptyIcon}>🎯</span>
+                <span className={s.emptyIcon}>📋</span>
                 <div>
                   <p className={s.emptyTitle}>Нет активных квестов</p>
-                  <p className={s.emptyHint}>Возьмите квест и зарабатывайте XP</p>
+                  <p className={s.emptyHint}>Возьмите новый квест, чтобы зарабатывать XP</p>
                 </div>
-                <Link to="/quests" className={s.emptyBtn}>Найти квест →</Link>
+                <Link to="/quests" className={s.emptyBtn}>Найти квест</Link>
               </div>
             )}
-          </section>
+          </div>
 
-          {/* Bottom: streak + leaderboard */}
+          {/* Стрик + Лидерборд */}
           <div className={s.bottomGrid}>
-            <StreakCard days={streakDays} />
-
-            <section className={s.section}>
+            <StreakCard days={profile?.streak_days ?? 0} />
+            <div className={s.section}>
               <div className={s.sectionHead}>
-                <h2 className={s.sectionTitle}>Топ игроков</h2>
+                <h2 className={s.sectionTitle}>🏆 Топ игроков</h2>
                 <Link to="/leaderboard" className={s.sectionLink}>Весь рейтинг →</Link>
               </div>
-              {lbLoading ? (
-                <div className={`${s.miniLb} ${s.skel}`} style={{ minHeight: 160 }} />
-              ) : lbEntries.length > 0 ? (
-                <MiniLeaderboard entries={lbEntries} currentUserId={user?.id} />
-              ) : (
-                <div className={s.inlineHint}>Рейтинг пока пуст</div>
-              )}
-            </section>
+              {lbEntries.length > 0
+                ? <MiniLeaderboard entries={lbEntries} currentUserId={user?.id} />
+                : <div className={s.inlineHint}>Данные рейтинга недоступны</div>
+              }
+            </div>
           </div>
 
           {/* Бейджи */}
-          <section className={s.section}>
+          <div className={s.section}>
             <div className={s.sectionHead}>
-              <h2 className={s.sectionTitle}>Достижения</h2>
+              <h2 className={s.sectionTitle}>🎖️ Достижения</h2>
               <Link to="/achievements" className={s.sectionLink}>Все достижения →</Link>
             </div>
-            <BadgesGrid catalog={badgeCatalog} earnedIds={earnedBadgeIds} />
-          </section>
-
+            <BadgesGrid catalog={badgeCatalog} earnedIds={earnedIds} />
+          </div>
         </div>
       </div>
     </div>
