@@ -17,6 +17,8 @@ export interface MemberEntry {
   project_name: string | null
   manager_id: string | null
   is_self: boolean
+  /** ISO-дата дня рождения (YYYY-MM-DD), может отсутствовать */
+  birthday?: string | null
 }
 
 export interface MembersResponse {

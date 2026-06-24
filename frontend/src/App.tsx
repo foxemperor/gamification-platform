@@ -7,6 +7,7 @@ import { AchievementsPage }    from './pages/AchievementsPage'
 import { InventoryPage }       from './pages/InventoryPage'
 import { SettingsPage }        from './pages/SettingsPage'
 import { MembersPage }         from './pages/MembersPage'
+import { EventsPage }          from './pages/EventsPage'
 import { AdminUsersPage }      from './pages/admin/AdminUsersPage'
 import { AdminOverviewPage }   from './pages/admin/AdminOverviewPage'
 import { AdminQuestsPage }     from './pages/admin/AdminQuestsPage'
@@ -95,7 +96,7 @@ export default function App() {
           <Route path="/achievements"  element={<AchievementsPage />} />
           <Route path="/inventory"     element={<InventoryPage />} />
           <Route path="/members"       element={<MembersPage />} />
-          <Route path="/events"        element={<ComingSoon title="События" />} />
+          <Route path="/events"        element={<EventsPage />} />
           <Route path="/settings"      element={<SettingsPage />} />
 
           {/* Админ-панель */}
@@ -110,16 +111,5 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ToastProvider>
-  )
-}
-
-function ComingSoon({ title }: { title: string }) {
-  return (
-    <div style={{ padding: '40px 32px', color: 'var(--text)', fontFamily: 'var(--font-b)' }}>
-      <h1 style={{ color: 'var(--primary)', fontFamily: 'var(--font-d)', marginBottom: 8 }}>
-        {title}
-      </h1>
-      <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Страница в разработке.</p>
-    </div>
   )
 }
