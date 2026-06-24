@@ -22,6 +22,7 @@ from app.routers import quests, leaderboard, admin
 from app.routers import notifications
 from app.routers import system_metrics
 from app.routers import character
+from app.routers import members
 
 # ===================================
 # ЛОГИРОВАНИЕ
@@ -110,6 +111,7 @@ app.include_router(admin.router)
 app.include_router(notifications.router)
 app.include_router(system_metrics.router)
 app.include_router(character.router)
+app.include_router(members.router)
 
 
 # ===================================
