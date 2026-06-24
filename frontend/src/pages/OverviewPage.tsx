@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { authApi } from '../api/auth'
 import { meApi, type PlayerProfile, type Character } from '../api/me'
 import { questsApi, type UserQuest } from '../api/quests'
 import { leaderboardApi, type LeaderboardEntry } from '../api/leaderboard'
@@ -9,6 +10,7 @@ import {
   badgesApi, type Badge,
   describeBadgeCondition, badgeIcon, RARITY_RING,
 } from '../api/badges'
+import { useAppToast } from '../App'
 import s from './OverviewPage.module.css'
 
 // ────── helpers ──────
@@ -386,6 +388,91 @@ function BadgesGrid({ catalog, earnedIds }: { catalog: Badge[]; earnedIds: Set<s
   )
 }
 
+// ────── BioCard — inline-редактирование ──────
+function BioCard({ initialBio }: { initialBio: string }) {
+  const updateUser = useAuthStore(st => st.updateUser)
+  const toast = useAppToast()
+
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft]     = useState(initialBio)
+  const [bio, setBio]         = useState(initialBio)
+  const [saving, setSaving]   = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Синх с внешними изменениями (напр.из Settings)
+  useEffect(() => {
+    setBio(initialBio)
+    if (!editing) setDraft(initialBio)
+  }, [initialBio])
+
+  function startEdit() {
+    setDraft(bio)
+    setEditing(true)
+    setTimeout(() => textareaRef.current?.focus(), 0)
+  }
+
+  function cancelEdit() {
+    setDraft(bio)
+    setEditing(false)
+  }
+
+  async function saveBio() {
+    setSaving(true)
+    try {
+      const updated = await authApi.updateMe({ bio: draft.trim() })
+      const saved = (updated as any).bio ?? draft.trim()
+      setBio(saved)
+      updateUser({ bio: saved } as any)
+      setEditing(false)
+      toast('Био сохранено', 'success')
+    } catch {
+      toast('Не удалось сохранить', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className={s.bioCard}>
+      <div className={s.bioHeader}>
+        <h2 className={s.sectionTitle}>📝 О себе</h2>
+        {!editing && (
+          <button className={s.bioEditBtn} onClick={startEdit} title="Редактировать">
+            ✏️ Редактировать
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <>
+          <textarea
+            ref={textareaRef}
+            className={s.bioTextarea}
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            maxLength={300}
+            rows={4}
+            placeholder="Расскажите немного о себе, своих интересах или навыках…"
+          />
+          <div className={s.bioActions}>
+            <span className={s.bioCounter}>{draft.length}/300</span>
+            <button className={s.bioCancelBtn} onClick={cancelEdit} disabled={saving}>Отмена</button>
+            <button className={s.bioSaveBtn} onClick={saveBio} disabled={saving}>
+              {saving ? 'Сохранение…' : 'Сохранить'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className={s.bioText}>
+          {bio.trim()
+            ? bio
+            : <span className={s.bioPlaceholder}>Нажмите «Редактировать», чтобы рассказать о себе…</span>}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ────── OverviewPage ──────
 export function OverviewPage() {
   const { user } = useAuthStore()
@@ -434,6 +521,7 @@ export function OverviewPage() {
 
   const displayName = resolveDisplayName(profile, user)
   const initials    = resolveInitials(displayName, user?.email)
+  const currentBio  = (profile as any)?.bio ?? (user as any)?.bio ?? ''
 
   const birthdayInfo = profile?.birthday ? formatBirthday(profile.birthday) : null
 
@@ -482,10 +570,6 @@ export function OverviewPage() {
                 </span>
               )}
             </div>
-            {/* Кнопка настроек профиля вместо статичного bio */}
-            <Link to="/settings" className={s.editProfileBtn} title="Редактировать профиль">
-              ✏️ Редактировать профиль
-            </Link>
           </div>
         </div>
       </div>
@@ -545,6 +629,7 @@ export function OverviewPage() {
             </div>
           </div>
 
+          {/* ── Достижения ── */}
           <div className={s.section}>
             <div className={s.sectionHead}>
               <h2 className={s.sectionTitle}>🎖️ Достижения</h2>
@@ -552,6 +637,9 @@ export function OverviewPage() {
             </div>
             <BadgesGrid catalog={badgeCatalog} earnedIds={earnedIds} />
           </div>
+
+          {/* ── О себе — после Достижений ── */}
+          <BioCard initialBio={currentBio} />
         </div>
       </div>
     </div>
