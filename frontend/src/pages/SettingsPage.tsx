@@ -6,7 +6,7 @@
  *   2. Аватар        — выбор из пресетов ИЛИ загрузка своего файла.
  *                      Загруженный файл конвертируется в data-URL и сохраняется
  *                      в users.avatar_url (Text), без отдельного файлового бэкенда.
- *   3. Персонаж      — отображение героя (анимированный, интерактивный спрайт)
+ *   3. Персонаж      — отображение героя (анимированный CharacterRenderer с косметикой)
  *                      если персонаж уже создан, или форма создания иначе.
  *
  * Все изменения профиля/аватара сохраняются через PATCH /auth/me и
@@ -21,6 +21,7 @@ import {
   type CharacterType,
   type CharacterTypeSlug,
 } from '../api/me'
+import { CharacterRenderer, type EquipSlot } from '../components/CharacterRenderer'
 import { CharacterSprite } from '../components/CharacterSprite'
 import { useAppToast } from '../App'
 import s from './SettingsPage.module.css'
@@ -54,16 +55,13 @@ const ARCHETYPE_EMOJI: Record<CharacterTypeSlug, string> = {
   warrior: '⚔️', mage: '🔮', rogue: '🗡️', engineer: '🛠️',
 }
 
-const MAX_AVATAR_BYTES = 512 * 1024 // 512 КБ на data-URL
+const MAX_AVATAR_BYTES = 512 * 1024
 
 function initialsOf(name: string | null | undefined, email: string): string {
   if (name && name.trim()) return name.trim().slice(0, 2).toUpperCase()
   return email.slice(0, 2).toUpperCase()
 }
 
-/**
- * Конвертирует дату рождения в значение для <input type="date"> (YYYY-MM-DD).
- */
 function toDateInputValue(isoDate: string | null | undefined): string {
   if (!isoDate) return ''
   if (/^\d{2}\.\d{2}\.\d{4}$/.test(isoDate)) {
@@ -95,7 +93,7 @@ export function SettingsPage() {
   const [eyes, setEyes]               = useState('#4A90D9')
   const [creatingChar, setCreatingChar] = useState(false)
 
-  // ── Easter egg: счётчик кликов по спрайту ──
+  // Easter egg: счётчик кликов по спрайту
   const [spriteClicks, setSpriteClicks] = useState(0)
 
   useEffect(() => {
@@ -108,7 +106,7 @@ export function SettingsPage() {
     const ac = new AbortController()
     meApi.getCharacterTypes()
       .then(t => { if (!ac.signal.aborted) setTypes(t) })
-      .catch(() => { /* silent */ })
+      .catch(() => {})
     meApi.getMyCharacter(ac.signal)
       .then(c => { if (!ac.signal.aborted) setCharacter(c) })
       .catch(() => { if (!ac.signal.aborted) setCharacter(null) })
@@ -120,6 +118,13 @@ export function SettingsPage() {
 
   const previewAvatar = avatarUrl
   const initials = initialsOf(fullName, user.email)
+
+  // Преобразуем equipment персонажа для CharacterRenderer (точно как в InventoryPage)
+  const rendererEquipment: EquipSlot[] = (character?.equipment ?? []).map(eq => ({
+    slot: eq.slot,
+    name: eq.cosmetic_item.name,
+    rarity: (eq.cosmetic_item.rarity as EquipSlot['rarity']) ?? 'common',
+  }))
 
   function onSpriteClick() {
     const next = spriteClicks + 1
@@ -236,11 +241,7 @@ export function SettingsPage() {
             max={new Date().toISOString().slice(0, 10)}
           />
           {birthday && (
-            <button
-              type="button"
-              className={s.clearBtn}
-              onClick={() => setBirthday('')}
-            >
+            <button type="button" className={s.clearBtn} onClick={() => setBirthday('')}>
               Очистить дату
             </button>
           )}
@@ -269,25 +270,13 @@ export function SettingsPage() {
               : initials}
           </div>
           <div className={s.avatarActions}>
-            <button
-              type="button"
-              className={s.uploadBtn}
-              onClick={() => fileRef.current?.click()}
-            >
+            <button type="button" className={s.uploadBtn} onClick={() => fileRef.current?.click()}>
               ⬆️ Загрузить изображение
             </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={onFilePick}
-            />
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFilePick} />
             <span className={s.uploadHint}>PNG, JPG или SVG, до ~512 КБ</span>
             {avatarUrl && (
-              <button type="button" className={s.clearBtn} onClick={() => setAvatarUrl(null)}>
-                Убрать аватар
-              </button>
+              <button type="button" className={s.clearBtn} onClick={() => setAvatarUrl(null)}>Убрать аватар</button>
             )}
           </div>
         </div>
@@ -312,11 +301,7 @@ export function SettingsPage() {
         </div>
 
         <div className={s.saveRow}>
-          <button
-            className={s.saveBtn}
-            onClick={saveProfile}
-            disabled={savingProfile}
-          >
+          <button className={s.saveBtn} onClick={saveProfile} disabled={savingProfile}>
             {savingProfile ? 'Сохранение…' : 'Сохранить профиль'}
           </button>
         </div>
@@ -328,19 +313,16 @@ export function SettingsPage() {
           <span className={s.cardIcon}>🎭</span>
           <div>
             <h2 className={s.cardTitle}>Персонаж игрока</h2>
-            <p className={s.cardDesc}>
-              Архетип даёт бонусы к XP и монетам. Выбирается один раз.
-            </p>
+            <p className={s.cardDesc}>Архетип даёт бонусы к XP и монетам. Выбирается один раз.</p>
           </div>
         </div>
 
         {charLoading ? (
           <p className={s.cardDesc}>Загрузка…</p>
         ) : character ? (
-          /* ── Персонаж уже создан — анимированный спрайт ── */
+          /* ── Персонаж уже создан: CharacterRenderer с косметикой ── */
           <>
             <div className={s.charExisting}>
-              {/* Интерактивная анимированная обёртка */}
               <button
                 type="button"
                 className={s.charSpriteWrap}
@@ -348,12 +330,14 @@ export function SettingsPage() {
                 aria-label="Персонаж игрока"
                 title="Нажми на персонажа!"
               >
-                <CharacterSprite
+                {/* Точно тот же CharacterRenderer что в Инвентаре и Обзоре */}
+                <CharacterRenderer
                   slug={character.character_type.slug}
                   skinColor={character.skin_color}
                   hairColor={character.hair_color}
                   eyesColor={character.eyes_color}
-                  size={96}
+                  equipment={rendererEquipment}
+                  size={160}
                 />
                 <span className={s.charSpriteHint}>Нажми!</span>
               </button>
@@ -414,20 +398,18 @@ export function SettingsPage() {
             <div className={s.colorsRow}>
               <div className={s.colorField}>
                 <span className={s.colorLabel}>Кожа</span>
-                <input className={s.colorInput} type="color" value={skin}
-                  onChange={e => setSkin(e.target.value)} />
+                <input className={s.colorInput} type="color" value={skin} onChange={e => setSkin(e.target.value)} />
               </div>
               <div className={s.colorField}>
                 <span className={s.colorLabel}>Волосы</span>
-                <input className={s.colorInput} type="color" value={hair}
-                  onChange={e => setHair(e.target.value)} />
+                <input className={s.colorInput} type="color" value={hair} onChange={e => setHair(e.target.value)} />
               </div>
               <div className={s.colorField}>
                 <span className={s.colorLabel}>Глаза</span>
-                <input className={s.colorInput} type="color" value={eyes}
-                  onChange={e => setEyes(e.target.value)} />
+                <input className={s.colorInput} type="color" value={eyes} onChange={e => setEyes(e.target.value)} />
               </div>
               <div className={s.previewBox}>
+                {/* В превью создания оставляем CharacterSprite (ещё нет equipment, только цвета) */}
                 <CharacterSprite
                   slug={selSlug}
                   skinColor={skin}
