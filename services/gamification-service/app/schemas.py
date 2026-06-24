@@ -62,7 +62,6 @@ class CharacterCreateRequest(BaseModel):
 
 
 class CharacterColorsRequest(BaseModel):
-    """\u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 \u0446\u0432\u0435\u0442\u043e\u0432 \u043f\u0435\u0440\u0441\u043e\u043d\u0430\u0436\u0430. \u0412\u0441\u0435 \u043f\u043e\u043b\u044f \u043e\u043f\u0446\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u044b."""
     skin_color: Optional[str] = None
     hair_color: Optional[str] = None
     eyes_color: Optional[str] = None
@@ -120,7 +119,7 @@ class CosmeticCatalogItemResponse(BaseModel):
 
 
 # ──────────────────────────────────────────────
-# Ачивменты / Бейджи
+# Бейджи
 # ──────────────────────────────────────────────
 
 class BadgeResponse(BaseModel):
@@ -135,6 +134,34 @@ class BadgeResponse(BaseModel):
     is_earned: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class BadgeCreate(BaseModel):
+    name: str = Field(..., max_length=100)
+    description: Optional[str] = None
+    icon_url: Optional[str] = None
+    rarity: str = Field(default="common")
+    condition_type: Optional[str] = None
+    condition_value: Optional[int] = None
+    xp_bonus: int = Field(default=0, ge=0)
+
+
+class BadgeUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = None
+    icon_url: Optional[str] = None
+    rarity: Optional[str] = None
+    condition_type: Optional[str] = None
+    condition_value: Optional[int] = None
+    xp_bonus: Optional[int] = Field(None, ge=0)
+
+
+class BadgeListResponse(BaseModel):
+    items: List[BadgeResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int
 
 
 class UserBadgeResponse(BaseModel):
@@ -158,22 +185,18 @@ class PlayerProfileResponse(BaseModel):
     username: str
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
-
     total_xp: int
     level: int
     xp_to_next_level: int
     xp_progress_percent: float
     total_coins: int
-
     quests_completed: int
     quests_in_progress: int
     badges_count: int
-
     rank_all_time: Optional[int] = None
     rank_weekly: Optional[int] = None
     streak_days: Optional[int] = None
     position: Optional[str] = None
-
     character: Optional[CharacterResponse] = None
 
     model_config = {"from_attributes": True}
@@ -283,6 +306,14 @@ class XPTransactionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class XPTransactionListResponse(BaseModel):
+    items: List[XPTransactionResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+
 class XPHistoryResponse(BaseModel):
     items: List[XPTransactionResponse]
     total: int
@@ -290,6 +321,14 @@ class XPHistoryResponse(BaseModel):
     total_xp_spent: int
     page: int
     per_page: int
+
+
+class AdminGrantXPRequest(BaseModel):
+    user_id: str
+    amount: int
+    description: Optional[str] = None
+    source: Optional[str] = None
+    source_id: Optional[str] = None
 
 
 # ──────────────────────────────────────────────
@@ -304,10 +343,22 @@ class LeaderboardEntryResponse(BaseModel):
     avatar_url: Optional[str] = None
     total_xp: int
     level: int
-    total_coins: int
+    total_coins: int = 0
+    quests_completed: int = 0
+    badges_count: int = 0
+    department: Optional[str] = None
+    project_name: Optional[str] = None
+    position: Optional[str] = None
     character: Optional[CharacterResponse] = None
 
     model_config = {"from_attributes": True}
+
+
+class LeaderboardResponse(BaseModel):
+    period: str
+    entries: List[LeaderboardEntryResponse]
+    total_players: int
+    updated_at: datetime
 
 
 # ──────────────────────────────────────────────
