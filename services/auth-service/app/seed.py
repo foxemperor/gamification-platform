@@ -1,7 +1,8 @@
 """
 Seed — создание пользователей при старте сервиса
 =====================================================
-Идемпотентно: если пользователь уже есть — ничего не делает.
+Идемпотентно: если пользователь уже есть — ничего не делает,
+но обновляет birthday если он был NULL (например, создан через Invoke-Test).
 
 Структура дев-пользователей (покрывает все сценарии MemberScope):
 
@@ -384,7 +385,11 @@ _DEV_USERS: list[dict] = [
 
 
 async def seed_dev_users() -> None:
-    """Идемпотентно создаёт набор дев-пользователей."""
+    """Идемпотентно создаёт набор дев-пользователей.
+
+    Если пользователь уже существует — обновляет birthday когда он NULL
+    (типичный случай: devuser создан через Invoke-Test без поля birthday).
+    """
     async with AsyncSessionLocal() as session:
         # --- Проход 1: создаём пользователей без manager_id ---
         email_to_user: dict[str, User] = {}
@@ -394,6 +399,10 @@ async def seed_dev_users() -> None:
             )
             existing = result.scalar_one_or_none()
             if existing:
+                # Обновляем birthday если он не заполнен
+                if existing.birthday is None and u.get("birthday"):
+                    existing.birthday = u["birthday"]
+                    logger.info(f"🔄 Updated birthday for: {u['email']}")
                 email_to_user[u["email"]] = existing
                 logger.info(f"⏭  Already exists: {u['email']}")
                 continue

@@ -183,6 +183,35 @@ function Assert-Node {
 }
 
 # ================================================================
+# WAIT FOR AUTH SERVICE — poll /health instead of blind sleep
+# ================================================================
+
+function Wait-ForAuthService {
+    Write-Info "Waiting for auth-service to be ready (up to 60s)..."
+    $maxAttempts = 20
+    $attempt = 0
+    $ready = $false
+    do {
+        Start-Sleep -Seconds 3
+        $attempt++
+        try {
+            $r = Invoke-WebRequest -Uri "http://localhost:8001/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+            if ($r.StatusCode -eq 200) {
+                Write-Ok "auth-service is ready! (attempt $attempt)"
+                $ready = $true
+                break
+            }
+        } catch {}
+        Write-Info "  Attempt $attempt/$maxAttempts — not ready yet..."
+    } while ($attempt -lt $maxAttempts)
+
+    if (-not $ready) {
+        Write-Warn "auth-service did not respond in time. Proceeding anyway."
+        Write-Info "If you see 401 errors, wait a few seconds and run: .\dev.ps1 test"
+    }
+}
+
+# ================================================================
 # SAVE IMAGES — сохраняет все образы в tar-файл
 # ================================================================
 
@@ -296,8 +325,7 @@ function Invoke-OfflineStart {
     if ($LASTEXITCODE -eq 0) {
         Write-Host ""
         Write-Ok "Services started!"
-        Write-Info "Waiting 15s for services to be ready..."
-        Start-Sleep -Seconds 15
+        Wait-ForAuthService
         $dbResult = Invoke-DbInit -Silent $false
 
         if ($dbResult) {
@@ -730,8 +758,7 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
         Write-Info "  Auth Service:         http://localhost:8001"
         Write-Info "  Gamification Service: http://localhost:8002"
         Write-Host ""
-        Write-Info "Waiting 15s for services to be ready..."
-        Start-Sleep -Seconds 15
+        Wait-ForAuthService
         $dbResult = Invoke-DbInit -Silent $false
 
         if ($dbResult) {
@@ -768,8 +795,8 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
     Write-Info "Step 1/5: Starting backend..."
     docker compose up $ACTIVE_SERVICES --build -d
     if ($LASTEXITCODE -ne 0) { Write-Err "Backend failed"; exit 1 }
-    Write-Info "Step 2/5: Waiting 15s for services to be ready..."
-    Start-Sleep -Seconds 15
+    Write-Info "Step 2/5: Waiting for auth-service to be ready..."
+    Wait-ForAuthService
     Write-Info "Step 3/5: Initializing database..."
     $dbResult = Invoke-DbInit -Silent $false
 

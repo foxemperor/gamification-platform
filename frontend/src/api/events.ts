@@ -86,11 +86,27 @@ export function toDateKey(iso: string): string {
 }
 
 /**
+ * Нормализует дату рождения к ISO-формату YYYY-MM-DD.
+ * Защищает от локализованного формата DD.MM.YYYY,
+ * который может прийти из старых данных или UI-датапикера.
+ */
+function normalizeBirthdayIso(birthday: string): string {
+  // DD.MM.YYYY → YYYY-MM-DD
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(birthday)) {
+    const [d, m, y] = birthday.split('.')
+    return `${y}-${m}-${d}`
+  }
+  // Уже ISO или другой формат — возвращаем как есть
+  return birthday
+}
+
+/**
  * День рождения «приводится» к текущему году для отображения.
  * Возвращает YYYY-MM-DD с учётом текущего года.
  */
 function birthdayThisYear(birthday: string, year: number): string {
-  const mmdd = birthday.slice(5, 10) // MM-DD
+  const iso = normalizeBirthdayIso(birthday)
+  const mmdd = iso.slice(5, 10) // MM-DD
   return `${year}-${mmdd}`
 }
 
