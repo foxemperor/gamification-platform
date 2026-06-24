@@ -2,7 +2,7 @@
  * events.ts
  * Агрегирует три источника событий для календаря:
  *  1. Сроки сдачи квестов (deadline_at из /quests/my)
- *  2. Дни рождения сотрудников (birthday из /members)
+ *  2. Дни рождения сотрудников — СТАТИЧЕСКИЙ список (demo)
  *  3. Российские праздничные выходные — статический список на 2025–2027
  */
 import { api } from './axios'
@@ -28,7 +28,6 @@ export interface CalEvent {
 }
 
 // ─── Российские нерабочие дни 2025–2027 ─────────────────────────────────────
-// Источник: Постановления Правительства РФ о переносе выходных
 
 const RU_HOLIDAYS: { date: string; title: string }[] = [
   // 2025
@@ -78,6 +77,33 @@ const RU_HOLIDAYS: { date: string; title: string }[] = [
   { date: '2027-11-05', title: 'День народного единства (перенос)' },
 ]
 
+// ─── Дни рождения сотрудников — СТАТИКА (demo-ветка) ────────────────────────
+// Источник: services/auth-service/app/seed.py
+// Формат MM-DD — привязывается к текущему и следующему году в рантайме
+
+const STATIC_BIRTHDAYS: { mmdd: string; name: string }[] = [
+  { mmdd: '03-15', name: 'Alice Ivanova' },
+  { mmdd: '07-22', name: 'Bob Petrov' },
+  { mmdd: '11-08', name: 'Carol Sidorova' },
+  { mmdd: '02-28', name: 'Dave Kozlov' },
+  { mmdd: '09-05', name: 'Eve Morozova' },
+  { mmdd: '06-17', name: 'Frank Volkov' },
+  { mmdd: '12-03', name: 'Mike Novikov' },
+  { mmdd: '04-20', name: 'Nina Popova' },
+  { mmdd: '08-11', name: 'Oscar Lebedev' },
+  { mmdd: '01-14', name: 'Roman Kuznetsov' },
+  { mmdd: '05-30', name: 'Ivan Sokolov' },
+  { mmdd: '10-25', name: 'Julia Smirnova' },
+  { mmdd: '03-07', name: 'Kevin Orlov' },
+  { mmdd: '07-16', name: 'Sara Fedorova' },
+  { mmdd: '02-19', name: 'Laura Zhukova' },
+  { mmdd: '09-12', name: 'Tom Vasiliev' },
+  { mmdd: '11-01', name: 'Polina Sorokina' },
+  { mmdd: '06-08', name: 'Grace Titova' },
+  { mmdd: '04-03', name: 'Henry Belov' },
+  { mmdd: '08-14', name: 'Dev User' },
+]
+
 // ─── Вспомогательные ────────────────────────────────────────────────────────
 
 /** Преобразует ISO-дату в строку YYYY-MM-DD */
@@ -85,39 +111,7 @@ export function toDateKey(iso: string): string {
   return iso.slice(0, 10)
 }
 
-/**
- * Нормализует дату рождения к ISO-формату YYYY-MM-DD.
- * Защищает от локализованного формата DD.MM.YYYY,
- * который может прийти из старых данных или UI-датапикера.
- */
-function normalizeBirthdayIso(birthday: string): string {
-  // DD.MM.YYYY → YYYY-MM-DD
-  if (/^\d{2}\.\d{2}\.\d{4}$/.test(birthday)) {
-    const [d, m, y] = birthday.split('.')
-    return `${y}-${m}-${d}`
-  }
-  // Уже ISO или другой формат — возвращаем как есть
-  return birthday
-}
-
-/**
- * День рождения «приводится» к текущему году для отображения.
- * Возвращает YYYY-MM-DD с учётом текущего года.
- */
-function birthdayThisYear(birthday: string, year: number): string {
-  const iso = normalizeBirthdayIso(birthday)
-  const mmdd = iso.slice(5, 10) // MM-DD
-  return `${year}-${mmdd}`
-}
-
 // ─── Ответы API ─────────────────────────────────────────────────────────────
-
-interface MemberWithBirthday {
-  user_id: string
-  full_name: string | null
-  username: string
-  birthday: string | null
-}
 
 interface MyQuestDeadline {
   id: string
@@ -125,18 +119,6 @@ interface MyQuestDeadline {
   deadline_at: string | null
   progress_percent: number
   status: string
-}
-
-/**
- * Нормализует ответ /members: принимает как { items: [] }, так и прямой массив.
- * Защита от несоответствия контракта API на разных версиях бэкенда.
- */
-function extractMembers(
-  data: { items: MemberWithBirthday[] } | MemberWithBirthday[],
-): MemberWithBirthday[] {
-  if (Array.isArray(data)) return data
-  if (data && Array.isArray(data.items)) return data.items
-  return []
 }
 
 // ─── Основная функция загрузки ───────────────────────────────────────────────
@@ -148,21 +130,15 @@ export async function fetchCalendarEvents(
   const todayKey = toDateKey(today.toISOString())
   const year = today.getFullYear()
 
-  const [questsRes, membersRes] = await Promise.allSettled([
+  const questsRes = await Promise.allSettled([
     api.get<MyQuestDeadline[]>('/quests/my', { signal }).then(r => r.data),
-    api
-      .get<{ items: MemberWithBirthday[] } | MemberWithBirthday[]>('/members', {
-        params: { scope: 'all', limit: 500 },
-        signal,
-      })
-      .then(r => extractMembers(r.data)),
   ])
 
   const events: CalEvent[] = []
 
   // 1. Сроки сдачи квестов
-  if (questsRes.status === 'fulfilled') {
-    for (const uq of questsRes.value) {
+  if (questsRes[0].status === 'fulfilled') {
+    for (const uq of questsRes[0].value) {
       if (!uq.deadline_at || uq.status === 'completed' || uq.status === 'failed') continue
       const dateKey = toDateKey(uq.deadline_at)
       events.push({
@@ -177,25 +153,14 @@ export async function fetchCalendarEvents(
     }
   }
 
-  // 2. Дни рождения — показываем в текущем и следующем году
-  if (membersRes.status === 'fulfilled') {
-    for (const m of membersRes.value) {
-      if (!m.birthday) continue
-      const name = m.full_name || m.username
-      // текущий год
+  // 2. Дни рождения — статический список, показываем в текущем и следующем году
+  for (const b of STATIC_BIRTHDAYS) {
+    for (const y of [year, year + 1]) {
       events.push({
-        id: `bday-${m.user_id}-${year}`,
+        id: `bday-static-${b.mmdd}-${y}`,
         kind: 'birthday',
-        date: birthdayThisYear(m.birthday, year),
-        title: `🎂 ${name}`,
-        sub: 'День рождения',
-      })
-      // следующий год (чтобы декабрьские праздники были видны)
-      events.push({
-        id: `bday-${m.user_id}-${year + 1}`,
-        kind: 'birthday',
-        date: birthdayThisYear(m.birthday, year + 1),
-        title: `🎂 ${name}`,
+        date: `${y}-${b.mmdd}`,
+        title: `🎂 ${b.name}`,
         sub: 'День рождения',
       })
     }
