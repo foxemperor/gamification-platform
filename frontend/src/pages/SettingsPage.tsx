@@ -6,8 +6,9 @@
  *   2. Аватар        — выбор из пресетов ИЛИ загрузка своего файла.
  *                      Загруженный файл конвертируется в data-URL и сохраняется
  *                      в users.avatar_url (Text), без отдельного файлового бэкенда.
- *   3. Персонаж      — отображение героя (анимированный CharacterRenderer с косметикой)
- *                      если персонаж уже создан, или форма создания иначе.
+ *   3. Персонаж      — CharacterRenderer (единый стиль с Инвентарём и Обзором).
+ *                      Если персонаж создан — показывает его с косметикой.
+ *                      Если нет — форма создания с превью CharacterRenderer.
  *
  * Все изменения профиля/аватара сохраняются через PATCH /auth/me и
  * синхронизируются в authStore (updateUser) — сразу видны в сайдбаре и обзоре.
@@ -22,7 +23,6 @@ import {
   type CharacterTypeSlug,
 } from '../api/me'
 import { CharacterRenderer, type EquipSlot } from '../components/CharacterRenderer'
-import { CharacterSprite } from '../components/CharacterSprite'
 import { useAppToast } from '../App'
 import s from './SettingsPage.module.css'
 
@@ -93,7 +93,7 @@ export function SettingsPage() {
   const [eyes, setEyes]               = useState('#4A90D9')
   const [creatingChar, setCreatingChar] = useState(false)
 
-  // Easter egg: счётчик кликов по спрайту
+  // Easter egg: счётчик кликов по персонажу
   const [spriteClicks, setSpriteClicks] = useState(0)
 
   useEffect(() => {
@@ -330,7 +330,6 @@ export function SettingsPage() {
                 aria-label="Персонаж игрока"
                 title="Нажми на персонажа!"
               >
-                {/* Точно тот же CharacterRenderer что в Инвентаре и Обзоре */}
                 <CharacterRenderer
                   slug={character.character_type.slug}
                   skinColor={character.skin_color}
@@ -369,7 +368,7 @@ export function SettingsPage() {
             </p>
           </>
         ) : (
-          /* ── Создание персонажа ── */
+          /* ── Создание персонажа: CharacterRenderer без экипировки ── */
           <>
             <div className={s.archGrid}>
               {types.map(t => {
@@ -408,14 +407,16 @@ export function SettingsPage() {
                 <span className={s.colorLabel}>Глаза</span>
                 <input className={s.colorInput} type="color" value={eyes} onChange={e => setEyes(e.target.value)} />
               </div>
+
+              {/* Живое превью: тот же CharacterRenderer, equipment=[] */}
               <div className={s.previewBox}>
-                {/* В превью создания оставляем CharacterSprite (ещё нет equipment, только цвета) */}
-                <CharacterSprite
+                <CharacterRenderer
                   slug={selSlug}
                   skinColor={skin}
                   hairColor={hair}
                   eyesColor={eyes}
-                  size={80}
+                  equipment={[]}
+                  size={120}
                 />
                 <span className={s.previewLabel}>
                   {selType?.name ?? ARCHETYPE_EMOJI[selSlug]}
