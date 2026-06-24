@@ -492,6 +492,9 @@ export function OverviewPage() {
                 <> · <span className={s.rankBadge}>#{rank} в рейтинге</span></>
               )}
             </p>
+            {profile?.bio && (
+              <p className={s.profileBio}>{profile.bio}</p>
+            )}
           </div>
         </div>
       </header>
@@ -580,21 +583,16 @@ export function OverviewPage() {
                 <span className={s.emptyIcon}>🎯</span>
                 <div>
                   <p className={s.emptyTitle}>Нет активных квестов</p>
-                  <p className={s.emptyHint}>Прими первый вызов — и начнётся игра!</p>
+                  <p className={s.emptyHint}>Возьмите квест и зарабатывайте XP</p>
                 </div>
-                <Link to="/quests" className={s.emptyBtn}>Найти квесты</Link>
+                <Link to="/quests" className={s.emptyBtn}>Найти квест →</Link>
               </div>
             )}
           </section>
 
-          {/* Стрик + Мини-лидерборд */}
+          {/* Bottom: streak + leaderboard */}
           <div className={s.bottomGrid}>
-            <section className={s.section}>
-              <div className={s.sectionHead}>
-                <h2 className={s.sectionTitle}>Стрик</h2>
-              </div>
-              <StreakCard days={streakDays} />
-            </section>
+            <StreakCard days={streakDays} />
 
             <section className={s.section}>
               <div className={s.sectionHead}>
@@ -602,32 +600,26 @@ export function OverviewPage() {
                 <Link to="/leaderboard" className={s.sectionLink}>Весь рейтинг →</Link>
               </div>
               {lbLoading ? (
-                <div className={s.miniLb}>
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className={`${s.miniLbRow} ${s.skel}`} style={{ height: 44 }} />
-                  ))}
-                </div>
+                <div className={`${s.miniLb} ${s.skel}`} style={{ minHeight: 160 }} />
               ) : lbEntries.length > 0 ? (
                 <MiniLeaderboard entries={lbEntries} currentUserId={user?.id} />
               ) : (
-                <div className={s.inlineHint}>Рейтинг пока недоступен</div>
+                <div className={s.inlineHint}>Рейтинг пока пуст</div>
               )}
             </section>
           </div>
 
-          {/* Достижения */}
-          {!profileLoading && profile != null && (
-            <section className={s.section}>
-              <div className={s.sectionHead}>
-                <h2 className={s.sectionTitle}>Достижения</h2>
-                <Link to="/achievements" className={s.sectionLink}>Все достижения →</Link>
-              </div>
-              <BadgesGrid catalog={badgeCatalog} earnedIds={earnedBadgeIds} />
-            </section>
-          )}
+          {/* Бейджи */}
+          <section className={s.section}>
+            <div className={s.sectionHead}>
+              <h2 className={s.sectionTitle}>Достижения</h2>
+              <Link to="/achievements" className={s.sectionLink}>Все достижения →</Link>
+            </div>
+            <BadgesGrid catalog={badgeCatalog} earnedIds={earnedBadgeIds} />
+          </section>
 
-        </div>{/* /rightCol */}
-      </div>{/* /mainGrid */}
+        </div>
+      </div>
     </div>
   )
 }
