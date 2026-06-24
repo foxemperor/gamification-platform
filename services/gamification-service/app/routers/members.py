@@ -8,18 +8,21 @@ Gamification Service — эндпоинты участников (members)
   - Страницы «Список участников»
   - Виджета «Топ игроков» (Dashboard)
 
+Ответ соответствует контракту фронтенд MembersResponse:
+  { scope, items: MemberEntry[], total }
+
 Автор: Dmitry Koval
 """
 
 import logging
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
+from app.database import get_db, DB_SCHEMA
 from app.dependencies import get_current_user_id
 from app.models import LeaderboardSnapshot, XPTransaction, xp_required_for_level
 
@@ -27,20 +30,35 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/members", tags=["members"])
 
+AUTH_SCHEMA = "auth"
+
 
 # ===================================
 # СХЕМЫ ОТВЕТА
+# Контракт полностью совпадает с frontend/src/api/members.ts
 # ===================================
 
-class MemberResponse(BaseModel):
+class MemberEntry(BaseModel):
     user_id: str
     username: str
     full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    role: Optional[str] = None
     level: int
-    total_xp: int
+    total_xp: int = 0
     rank: Optional[int] = None
+    department: Optional[str] = None
+    project_name: Optional[str] = None
+    manager_id: Optional[str] = None
+    is_self: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class MembersResponse(BaseModel):
+    scope: str
+    items: List[MemberEntry]
+    total: int
 
 
 # ===================================
@@ -68,7 +86,7 @@ def _compute_level_from_xp(total_xp: int) -> int:
 
 @router.get(
     "",
-    response_model=list[MemberResponse],
+    response_model=MembersResponse,
     summary="Список участников платформы",
 )
 async def list_members(
@@ -76,25 +94,28 @@ async def list_members(
         default="all",
         description="Область выборки: all | project | department | team",
     ),
+    search: str = Query(
+        default="",
+        description="Поиск по username или full_name",
+    ),
     limit: int = Query(
         default=200,
         ge=1,
         le=500,
         description="Максимальное число записей",
     ),
-    user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Возвращает список участников платформы с их уровнем, XP и рангом.
+    Возвращает список участников платформы.
 
-    Первичный источник — таблица leaderboard_snapshots (period='all_time').
+    Первичный источник — leaderboard_snapshots (period='all_time') +
+    обогащение данными пользователя из auth.users (department, project, role, manager_id).
     Если снапшоты отсутствуют — fallback через агрегацию xp_transactions.
-
-    Параметр scope зарезервирован для будущей фильтрации
-    (project / department / team). Сейчас все значения scope возвращают
-    единый глобальный список, отсортированный по убыванию total_xp.
     """
+
+    search_q = search.strip().lower()
 
     # --- Попытка 1: LeaderboardSnapshot (period = 'all_time') ---
     snapshot_result = await db.execute(
@@ -105,24 +126,56 @@ async def list_members(
     )
     snapshots = snapshot_result.scalars().all()
 
+    items: List[MemberEntry] = []
+
     if snapshots:
-        members = []
-        for rank_idx, row in enumerate(snapshots, start=1):
-            members.append(
-                MemberResponse(
-                    user_id=str(row.user_id),
-                    username=row.username,
-                    full_name=row.full_name,
-                    level=row.level,
-                    total_xp=row.total_xp,
-                    rank=rank_idx,
-                )
-            )
-        logger.info(
-            f"GET /api/v1/members scope={scope} limit={limit} "
-            f"→ {len(members)} записей из leaderboard_snapshots"
+        # Получаем user_id снапшотов для JOIN с auth.users
+        snapshot_user_ids = [str(s.user_id) for s in snapshots]
+
+        # Запрашиваем дополнительные поля из auth.users
+        auth_rows = await db.execute(
+            text(
+                f"SELECT id::text, role, department, project AS project_name, "
+                f"manager_id::text, avatar_url "
+                f"FROM {AUTH_SCHEMA}.users "
+                f"WHERE id::text = ANY(:ids)"
+            ),
+            {"ids": snapshot_user_ids},
         )
-        return members
+        auth_map = {row[0]: row for row in auth_rows.fetchall()}
+
+        for rank_idx, row in enumerate(snapshots, start=1):
+            uid = str(row.user_id)
+            auth = auth_map.get(uid)
+
+            entry = MemberEntry(
+                user_id=uid,
+                username=row.username,
+                full_name=row.full_name,
+                avatar_url=auth[5] if auth else None,
+                role=auth[1] if auth else None,
+                level=row.level,
+                total_xp=row.total_xp,
+                rank=rank_idx,
+                department=auth[2] if auth else None,
+                project_name=auth[3] if auth else None,
+                manager_id=auth[4] if auth else None,
+                is_self=(uid == current_user_id),
+            )
+
+            # Фильтрация по поисковому запросу
+            if search_q:
+                haystack = f"{entry.username} {entry.full_name or ''}".lower()
+                if search_q not in haystack:
+                    continue
+
+            items.append(entry)
+
+        logger.info(
+            f"GET /api/v1/members scope={scope} search='{search_q}' limit={limit} "
+            f"→ {len(items)} записей из leaderboard_snapshots"
+        )
+        return MembersResponse(scope=scope, items=items, total=len(items))
 
     # --- Fallback: агрегация из XPTransaction ---
     logger.warning(
@@ -137,24 +190,49 @@ async def list_members(
         .order_by(func.sum(XPTransaction.amount).desc())
         .limit(limit)
     )
-    rows = xp_agg.all()
+    xp_rows = xp_agg.all()
 
-    members = []
-    for rank_idx, row in enumerate(rows, start=1):
+    fallback_user_ids = [str(r.user_id) for r in xp_rows]
+    auth_rows = await db.execute(
+        text(
+            f"SELECT id::text, username, full_name, role, department, "
+            f"project AS project_name, manager_id::text, avatar_url "
+            f"FROM {AUTH_SCHEMA}.users "
+            f"WHERE id::text = ANY(:ids)"
+        ),
+        {"ids": fallback_user_ids},
+    )
+    auth_map = {row[0]: row for row in auth_rows.fetchall()}
+
+    for rank_idx, row in enumerate(xp_rows, start=1):
+        uid = str(row.user_id)
         total_xp = max(0, int(row.total_xp or 0))
-        members.append(
-            MemberResponse(
-                user_id=str(row.user_id),
-                username=f"user_{str(row.user_id)[:8]}",
-                full_name=None,
-                level=_compute_level_from_xp(total_xp),
-                total_xp=total_xp,
-                rank=rank_idx,
-            )
+        auth = auth_map.get(uid)
+
+        entry = MemberEntry(
+            user_id=uid,
+            username=auth[1] if auth else f"user_{uid[:8]}",
+            full_name=auth[2] if auth else None,
+            avatar_url=auth[7] if auth else None,
+            role=auth[3] if auth else None,
+            level=_compute_level_from_xp(total_xp),
+            total_xp=total_xp,
+            rank=rank_idx,
+            department=auth[4] if auth else None,
+            project_name=auth[5] if auth else None,
+            manager_id=auth[6] if auth else None,
+            is_self=(uid == current_user_id),
         )
 
+        if search_q:
+            haystack = f"{entry.username} {entry.full_name or ''}".lower()
+            if search_q not in haystack:
+                continue
+
+        items.append(entry)
+
     logger.info(
-        f"GET /api/v1/members scope={scope} limit={limit} "
-        f"→ {len(members)} записей из xp_transactions (fallback)"
+        f"GET /api/v1/members scope={scope} search='{search_q}' limit={limit} "
+        f"→ {len(items)} записей из xp_transactions (fallback)"
     )
-    return members
+    return MembersResponse(scope=scope, items=items, total=len(items))
