@@ -2,15 +2,15 @@
 .sidebar {
   width: 240px;
   flex-shrink: 0;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              background var(--transition),
-              border-color var(--transition);
+              background var(--transition-interactive),
+              border-color var(--transition-interactive);
 }
 .sidebar.mini {
   width: 64px;
@@ -28,19 +28,18 @@
   width: 34px;
   height: 34px;
   border-radius: 9px;
-  background: var(--grad-btn);
+  background: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   flex-shrink: 0;
-  box-shadow: var(--primary-glow);
+  box-shadow: 0 0 12px oklch(from var(--color-primary) l c h / 0.35);
 }
 .logoText {
-  font-family: var(--font-d);
   font-size: 16px;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--color-primary);
   white-space: nowrap;
   overflow: hidden;
   transition: opacity 0.2s, width 0.2s;
@@ -61,7 +60,7 @@
   padding: 0 8px;
 }
 .nav::-webkit-scrollbar { width: 3px; }
-.nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.nav::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
 
 .section {
   margin-bottom: 4px;
@@ -70,7 +69,7 @@
   display: block;
   font-size: 10px;
   font-weight: 700;
-  color: var(--text-faint);
+  color: var(--color-text-faint);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 12px 8px 4px;
@@ -86,7 +85,7 @@
   padding: 8px 8px;
   border-radius: 9px;
   cursor: pointer;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-decoration: none;
   position: relative;
   margin-bottom: 2px;
@@ -94,12 +93,12 @@
   transition: background 0.15s, color 0.15s;
 }
 .navItem:hover {
-  background: var(--primary-dim);
-  color: var(--text);
+  background: var(--color-primary-highlight);
+  color: var(--color-text);
 }
 .navItem.active {
-  background: var(--primary-dim);
-  color: var(--primary);
+  background: var(--color-primary-highlight);
+  color: var(--color-primary);
   font-weight: 600;
 }
 .navItem.active::before {
@@ -111,7 +110,7 @@
   width: 3px;
   height: 18px;
   border-radius: 0 3px 3px 0;
-  background: var(--primary);
+  background: var(--color-primary);
 }
 
 /* ── Иконка — фиксированный размер всегда ───────────────── */
@@ -137,8 +136,8 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--primary);
-  color: var(--bg);
+  background: var(--color-primary);
+  color: #fff;
   font-size: 10px;
   font-weight: 700;
   display: flex;
@@ -147,7 +146,7 @@
   flex-shrink: 0;
   line-height: 1;
 }
-.badgeWarn { background: var(--reward); }
+.badgeWarn { background: var(--color-warning); }
 .mini .badge { display: none; }
 
 /* ── Tooltip (только в mini) ─────────────────────────────── */
@@ -156,8 +155,8 @@
   left: calc(100% + 10px);
   top: 50%;
   transform: translateY(-50%);
-  background: var(--surface-high);
-  color: var(--text);
+  background: var(--color-surface-2);
+  color: var(--color-text);
   font-size: 12px;
   font-weight: 600;
   padding: 5px 10px;
@@ -165,7 +164,7 @@
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   z-index: 1000;
   transition: opacity 0.15s;
 }
@@ -186,14 +185,13 @@
   padding: 8px 8px;
   border-radius: 9px;
   cursor: pointer;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-size: 13.5px;
   font-weight: 500;
-  font-family: var(--font-b);
   border: none;
   background: none;
   width: 100%;
   transition: background 0.15s, color 0.15s;
 }
-.collapseBtn:hover { background: var(--primary-dim); color: var(--text); }
+.collapseBtn:hover { background: var(--color-primary-highlight); color: var(--color-text); }
 .mini .collapseBtn { justify-content: center; }
