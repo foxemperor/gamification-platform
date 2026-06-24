@@ -61,10 +61,19 @@ function initialsOf(name: string | null | undefined, email: string): string {
   return email.slice(0, 2).toUpperCase()
 }
 
-/** Конвертирует ISO-дату «YYYY-MM-DD» в строку для <input type="date"> */
+/**
+ * Конвертирует дату рождения в значение для <input type="date"> (YYYY-MM-DD).
+ * Защищает от локализованного формата DD.MM.YYYY, который может храниться
+ * в старых записях или прийти из бэкенда в человекочитаемом виде.
+ */
 function toDateInputValue(isoDate: string | null | undefined): string {
   if (!isoDate) return ''
-  // Если уже в формате YYYY-MM-DD — возвращаем как есть
+  // DD.MM.YYYY → YYYY-MM-DD
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(isoDate)) {
+    const [d, m, y] = isoDate.split('.')
+    return `${y}-${m}-${d}`
+  }
+  // Уже ISO YYYY-MM-DD или datetime — берём первые 10 символов
   return isoDate.slice(0, 10)
 }
 

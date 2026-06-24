@@ -127,6 +127,18 @@ interface MyQuestDeadline {
   status: string
 }
 
+/**
+ * Нормализует ответ /members: принимает как { items: [] }, так и прямой массив.
+ * Защита от несоответствия контракта API на разных версиях бэкенда.
+ */
+function extractMembers(
+  data: { items: MemberWithBirthday[] } | MemberWithBirthday[],
+): MemberWithBirthday[] {
+  if (Array.isArray(data)) return data
+  if (data && Array.isArray(data.items)) return data.items
+  return []
+}
+
 // ─── Основная функция загрузки ───────────────────────────────────────────────
 
 export async function fetchCalendarEvents(
@@ -138,10 +150,12 @@ export async function fetchCalendarEvents(
 
   const [questsRes, membersRes] = await Promise.allSettled([
     api.get<MyQuestDeadline[]>('/quests/my', { signal }).then(r => r.data),
-    api.get<{ items: MemberWithBirthday[] }>('/members', {
-      params: { scope: 'all', limit: 500 },
-      signal,
-    }).then(r => r.data.items),
+    api
+      .get<{ items: MemberWithBirthday[] } | MemberWithBirthday[]>('/members', {
+        params: { scope: 'all', limit: 500 },
+        signal,
+      })
+      .then(r => extractMembers(r.data)),
   ])
 
   const events: CalEvent[] = []
