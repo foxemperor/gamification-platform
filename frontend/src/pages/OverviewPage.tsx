@@ -63,9 +63,6 @@ function formatBirthday(iso: string): { text: string; isToday: boolean } {
 }
 
 // ────── CharacterCard ──────
-// Карточка персонажа игрока. НЕ дублирует статистику из правых карточек
-// (Уровень / XP / Монеты / Бейджи) — показывает самого персонажа:
-// динамичный интерактивный SVG-спрайт класса, имя, архетип и бонусы-мультипликаторы.
 const ARCHETYPE_LABEL: Record<string, string> = {
   warrior: '⚔️ Воин', mage: '🔮 Маг', rogue: '🗡️ Разбойник', engineer: '🛠️ Инженер',
 }
@@ -86,7 +83,6 @@ function CharacterCard({ character }: { character: Character | null }) {
   for (const eq of character?.equipment ?? []) equippedBySlot.set(eq.slot, eq)
   const hasEquipment = (character?.equipment?.length ?? 0) > 0
 
-  // Преобразуем equipment для CharacterRenderer
   const rendererEquipment: EquipSlot[] = (character?.equipment ?? []).map(eq => ({
     slot: eq.slot,
     name: eq.cosmetic_item.name,
@@ -129,7 +125,6 @@ function CharacterCard({ character }: { character: Character | null }) {
             </div>
           </div>
 
-          {/* Активный инвентарь */}
           <div className={s.inventoryBlock}>
             <div className={s.inventoryHead}>
               <span className={s.inventoryTitle}>Активный инвентарь</span>
@@ -272,7 +267,6 @@ const DIFF_CLASS: Record<string, string> = {
 }
 
 function QuestCard({ q }: { q: UserQuest }) {
-  // UserQuest содержит вложенный объект quest с данными самого квеста
   const questData  = q.quest
   const pct        = Math.min(100, Math.max(0, q.progress_percent ?? 0))
   const title      = questData?.title      ?? '—'
@@ -371,9 +365,6 @@ function MiniLeaderboard({
 }
 
 // ────── BadgesGrid ──────
-// Бейджи из реальных данных: каталог (/badges) + полученные (/badges/my).
-// Открытым считается ровно тот бейдж, чей id есть в earnedIds —
-// больше никакой разблокировки «по индексу».
 function BadgesGrid({ catalog, earnedIds }: { catalog: Badge[]; earnedIds: Set<string> }) {
   if (catalog.length === 0) {
     return <div className={s.inlineHint}>Каталог достижений пуст</div>
@@ -401,7 +392,7 @@ function BadgesGrid({ catalog, earnedIds }: { catalog: Badge[]; earnedIds: Set<s
 }
 
 // ────── OverviewPage ──────
-export default function OverviewPage() {
+export function OverviewPage() {
   const { user } = useAuthStore()
 
   const [profile,    setProfile]    = useState<PlayerProfile | null>(null)
@@ -449,7 +440,6 @@ export default function OverviewPage() {
   const displayName = resolveDisplayName(profile, user)
   const initials    = resolveInitials(displayName, user?.email)
 
-  // День рождения
   const birthdayInfo = profile?.birthday ? formatBirthday(profile.birthday) : null
 
   if (loading) {
@@ -504,30 +494,24 @@ export default function OverviewPage() {
 
       {/* ── Основная сетка ── */}
       <div className={s.mainGrid}>
-        {/* Левая колонка — персонаж */}
         {profile?.character
           ? <CharacterCard character={profile.character} />
           : <FallbackCharacterCard user={user} displayName={displayName} />
         }
 
-        {/* Правая колонка */}
         <div className={s.rightCol}>
           {profile && (
             <>
-              {/* Stat cards */}
               <div className={s.statsRow}>
                 <StatCard icon="⭐" label="Уровень" value={`LVL ${profile.level}`} accent />
                 <StatCard icon="✨" label="Всего XP" value={profile.total_xp.toLocaleString()} />
                 <StatCard icon="🪙" label="Монеты" value={profile.total_coins.toLocaleString()} />
                 <StatCard icon="🏅" label="Бейджи" value={profile.badges_count} />
               </div>
-
-              {/* XP Bar */}
               <XPBar profile={profile} />
             </>
           )}
 
-          {/* Квесты в процессе */}
           <div className={s.section}>
             <div className={s.sectionHead}>
               <h2 className={s.sectionTitle}>📋 Активные квесты</h2>
@@ -549,7 +533,6 @@ export default function OverviewPage() {
             )}
           </div>
 
-          {/* Стрик + Лидерборд */}
           <div className={s.bottomGrid}>
             <StreakCard days={profile?.streak_days ?? 0} />
             <div className={s.section}>
@@ -564,7 +547,6 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Бейджи */}
           <div className={s.section}>
             <div className={s.sectionHead}>
               <h2 className={s.sectionTitle}>🎖️ Достижения</h2>
