@@ -47,7 +47,8 @@ export function Sidebar() {
     try { localStorage.setItem(STORAGE_KEY, String(mini)) } catch {}
   }, [mini])
 
-  // Динамические badge-счётчики непрочитанных квестов/бейджей
+  // Динамические badge-счётчики: только непрочитанные квесты
+  // Достижения намеренно убраны из badge — там никогда не должно быть шарика
   const { data: notif } = useQuery({
     queryKey: ['sidebar-notifications'],
     queryFn: () =>
@@ -69,12 +70,8 @@ export function Sidebar() {
       badgeVariant: 'warn',
     },
     { to: '/leaderboard',  icon: '🏆', label: 'Рейтинг' },
-    {
-      to: '/achievements',
-      icon: '🎖️',
-      label: 'Достижения',
-      badge: notif?.unread_badges || undefined,
-    },
+    // Достижения — без badge намеренно (badge убран по требованию дизайна)
+    { to: '/achievements', icon: '🎖️', label: 'Достижения' },
     { to: '/inventory',    icon: '🎒', label: 'Инвентарь' },
   ]
 

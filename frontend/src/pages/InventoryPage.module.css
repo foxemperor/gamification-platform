@@ -1,4 +1,10 @@
-/* InventoryPage — стили в духе проекта (тёмная тема, циановый акцент) */
+/* InventoryPage — адаптивные стили, используют CSS-переменные темы проекта.
+   Все цвета и поверхности берутся из var(--surface-*), var(--text-*),
+   var(--accent), var(--border) — они устанавливаются SidebarTheme/ThemeContext
+   в корне приложения и меняются при смене темы.
+   Захардкоженные fallback-значения (#1e293b, #e2e8f0 и т.д.) намеренно убраны
+   везде, где они мешали теме перекрашивать страницу.
+*/
 
 .page {
   padding: 2rem;
@@ -19,12 +25,13 @@
 .title {
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--text-primary, #e2e8f0);
+  /* Наследуем цвет из темы — var(--text-primary) меняется при смене темы */
+  color: var(--text-primary);
   margin: 0 0 0.25rem;
 }
 .subtitle {
   font-size: 0.875rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   margin: 0;
   max-width: 520px;
 }
@@ -32,8 +39,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: var(--surface-2, #1e293b);
-  border: 1px solid var(--border, #334155);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0.75rem 1.25rem;
   min-width: 100px;
@@ -42,12 +49,12 @@
 .headerBadgeCount {
   font-size: 2rem;
   font-weight: 800;
-  color: var(--accent, #06b6d4);
+  color: var(--accent);
   line-height: 1;
 }
 .headerBadgeLabel {
   font-size: 0.75rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   margin-top: 0.25rem;
 }
 
@@ -58,14 +65,14 @@
   align-items: center;
   gap: 0.75rem;
   padding: 2.5rem 1rem;
-  border: 1px dashed var(--border, #334155);
+  border: 1px dashed var(--border);
   border-radius: 16px;
-  background: var(--surface-2, #1e293b);
+  background: var(--surface-2);
   text-align: center;
 }
 .noCharIcon { font-size: 2.5rem; }
 .noCharText {
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   font-size: 0.9rem;
   margin: 0;
   max-width: 420px;
@@ -74,8 +81,8 @@
   margin-top: 0.25rem;
   padding: 0.5rem 1.1rem;
   border-radius: 10px;
-  background: var(--accent, #06b6d4);
-  color: #0f172a;
+  background: var(--accent);
+  color: var(--accent-contrast, #0f172a);
   font-weight: 700;
   font-size: 0.85rem;
   text-decoration: none;
@@ -102,8 +109,8 @@
   gap: 0.5rem;
   padding: 1.25rem;
   border-radius: 16px;
-  border: 1px solid var(--border, #334155);
-  background: var(--surface-2, #1e293b);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
 }
 .previewSprite {
   width: 140px;
@@ -112,34 +119,34 @@
   align-items: center;
   justify-content: center;
   border-radius: 14px;
-  background: var(--surface-3, #0f172a);
+  background: var(--surface-3);
 }
 .previewSpriteBody { width: 110px; height: 110px; }
 .previewName {
   font-weight: 700;
   font-size: 0.95rem;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
   margin: 0.25rem 0 0;
 }
 .previewLevel {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--accent, #06b6d4);
+  color: var(--accent);
   margin: 0;
 }
 .previewEquip {
   width: 100%;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border, #334155);
+  border-top: 1px solid var(--border);
 }
 .previewEquipTitle {
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   margin: 0 0 0.5rem;
 }
 .previewEquipList {
@@ -156,17 +163,17 @@
   gap: 0.25rem 0.5rem;
   align-items: center;
   font-size: 0.8rem;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
 }
 .previewEquipName { font-weight: 600; }
 .previewEquipSlot {
   grid-column: 2;
   font-size: 0.68rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
 }
 .previewEmpty {
   font-size: 0.8rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -186,21 +193,21 @@
 .filterBtn {
   padding: 0.4rem 0.9rem;
   border-radius: 99px;
-  border: 1px solid var(--border, #334155);
-  background: var(--surface-2, #1e293b);
-  color: var(--text-secondary, #94a3b8);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
   font-size: 0.82rem;
   cursor: pointer;
   transition: all 0.18s ease;
 }
 .filterBtn:hover {
-  border-color: var(--accent, #06b6d4);
-  color: var(--text-primary, #e2e8f0);
+  border-color: var(--accent);
+  color: var(--text-primary);
 }
 .filterBtnActive {
-  background: var(--accent, #06b6d4);
-  border-color: var(--accent, #06b6d4);
-  color: #0f172a;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast, #0f172a);
   font-weight: 600;
 }
 
@@ -216,7 +223,7 @@
   gap: 0.5rem;
   font-size: 1rem;
   font-weight: 700;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
   margin: 0;
 }
 .slotTitleIcon { font-size: 1.1rem; }
@@ -235,21 +242,21 @@
   gap: 0.5rem;
   padding: 1.1rem 1rem;
   border-radius: 14px;
-  border: 1px solid var(--border, #334155);
-  background: var(--surface-2, #1e293b);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
   position: relative;
   text-align: center;
   transition: transform 0.18s ease, border-color 0.18s ease;
 }
 .itemCard:not(.itemLocked):hover {
   transform: translateY(-2px);
-  border-color: var(--accent, #06b6d4);
+  border-color: var(--accent);
 }
 .itemLocked {
   opacity: 0.7;
 }
 .itemEquipped {
-  box-shadow: 0 0 0 1px var(--accent, #06b6d4) inset;
+  box-shadow: 0 0 0 1px var(--accent) inset;
 }
 
 .itemIconWrap {
@@ -260,7 +267,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 12px;
-  background: var(--surface-3, #0f172a);
+  background: var(--surface-3);
 }
 .itemIcon { font-size: 26px; line-height: 1; }
 .itemLocked .itemIcon { filter: grayscale(1); opacity: 0.5; }
@@ -269,7 +276,7 @@
   bottom: -4px;
   right: -4px;
   font-size: 14px;
-  background: var(--surface-2, #1e293b);
+  background: var(--surface-2);
   border-radius: 50%;
   padding: 2px;
 }
@@ -283,8 +290,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--accent, #06b6d4);
-  color: #0f172a;
+  background: var(--accent);
+  color: var(--accent-contrast, #0f172a);
   font-size: 12px;
   font-weight: 800;
 }
@@ -292,12 +299,12 @@
 .itemName {
   font-weight: 700;
   font-size: 0.9rem;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
   margin: 0;
 }
 .itemDesc {
   font-size: 0.75rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   margin: 0;
   line-height: 1.35;
   display: -webkit-box;
@@ -320,14 +327,14 @@
   margin-top: 0.25rem;
   padding: 0.5rem 0.6rem;
   border-radius: 10px;
-  background: var(--surface-3, #0f172a);
-  border: 1px dashed var(--border, #334155);
+  background: var(--surface-3);
+  border: 1px dashed var(--border);
   width: 100%;
 }
 .unlockHintIcon { font-size: 13px; flex-shrink: 0; }
 .unlockHintText {
   font-size: 0.72rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   line-height: 1.35;
   text-align: left;
 }
@@ -346,18 +353,18 @@
 }
 .itemBtn:disabled { opacity: 0.55; cursor: default; }
 .itemBtnPrimary {
-  background: var(--accent, #06b6d4);
-  color: #0f172a;
+  background: var(--accent);
+  color: var(--accent-contrast, #0f172a);
 }
 .itemBtnPrimary:not(:disabled):hover { filter: brightness(1.08); }
 .itemBtnGhost {
   background: transparent;
-  border-color: var(--border, #334155);
-  color: var(--text-secondary, #94a3b8);
+  border-color: var(--border);
+  color: var(--text-secondary);
 }
 .itemBtnGhost:not(:disabled):hover {
-  border-color: var(--accent, #06b6d4);
-  color: var(--text-primary, #e2e8f0);
+  border-color: var(--accent);
+  color: var(--text-primary);
 }
 
 /* ── Пусто / ошибка / скелет ── */
@@ -367,7 +374,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 3rem 1rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   font-size: 0.9rem;
   text-align: center;
 }
@@ -376,15 +383,15 @@
 .errorBox {
   padding: 1rem 1.25rem;
   border-radius: 12px;
-  border: 1px solid var(--border, #334155);
-  background: var(--surface-2, #1e293b);
-  color: var(--text-secondary, #94a3b8);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
   font-size: 0.875rem;
 }
 .retryBtn {
   background: none;
   border: none;
-  color: var(--accent, #06b6d4);
+  color: var(--accent);
   font-weight: 700;
   cursor: pointer;
   padding: 0;
@@ -400,9 +407,9 @@
   border-radius: 14px;
   background: linear-gradient(
     90deg,
-    var(--surface-2, #1e293b) 25%,
-    var(--surface-3, #0f172a) 50%,
-    var(--surface-2, #1e293b) 75%
+    var(--surface-2) 25%,
+    var(--surface-3) 50%,
+    var(--surface-2) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
