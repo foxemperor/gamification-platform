@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import ensure_schema, run_migrations
 from app.routers import admin, auth, members
-from app.seed import create_superuser, create_dev_users
+from app.seed import create_superuser, seed_dev_users
 
 # ===================================
 # ЛОГИРОВАНИЕ
@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:  # noqa: BLE001
         logger.warning(f"⚠️ Не удалось создать суперюзера: {e}")
     try:
-        await create_dev_users()
+        await seed_dev_users()
     except Exception as e:  # noqa: BLE001
         logger.warning(f"⚠️ Не удалось создать dev-пользователей: {e}")
     yield
