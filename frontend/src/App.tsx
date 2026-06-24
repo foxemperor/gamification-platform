@@ -5,6 +5,7 @@ import { QuestsPage }          from './pages/QuestsPage'
 import { LeaderboardPage }     from './pages/LeaderboardPage'
 import { AchievementsPage }    from './pages/AchievementsPage'
 import { InventoryPage }       from './pages/InventoryPage'
+import { ShopPage }            from './pages/ShopPage'
 import { SettingsPage }        from './pages/SettingsPage'
 import { MembersPage }         from './pages/MembersPage'
 import { EventsPage }          from './pages/EventsPage'
@@ -95,6 +96,7 @@ export default function App() {
           <Route path="/leaderboard"   element={<LeaderboardPage />} />
           <Route path="/achievements"  element={<AchievementsPage />} />
           <Route path="/inventory"     element={<InventoryPage />} />
+          <Route path="/shop"          element={<ShopPage />} />
           <Route path="/members"       element={<MembersPage />} />
           <Route path="/events"        element={<EventsPage />} />
           <Route path="/settings"      element={<SettingsPage />} />

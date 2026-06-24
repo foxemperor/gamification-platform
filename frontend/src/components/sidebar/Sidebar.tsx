@@ -47,8 +47,6 @@ export function Sidebar() {
     try { localStorage.setItem(STORAGE_KEY, String(mini)) } catch {}
   }, [mini])
 
-  // Динамические badge-счётчики: только непрочитанные квесты
-  // Достижения намеренно убраны из badge — там никогда не должно быть шарика
   const { data: notif } = useQuery({
     queryKey: ['sidebar-notifications'],
     queryFn: () =>
@@ -70,9 +68,9 @@ export function Sidebar() {
       badgeVariant: 'warn',
     },
     { to: '/leaderboard',  icon: '🏆', label: 'Рейтинг' },
-    // Достижения — без badge намеренно (badge убран по требованию дизайна)
     { to: '/achievements', icon: '🎖️', label: 'Достижения' },
     { to: '/inventory',    icon: '🎒', label: 'Инвентарь' },
+    { to: '/shop',         icon: '🛒', label: 'Магазин' },
   ]
 
   const cls = [styles.sidebar, mini ? styles.mini : ''].filter(Boolean).join(' ')
@@ -98,7 +96,6 @@ export function Sidebar() {
           {NAV_ACCOUNT.map(item => <NavItem key={item.to} {...item} mini={mini} />)}
         </NavSection>
 
-        {/* Админ-раздел — виден только admin/superuser */}
         {isAdmin && (
           <NavSection label="Админ" mini={mini}>
             {NAV_ADMIN.map(item => <NavItem key={item.to} {...item} mini={mini} />)}
