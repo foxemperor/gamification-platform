@@ -15,6 +15,7 @@ from app.database import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = {"schema": "auth"}
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True,
@@ -39,7 +40,7 @@ class User(Base):
     # Менеджер (self-referential FK, nullable — у менеджеров и суперюзеров = NULL)
     manager_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="SET NULL"),
+        ForeignKey("auth.users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
