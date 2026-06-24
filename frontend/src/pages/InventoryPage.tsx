@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { meApi, type Character, type CosmeticCatalogItem } from '../api/me'
-import { CharacterSprite } from '../components/CharacterSprite'
+import { CharacterRenderer, type EquipSlot } from '../components/CharacterRenderer'
 import s from './InventoryPage.module.css'
 
 // ────── Справочники слотов и редкости ──────
@@ -25,7 +25,6 @@ const SLOT_ICON: Record<string, string> = {
   legs: '👖', weapon_main: '🗡️', weapon_secondary: '🛡️',
 }
 
-// Порядок отображения слотов
 const SLOT_ORDER = [
   'hair', 'head', 'head_accessory', 'eyes', 'face_expression',
   'torso', 'torso_accessory', 'legs', 'weapon_main', 'weapon_secondary',
@@ -152,7 +151,6 @@ export function InventoryPage() {
     return () => ac.abort()
   }, [user?.id, reload])
 
-  // Надеть предмет: PATCH /character/equipment, затем перезагрузка
   const equip = async (item: CosmeticCatalogItem) => {
     if (!character) return
     setBusySlot(item.slot)
@@ -166,7 +164,6 @@ export function InventoryPage() {
     }
   }
 
-  // Снять предмет: cosmetic_item_id=null
   const unequip = async (item: CosmeticCatalogItem) => {
     if (!character) return
     setBusySlot(item.slot)
@@ -180,21 +177,25 @@ export function InventoryPage() {
     }
   }
 
-  // Статистика
   const unlockedCount = items.filter(i => i.is_unlocked).length
   const totalCount    = items.length
 
-  // Фильтрация
   const filtered = items.filter(i => {
     if (filter === 'unlocked') return i.is_unlocked
     if (filter === 'locked')   return !i.is_unlocked
     return true
   })
 
-  // Группировка по слотам в заданном порядке
   const grouped = SLOT_ORDER
     .map(slot => ({ slot, list: filtered.filter(i => i.slot === slot) }))
     .filter(g => g.list.length > 0)
+
+  // Преобразуем equipment для CharacterRenderer
+  const rendererEquipment: EquipSlot[] = (character?.equipment ?? []).map(eq => ({
+    slot: eq.slot,
+    name: eq.cosmetic_item.name,
+    rarity: (eq.cosmetic_item.rarity as EquipSlot['rarity']) ?? 'common',
+  }))
 
   return (
     <div className={s.page}>
@@ -215,7 +216,7 @@ export function InventoryPage() {
         )}
       </header>
 
-      {/* Нет персонажа — нечего наряжать */}
+      {/* Нет персонажа */}
       {!loading && !character && (
         <div className={s.noChar}>
           <span className={s.noCharIcon}>🎭</span>
@@ -240,18 +241,21 @@ export function InventoryPage() {
       ) : (
         <div className={s.layout}>
 
-          {/* Превью персонажа */}
+          {/* Превью персонажа — теперь CharacterRenderer */}
           {character && (
             <aside className={s.preview}>
+              {/* SVG-персонаж со слоями экипировки */}
               <div className={s.previewSprite}>
-                <CharacterSprite
-                  className={s.previewSpriteBody}
+                <CharacterRenderer
                   slug={character.character_type.slug}
                   skinColor={character.skin_color}
                   hairColor={character.hair_color}
                   eyesColor={character.eyes_color}
+                  equipment={rendererEquipment}
+                  size={200}
                 />
               </div>
+
               <p className={s.previewName}>{character.character_type.name}</p>
               <p className={s.previewLevel}>LVL {character.level}</p>
 
@@ -277,7 +281,6 @@ export function InventoryPage() {
           {/* Каталог предметов */}
           <div className={s.catalog}>
 
-            {/* Фильтр */}
             <div className={s.filterRow}>
               {(['all', 'unlocked', 'locked'] as const).map(f => (
                 <button
