@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import ensure_schema, run_migrations
 from app.routers import admin, auth, members
-from app.seed import create_dev_user, create_superuser
+from app.seed import create_superuser, create_dev_users
 
 # ===================================
 # ЛОГИРОВАНИЕ
@@ -34,22 +34,18 @@ logger = logging.getLogger("auth-service")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Auth Service запускается...")
-    # 1. Создаём схему если её нет (Alembic это не делает)
     await ensure_schema()
-    # 2. Применяем все миграции (идемпотентно)
     logger.info("⏳ Применяем миграции...")
     run_migrations()
     logger.info("✅ БД готова")
-    # 3. Сидим суперюзера (идемпотентно)
     try:
         await create_superuser()
     except Exception as e:  # noqa: BLE001
         logger.warning(f"⚠️ Не удалось создать суперюзера: {e}")
-    # 4. Только в development — сидим тестового пользователя (идемпотентно)
     try:
-        await create_dev_user()
+        await create_dev_users()
     except Exception as e:  # noqa: BLE001
-        logger.warning(f"⚠️ Не удалось создать dev-пользователя: {e}")
+        logger.warning(f"⚠️ Не удалось создать dev-пользователей: {e}")
     yield
     logger.info("🔴 Auth Service останавливается")
 
@@ -67,11 +63,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-
-# ===================================
-# CORS
-# ===================================
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -80,19 +71,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ===================================
-# РОУТЕРЫ
-# ===================================
-
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(members.router)
 
-
-# ===================================
-# СИСТЕМНЫЕ ЭНДПОИНТЫ
-# ===================================
 
 @app.get("/health", tags=["system"], summary="Проверка доступности")
 async def health_check():
