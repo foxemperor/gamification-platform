@@ -33,4 +33,10 @@ export const leaderboardApi = {
     api
       .get<LeaderboardResponse>('/leaderboard/xp', { params: { period, limit }, signal })
       .then(r => r.data),
+
+  /** Алиас для getXP, используемый в OverviewPage */
+  getTop: ({ limit = 50, period = 'all_time' as LeaderboardPeriod, signal }: { limit?: number; period?: LeaderboardPeriod; signal?: AbortSignal } = {}) =>
+    api
+      .get<LeaderboardResponse>('/leaderboard/xp', { params: { period, limit }, signal })
+      .then(r => r.data.entries),
 }
