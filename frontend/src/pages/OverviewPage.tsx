@@ -389,21 +389,23 @@ function BadgesGrid({ catalog, earnedIds }: { catalog: Badge[]; earnedIds: Set<s
 }
 
 // ────── BioCard — inline-редактирование ──────
-function BioCard({ initialBio }: { initialBio: string }) {
+function BioCard({ bio: bioProp }: { bio: string }) {
   const updateUser = useAuthStore(st => st.updateUser)
   const toast = useAppToast()
 
+  // bio — актуальное отображаемое значение, синхронизируется с пропом
+  const [bio, setBio]       = useState(bioProp)
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft]     = useState(initialBio)
-  const [bio, setBio]         = useState(initialBio)
-  const [saving, setSaving]   = useState(false)
+  const [draft, setDraft]   = useState(bioProp)
+  const [saving, setSaving] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Синх с внешними изменениями (напр.из Settings)
+  // Синхронизация при изменении внешнего значения (profile загрузился после монтирования)
   useEffect(() => {
-    setBio(initialBio)
-    if (!editing) setDraft(initialBio)
-  }, [initialBio])
+    setBio(bioProp)
+    // Обновляем черновик только если НЕ в режиме редактирования
+    if (!editing) setDraft(bioProp)
+  }, [bioProp]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function startEdit() {
     setDraft(bio)
@@ -521,7 +523,9 @@ export function OverviewPage() {
 
   const displayName = resolveDisplayName(profile, user)
   const initials    = resolveInitials(displayName, user?.email)
-  const currentBio  = (profile as any)?.bio ?? (user as any)?.bio ?? ''
+
+  // bio берём из profile (PlayerProfile.bio) — там оно и живёт
+  const currentBio = profile?.bio ?? ''
 
   const birthdayInfo = profile?.birthday ? formatBirthday(profile.birthday) : null
 
@@ -639,7 +643,7 @@ export function OverviewPage() {
           </div>
 
           {/* ── О себе — после Достижений ── */}
-          <BioCard initialBio={currentBio} />
+          <BioCard bio={currentBio} />
         </div>
       </div>
     </div>
