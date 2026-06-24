@@ -1,16 +1,16 @@
 """
 add birthday to users
 
-Revision ID: 20260624_0003
-Revises: 0002_add_manager_id
+Revision ID: 0004
+Revises: 0003
 Create Date: 2026-06-24 11:21:00
 """
 from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = '20260624_0003'
-down_revision = '0002_add_manager_id'
+revision = '0004'
+down_revision = '0003'
 branch_labels = None
 depends_on = None
 
