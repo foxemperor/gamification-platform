@@ -44,7 +44,7 @@ $WHITE  = "White"
 
 $ACTIVE_SERVICES = @("postgres", "redis", "auth-service", "gamification-service", "api-gateway")
 
-# Полный список образов для сохранения/загрузки
+# Full list of images for save/load
 $DOCKER_IMAGES = @(
     "gamification-platform-auth-service:latest",
     "gamification-platform-api-gateway:latest",
@@ -183,7 +183,7 @@ function Assert-Node {
 }
 
 # ================================================================
-# WAIT FOR AUTH SERVICE — poll /health instead of blind sleep
+# WAIT FOR AUTH SERVICE - poll /health instead of blind sleep
 # ================================================================
 
 function Wait-ForAuthService {
@@ -202,7 +202,7 @@ function Wait-ForAuthService {
                 break
             }
         } catch {}
-        Write-Info "  Attempt $attempt/$maxAttempts — not ready yet..."
+        Write-Info "  Attempt $attempt/$maxAttempts - not ready yet..."
     } while ($attempt -lt $maxAttempts)
 
     if (-not $ready) {
@@ -212,13 +212,13 @@ function Wait-ForAuthService {
 }
 
 # ================================================================
-# SAVE IMAGES — сохраняет все образы в tar-файл
+# SAVE IMAGES - save all images to a tar file
 # ================================================================
 
 function Invoke-SaveImages {
     Write-Header "Save Docker Images"
 
-    # Фильтруем только те образы, которые реально есть локально
+    # Filter only images that are available locally
     $available = @()
     $missing   = @()
     foreach ($img in $DOCKER_IMAGES) {
@@ -258,7 +258,7 @@ function Invoke-SaveImages {
 }
 
 # ================================================================
-# LOAD IMAGES — загружает образы из tar-файла
+# LOAD IMAGES - load images from tar file
 # ================================================================
 
 function Invoke-LoadImages {
@@ -287,14 +287,14 @@ function Invoke-LoadImages {
 }
 
 # ================================================================
-# OFFLINE START — запуск без --build и без pull
+# OFFLINE START - start without --build and without pull
 # ================================================================
 
 function Invoke-OfflineStart {
     Write-Header "Gamification Platform - Offline Start"
     Assert-EnvFile
 
-    # Проверяем что ключевые образы есть
+    # Check that key images are present
     $keyImages = @(
         "gamification-platform-api-gateway:latest",
         "gamification-platform-auth-service:latest",
@@ -344,7 +344,7 @@ function Invoke-OfflineStart {
 }
 
 # ================================================================
-# SEED — заполняет БД демо-данными
+# SEED - populate DB with demo data
 # ================================================================
 
 function Invoke-Seed {
@@ -359,7 +359,7 @@ function Invoke-Seed {
         return $false
     }
 
-    # Получаем devuser id из БД напрямую (без HTTP-запроса к auth-service)
+    # Get devuser id directly from DB (no HTTP request to auth-service)
     Write-Info "Getting devuser UUID from database..."
     $uid = docker exec gamification-postgres psql `
         -U gamification_user -d gamification_db -t -A -c `
@@ -376,7 +376,7 @@ function Invoke-Seed {
         $confirm = Read-Host "  Register devuser now via test scenario? (Y/n)"
         if ($confirm -ne "n" -and $confirm -ne "N") {
             Invoke-Test
-            # Повторяем попытку
+            # Retry
             $uid = docker exec gamification-postgres psql `
                 -U gamification_user -d gamification_db -t -A -c `
                 "SELECT id FROM auth.users WHERE username = 'devuser' LIMIT 1;"
@@ -402,7 +402,7 @@ function Invoke-Seed {
 }
 
 # ================================================================
-# DB INIT — проверка схем и запуск миграций
+# DB INIT - check schemas and run migrations
 # ================================================================
 
 function Invoke-DbInit {
@@ -410,7 +410,7 @@ function Invoke-DbInit {
 
     if (-not $Silent) { Write-Header "Database Init" }
 
-    # Проверяем что postgres запущен
+    # Check postgres is running
     $pgRunning = docker ps --filter "name=gamification-postgres" --filter "status=running" -q
     if (-not $pgRunning) {
         Write-Err "PostgreSQL container is not running!"
@@ -418,7 +418,7 @@ function Invoke-DbInit {
         return $false
     }
 
-    # -- Проверяем наличие схем --
+    # Check schemas
     Write-Info "Checking database schemas..."
 
     $authSchemaExists = docker exec gamification-postgres psql `
@@ -440,7 +440,7 @@ function Invoke-DbInit {
     $authTablesCount = $authTablesCount.Trim()
     $gamTablesCount  = $gamTablesCount.Trim()
 
-    # -- Статус схем --
+    # Schema status output
     Write-Host ""
     Write-Host "  Schema Status:" -ForegroundColor $CYAN
 
@@ -456,7 +456,7 @@ function Invoke-DbInit {
         Write-Warn "  schema 'gamification'  MISSING"
     }
 
-    # -- Проверяем нужно ли накатывать миграции --
+    # Check if migrations are needed
     $needsMigration = ($authSchemaExists -ne "1") -or ($gamSchemaExists -ne "1") `
                    -or ([int]$authTablesCount -eq 0) -or ([int]$gamTablesCount -eq 0)
 
@@ -467,7 +467,7 @@ function Invoke-DbInit {
         return $true
     }
 
-    # -- Предлагаем накатить миграции --
+    # Offer to run migrations
     Write-Host ""
     Write-Warn "One or more schemas/tables are missing."
     Write-Host ""
@@ -482,7 +482,7 @@ function Invoke-DbInit {
     Write-Info "Running Alembic migrations..."
     Write-Host ""
 
-    # -- auth-service migrations --
+    # auth-service migrations
     Write-Host "  [auth-service]" -ForegroundColor $YELLOW
     $authContainer = docker ps --filter "name=gamification-auth-service" --filter "status=running" -q
     if ($authContainer) {
@@ -505,7 +505,7 @@ function Invoke-DbInit {
 
     Write-Host ""
 
-    # -- gamification-service migrations --
+    # gamification-service migrations
     Write-Host "  [gamification-service]" -ForegroundColor $YELLOW
     $gamContainer = docker ps --filter "name=gamification-gamification-service" --filter "status=running" -q
     if ($gamContainer) {
@@ -528,7 +528,7 @@ function Invoke-DbInit {
 
     Write-Host ""
 
-    # -- Итоговая проверка --
+    # Final verification
     Write-Info "Verifying final state..."
 
     $authFinal = docker exec gamification-postgres psql `
@@ -781,7 +781,7 @@ if ($cmd -eq "help" -or $cmd -eq "-h" -or $cmd -eq "--help") {
     Assert-EnvFile
     if (-not (Assert-Node)) { exit 1 }
 
-    # Проверяем node_modules
+    # Check node_modules
     if (-not (Test-Path "frontend/node_modules")) {
         Write-Warn "frontend/node_modules not found!"
         Write-Info "Running npm install in ./frontend..."
