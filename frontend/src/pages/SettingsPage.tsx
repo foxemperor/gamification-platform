@@ -6,8 +6,8 @@
  *   2. Аватар        — выбор из пресетов ИЛИ загрузка своего файла.
  *                      Загруженный файл конвертируется в data-URL и сохраняется
  *                      в users.avatar_url (Text), без отдельного файлового бэкенда.
- *   3. Персонаж      — создание героя выбранного архетипа с кастомными цветами,
- *                      если персонаж ещё не создан (модель Character).
+ *   3. Персонаж      — отображение героя (анимированный, интерактивный спрайт)
+ *                      если персонаж уже создан, или форма создания иначе.
  *
  * Все изменения профиля/аватара сохраняются через PATCH /auth/me и
  * синхронизируются в authStore (updateUser) — сразу видны в сайдбаре и обзоре.
@@ -63,17 +63,13 @@ function initialsOf(name: string | null | undefined, email: string): string {
 
 /**
  * Конвертирует дату рождения в значение для <input type="date"> (YYYY-MM-DD).
- * Защищает от локализованного формата DD.MM.YYYY, который может храниться
- * в старых записях или прийти из бэкенда в человекочитаемом виде.
  */
 function toDateInputValue(isoDate: string | null | undefined): string {
   if (!isoDate) return ''
-  // DD.MM.YYYY → YYYY-MM-DD
   if (/^\d{2}\.\d{2}\.\d{4}$/.test(isoDate)) {
     const [d, m, y] = isoDate.split('.')
     return `${y}-${m}-${d}`
   }
-  // Уже ISO YYYY-MM-DD или datetime — берём первые 10 символов
   return isoDate.slice(0, 10)
 }
 
@@ -99,6 +95,9 @@ export function SettingsPage() {
   const [eyes, setEyes]               = useState('#4A90D9')
   const [creatingChar, setCreatingChar] = useState(false)
 
+  // ── Easter egg: счётчик кликов по спрайту ──
+  const [spriteClicks, setSpriteClicks] = useState(0)
+
   useEffect(() => {
     setFullName(user?.full_name ?? '')
     setAvatarUrl(user?.avatar_url ?? null)
@@ -121,6 +120,15 @@ export function SettingsPage() {
 
   const previewAvatar = avatarUrl
   const initials = initialsOf(fullName, user.email)
+
+  function onSpriteClick() {
+    const next = spriteClicks + 1
+    setSpriteClicks(next)
+    if (next === 5) {
+      toast('🎉 Твой персонаж тебя приветствует!', 'success')
+      setSpriteClicks(0)
+    }
+  }
 
   // ────── Загрузка файла → data-URL ──────
   function onFilePick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -329,16 +337,27 @@ export function SettingsPage() {
         {charLoading ? (
           <p className={s.cardDesc}>Загрузка…</p>
         ) : character ? (
-          /* ── Персонаж уже создан ── */
+          /* ── Персонаж уже создан — анимированный спрайт ── */
           <>
             <div className={s.charExisting}>
-              <CharacterSprite
-                slug={character.character_type.slug}
-                skinColor={character.skin_color}
-                hairColor={character.hair_color}
-                eyesColor={character.eyes_color}
-                size={88}
-              />
+              {/* Интерактивная анимированная обёртка */}
+              <button
+                type="button"
+                className={s.charSpriteWrap}
+                onClick={onSpriteClick}
+                aria-label="Персонаж игрока"
+                title="Нажми на персонажа!"
+              >
+                <CharacterSprite
+                  slug={character.character_type.slug}
+                  skinColor={character.skin_color}
+                  hairColor={character.hair_color}
+                  eyesColor={character.eyes_color}
+                  size={96}
+                />
+                <span className={s.charSpriteHint}>Нажми!</span>
+              </button>
+
               <div className={s.charExistingInfo}>
                 <span className={s.charExistingName}>
                   {ARCHETYPE_EMOJI[character.character_type.slug]} {character.character_type.name}

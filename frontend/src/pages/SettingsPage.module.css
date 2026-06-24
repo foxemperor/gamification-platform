@@ -343,11 +343,57 @@
   color: var(--text-faint);
 }
 
-/* ────── Уже есть персонаж ────── */
+/* ────── Уже есть персонаж — анимированный блок ────── */
+@keyframes settingsCharFloat {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+@keyframes settingsCharGlow {
+  0%,100% { filter: drop-shadow(0 0 6px var(--primary-dim)); }
+  50%      { filter: drop-shadow(0 0 14px var(--primary)); }
+}
+
 .charExisting {
   display: flex;
   align-items: center;
   gap: 18px;
+}
+
+/* Обёртка для анимации спрайта */
+.charSpriteWrap {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  animation: settingsCharFloat 3.2s ease-in-out infinite;
+  transition: transform .18s ease;
+  will-change: transform;
+}
+
+.charSpriteWrap:hover {
+  animation-play-state: paused;
+  transform: scale(1.08) rotate(-3deg);
+}
+
+.charSpriteWrap:active {
+  transform: scale(0.95) rotate(3deg);
+}
+
+/* Иконка-подпись под спрайтом при наведении */
+.charSpriteHint {
+  font-size: 10px;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity .2s ease;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.charSpriteWrap:hover .charSpriteHint {
+  opacity: 1;
 }
 
 .charExistingInfo {
