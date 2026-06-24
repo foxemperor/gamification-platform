@@ -45,9 +45,18 @@ export const badgesApi = {
   getCatalog: (signal?: AbortSignal) =>
     api.get<Badge[]>('/badges', { signal }).then(r => r.data),
 
-  /** Бейджи, полученные текущим пользователем */
+  /** Бейджи, полученные текущим пользователем (UserBadge[]) */
   getMine: (signal?: AbortSignal) =>
     api.get<UserBadge[]>('/badges/my', { signal }).then(r => r.data),
+
+  /**
+   * Алиас getMine, который возвращает Badge[] (разворачивает UserBadge → Badge).
+   * Используется в OverviewPage для построения earnedIds.
+   */
+  getMy: (signal?: AbortSignal): Promise<Badge[]> =>
+    api
+      .get<UserBadge[]>('/badges/my', { signal })
+      .then(r => r.data.map((ub: UserBadge) => ub.badge)),
 }
 
 // ────── Утилиты отображения ──────
@@ -100,7 +109,7 @@ export const RARITY_LABEL: Record<BadgeRarity, string> = {
   legendary: 'Легендарный',
 }
 
-/** Эмодзи-иконка по типу/редкости бейджа (бэкенд хранит icon_url опционально) */
+/** Эмоджи-иконка по типу/редкости бейджа (бэкенд хранит icon_url опционально) */
 export function badgeIcon(b: Badge): string {
   if (b.icon_url && b.icon_url.trim()) return b.icon_url
   if (b.condition_type === 'xp_reached') return '🔮'
