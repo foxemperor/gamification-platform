@@ -5,6 +5,7 @@
   POST /api/v1/auth/register  — регистрация
   POST /api/v1/auth/login     — вход
   GET  /api/v1/auth/me        — текущий пользователь
+  PATCH /api/v1/auth/me       — обновление профиля (full_name, bio, avatar_url, birthday)
   POST /api/v1/auth/refresh   — обновление токена
   POST /api/v1/auth/logout    — выход (инвалидация refresh токена)
 Автор: Dmitry Koval
@@ -174,6 +175,8 @@ async def update_me(
         current_user.bio = data.bio
     if data.avatar_url is not None:
         current_user.avatar_url = data.avatar_url
+    if data.birthday is not None:
+        current_user.birthday = data.birthday
 
     await db.commit()
     await db.refresh(current_user)

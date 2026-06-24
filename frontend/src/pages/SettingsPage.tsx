@@ -2,7 +2,7 @@
  * SettingsPage — настройки учётной записи пользователя.
  *
  * Три секции:
- *   1. Профиль       — отображаемое имя (full_name).
+ *   1. Профиль       — отображаемое имя (full_name) и дата рождения (birthday).
  *   2. Аватар        — выбор из пресетов ИЛИ загрузка своего файла.
  *                      Загруженный файл конвертируется в data-URL и сохраняется
  *                      в users.avatar_url (Text), без отдельного файлового бэкенда.
@@ -61,39 +61,46 @@ function initialsOf(name: string | null | undefined, email: string): string {
   return email.slice(0, 2).toUpperCase()
 }
 
+/** Конвертирует ISO-дату «YYYY-MM-DD» в строку для <input type="date"> */
+function toDateInputValue(isoDate: string | null | undefined): string {
+  if (!isoDate) return ''
+  // Если уже в формате YYYY-MM-DD — возвращаем как есть
+  return isoDate.slice(0, 10)
+}
+
 export function SettingsPage() {
   const user = useAuthStore(st => st.user)
   const updateUser = useAuthStore(st => st.updateUser)
   const toast = useAppToast()
 
   // ── Профиль / аватар ──
-  const [fullName, setFullName]   = useState(user?.full_name ?? '')
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatar_url ?? null)
+  const [fullName, setFullName]     = useState(user?.full_name ?? '')
+  const [birthday, setBirthday]     = useState<string>(toDateInputValue(user?.birthday as string | null))
+  const [avatarUrl, setAvatarUrl]   = useState<string | null>(user?.avatar_url ?? null)
   const [savingProfile, setSavingProfile] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // ── Персонаж ──
-  const [character, setCharacter]   = useState<Character | null>(null)
+  const [character, setCharacter]     = useState<Character | null>(null)
   const [charLoading, setCharLoading] = useState(true)
-  const [types, setTypes]           = useState<CharacterType[]>([])
-  const [selSlug, setSelSlug]       = useState<CharacterTypeSlug>('warrior')
-  const [skin, setSkin]             = useState('#F5C5A3')
-  const [hair, setHair]             = useState('#2C1810')
-  const [eyes, setEyes]             = useState('#4A90D9')
+  const [types, setTypes]             = useState<CharacterType[]>([])
+  const [selSlug, setSelSlug]         = useState<CharacterTypeSlug>('warrior')
+  const [skin, setSkin]               = useState('#F5C5A3')
+  const [hair, setHair]               = useState('#2C1810')
+  const [eyes, setEyes]               = useState('#4A90D9')
   const [creatingChar, setCreatingChar] = useState(false)
 
   useEffect(() => {
     setFullName(user?.full_name ?? '')
     setAvatarUrl(user?.avatar_url ?? null)
-  }, [user?.full_name, user?.avatar_url])
+    setBirthday(toDateInputValue(user?.birthday as string | null))
+  }, [user?.full_name, user?.avatar_url, user?.birthday])
 
   useEffect(() => {
     const ac = new AbortController()
-    // типы архетипов (публичные)
     meApi.getCharacterTypes()
       .then(t => { if (!ac.signal.aborted) setTypes(t) })
       .catch(() => { /* silent */ })
-    // мой персонаж (404 если ещё нет)
     meApi.getMyCharacter(ac.signal)
       .then(c => { if (!ac.signal.aborted) setCharacter(c) })
       .catch(() => { if (!ac.signal.aborted) setCharacter(null) })
@@ -125,7 +132,7 @@ export function SettingsPage() {
     }
     reader.onerror = () => toast('Не удалось прочитать файл', 'error')
     reader.readAsDataURL(file)
-    e.target.value = '' // позволяем выбрать тот же файл повторно
+    e.target.value = ''
   }
 
   // ────── Сохранение профиля + аватара ──────
@@ -135,10 +142,12 @@ export function SettingsPage() {
       const updated = await authApi.updateMe({
         full_name: fullName.trim(),
         avatar_url: avatarUrl ?? '',
+        birthday: birthday || null,
       })
       updateUser({
         full_name: updated.full_name,
         avatar_url: updated.avatar_url,
+        birthday: updated.birthday,
       })
       toast('Профиль сохранён', 'success')
     } catch {
@@ -182,7 +191,7 @@ export function SettingsPage() {
           <span className={s.cardIcon}>👤</span>
           <div>
             <h2 className={s.cardTitle}>Профиль</h2>
-            <p className={s.cardDesc}>Имя, которое видят другие участники команды</p>
+            <p className={s.cardDesc}>Имя и дата рождения, которые видят другие участники команды</p>
           </div>
         </div>
 
@@ -194,9 +203,30 @@ export function SettingsPage() {
             type="text"
             value={fullName}
             onChange={e => setFullName(e.target.value)}
-            placeholder="Например: Кароль Менеджер"
+            placeholder="Например: Иван Иванов"
             maxLength={120}
           />
+        </div>
+
+        <div className={s.field}>
+          <label className={s.label} htmlFor="birthday">Дата рождения</label>
+          <input
+            id="birthday"
+            className={s.input}
+            type="date"
+            value={birthday}
+            onChange={e => setBirthday(e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+          />
+          {birthday && (
+            <button
+              type="button"
+              className={s.clearBtn}
+              onClick={() => setBirthday('')}
+            >
+              Очистить дату
+            </button>
+          )}
         </div>
 
         <div className={s.field}>
