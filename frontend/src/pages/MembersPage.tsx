@@ -24,6 +24,14 @@ const SCOPE_HINTS: Record<MemberScope, string> = {
   team:       'Ваша команда (один менеджер)',
 }
 
+// Порядок ролей для сортировки: меньшее значение = выше в списке
+const ROLE_ORDER: Record<string, number> = {
+  admin:    0,
+  manager:  1,
+  employee: 2,
+  user:     3,
+}
+
 // ─── Вспомогательные функции ─────────────────────────────────────────────────
 
 function displayName(m: MemberEntry): string {
@@ -55,52 +63,39 @@ function levelColor(level: number): string {
   return s.levelDefault
 }
 
+function roleOrder(role: string | null): number {
+  if (!role) return 99
+  return ROLE_ORDER[role.toLowerCase()] ?? 99
+}
+
 /**
  * Клиентская фильтрация по scope.
- * Данные всегда загружаются с scope='all', затем фильтруются локально —
- * это исключает лишние сетевые запросы при переключении вкладок.
- *
- * Логика:
- *   project    — совпадает project_name с текущим пользователем
- *   department — совпадает department
- *   team       — тот же manager_id (или сам менеджер является is_self)
- *   all        — без фильтра
  */
-function applyScope(
-  items: MemberEntry[],
-  scope: MemberScope,
-): MemberEntry[] {
+function applyScope(items: MemberEntry[], scope: MemberScope): MemberEntry[] {
   if (scope === 'all') return items
-
   const self = items.find(m => m.is_self)
-  if (!self) return items   // нет данных о себе — показываем всех
+  if (!self) return items
 
   if (scope === 'project') {
     if (!self.project_name) return items
     return items.filter(m => m.project_name === self.project_name)
   }
-
   if (scope === 'department') {
     if (!self.department) return items
     return items.filter(m => m.department === self.department)
   }
-
   if (scope === 'team') {
-    // «команда» = все, у кого тот же manager_id, что и у меня;
-    // плюс сам менеджер (если manager_id === его user_id)
     const myManagerId = self.manager_id
-    if (!myManagerId) return [self]   // нет менеджера — только я
+    if (!myManagerId) return [self]
     return items.filter(
       m => m.manager_id === myManagerId || m.user_id === myManagerId
     )
   }
-
   return items
 }
 
 /**
  * Клиентская фильтрация по поисковой строке.
- * Ищет по: full_name, username, project_name, department.
  */
 function applySearch(items: MemberEntry[], q: string): MemberEntry[] {
   const needle = q.trim().toLowerCase()
@@ -113,6 +108,19 @@ function applySearch(items: MemberEntry[], q: string): MemberEntry[] {
       m.department ?? '',
     ].join(' ').toLowerCase()
     return haystack.includes(needle)
+  })
+}
+
+/**
+ * Сортировка по роли (manager первый), затем по имени.
+ * Применяется только для scope='team', чтобы не перемешивать порядок
+ * рейтинга для других scope.
+ */
+function sortByRole(items: MemberEntry[]): MemberEntry[] {
+  return [...items].sort((a, b) => {
+    const dr = roleOrder(a.role) - roleOrder(b.role)
+    if (dr !== 0) return dr
+    return displayName(a).localeCompare(displayName(b), 'ru')
   })
 }
 
@@ -137,13 +145,13 @@ function Avatar({ member, className }: { member: MemberEntry; className: string 
 function SkeletonCards() {
   return (
     <>
-      {[...Array(12)].map((_, i) => (
+      {[...Array(8)].map((_, i) => (
         <div key={i} className={s.card}>
           <div className={[s.skel, s.skelAvatar].join(' ')} />
-          <div className={s.cardBody}>
+          <div className={s.cardBody} style={{ gap: '12px' }}>
             <div className={[s.skel, s.skelName].join(' ')} />
             <div className={[s.skel, s.skelMeta].join(' ')} />
-            <div className={[s.skel, s.skelMeta].join(' ')} style={{ width: '60%' }} />
+            <div className={[s.skel, s.skelMeta].join(' ')} style={{ width: '100px' }} />
           </div>
         </div>
       ))}
@@ -151,9 +159,9 @@ function SkeletonCards() {
   )
 }
 
-// ─── Карточка участника ───────────────────────────────────────────────────────
+// ─── Строка участника ─────────────────────────────────────────────────────
 
-function MemberCard({ member }: { member: MemberEntry }) {
+function MemberRow({ member }: { member: MemberEntry }) {
   const role = roleLabel(member.role)
   return (
     <div className={[s.card, member.is_self ? s.cardSelf : ''].join(' ')}>
@@ -224,19 +232,67 @@ function EmptyState({ scope, hasSearch }: { scope: MemberScope; hasSearch: boole
   )
 }
 
+// ─── Отрендер списка с разделителями групп ──────────────────────────────────────
+
+interface GroupedListProps {
+  members: MemberEntry[]
+  showGroups: boolean
+}
+
+const ROLE_GROUP_LABELS: Record<string, string> = {
+  admin:    'Администраторы',
+  manager:  'Менеджеры',
+  employee: 'Сотрудники',
+  user:     'Пользователи',
+}
+
+function GroupedList({ members, showGroups }: GroupedListProps) {
+  if (!showGroups) {
+    return <>{members.map(m => <MemberRow key={m.user_id} member={m} />)}</>
+  }
+
+  // Группируем по роли, сохраняя порядок сортировки
+  const groups: { key: string; label: string; items: MemberEntry[] }[] = []
+  for (const m of members) {
+    const key = (m.role ?? 'user').toLowerCase()
+    const last = groups[groups.length - 1]
+    if (last && last.key === key) {
+      last.items.push(m)
+    } else {
+      groups.push({
+        key,
+        label: ROLE_GROUP_LABELS[key] ?? key,
+        items: [m],
+      })
+    }
+  }
+
+  return (
+    <>
+      {groups.map(g => (
+        <>
+          <div key={`divider-${g.key}`} className={s.groupDivider}>
+            {g.label} &middot; {g.items.length}
+          </div>
+          {g.items.map(m => <MemberRow key={m.user_id} member={m} />)}
+        </>
+      ))}
+    </>
+  )
+}
+
 // ─── Страница ────────────────────────────────────────────────────────────────
 
 export function MembersPage() {
   const currentUserId = useAuthStore(st => st.user?.id)
 
-  const [scope, setScope]         = useState<MemberScope>('all')
-  const [search, setSearch]       = useState('')
+  const [scope, setScope]                     = useState<MemberScope>('all')
+  const [search, setSearch]                   = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  // allMembers — сырые данные с API (всегда scope='all')
-  const [allMembers, setAllMembers] = useState<MemberEntry[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [allMembers, setAllMembers]           = useState<MemberEntry[]>([])
+  const [loading, setLoading]                 = useState(true)
 
-  // ── Debounce поиска (300 мс) ──────────────────────────────────────────────
+  // Debounce поиска
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleSearch = (v: string) => {
     setSearch(v)
@@ -244,39 +300,28 @@ export function MembersPage() {
     searchTimer.current = setTimeout(() => setDebouncedSearch(v), 300)
   }
 
-  // ── Единственный сетевой запрос: загружаем ВСЕХ один раз ─────────────────
-  // Перезапрашиваем только при изменении currentUserId (смена аккаунта).
-  // Scope и search обрабатываются клиентски — без лишних запросов и мерцания.
+  // Единственный сетевой запрос — загружаем всех один раз
   useEffect(() => {
     let cancelled = false
     const ctrl = new AbortController()
-
     setLoading(true)
     membersApi
       .getMembers('all', '', 500, ctrl.signal)
       .then(res => {
         if (cancelled) return
-        const items = res.items.map(m => ({
-          ...m,
-          is_self: m.user_id === currentUserId,
-        }))
+        const items = res.items.map(m => ({ ...m, is_self: m.user_id === currentUserId }))
         setAllMembers(items)
       })
-      .catch(err => {
-        if (isAbortError(err) || cancelled) return
-        setAllMembers([])
-      })
+      .catch(err => { if (!isAbortError(err) && !cancelled) setAllMembers([]) })
       .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true; ctrl.abort() }
+  }, [currentUserId])
 
-    return () => {
-      cancelled = true
-      ctrl.abort()
-    }
-  }, [currentUserId]) // <-- намеренно НЕТ scope/debouncedSearch
-
-  // ── Производные данные (вычисляются без setState → нет мерцания) ──────────
+  // Производные — чистые функции, нет setState
   const scopedMembers  = applyScope(allMembers, scope)
-  const visibleMembers = applySearch(scopedMembers, debouncedSearch)
+  // Сортировка по роли — только для вкладки «Команда»
+  const sortedMembers  = scope === 'team' ? sortByRole(scopedMembers) : scopedMembers
+  const visibleMembers = applySearch(sortedMembers, debouncedSearch)
   const total          = visibleMembers.length
   const hasSearch      = debouncedSearch.trim().length > 0
 
@@ -288,13 +333,8 @@ export function MembersPage() {
           <h1 className={s.pageTitle}>Участники</h1>
           {!loading && (
             <p className={s.pageSub}>
-              {total}
-              {' '}
-              {total === 1
-                ? 'участник'
-                : total >= 2 && total <= 4
-                  ? 'участника'
-                  : 'участников'}
+              {total}{' '}
+              {total === 1 ? 'участник' : total >= 2 && total <= 4 ? 'участника' : 'участников'}
               {scope !== 'all' && ` · ${SCOPE_HINTS[scope]}`}
             </p>
           )}
@@ -303,7 +343,6 @@ export function MembersPage() {
 
       {/* Панель фильтров и поиска */}
       <div className={s.toolbar}>
-        {/* Вкладки scope */}
         <div className={s.tabs}>
           {(Object.keys(SCOPE_LABELS) as MemberScope[]).map(sc => (
             <button
@@ -317,7 +356,6 @@ export function MembersPage() {
           ))}
         </div>
 
-        {/* Поиск */}
         <div className={s.searchWrap}>
           <span className={s.searchIcon}>🔍</span>
           <input
@@ -340,12 +378,15 @@ export function MembersPage() {
         </div>
       </div>
 
-      {/* Сетка карточек */}
+      {/* Список */}
       <div className={s.grid}>
         {loading ? (
           <SkeletonCards />
         ) : visibleMembers.length > 0 ? (
-          visibleMembers.map(m => <MemberCard key={m.user_id} member={m} />)
+          <GroupedList
+            members={visibleMembers}
+            showGroups={scope === 'team' && !hasSearch}
+          />
         ) : (
           <div className={s.emptyWrap}>
             <EmptyState scope={scope} hasSearch={hasSearch} />
