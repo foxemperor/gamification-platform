@@ -4,7 +4,7 @@ Pydantic схемы Auth Service
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, Literal
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -37,6 +37,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(None, max_length=100)
     bio: Optional[str] = Field(None, max_length=500)
     avatar_url: Optional[str] = None
+    birthday: Optional[date] = None
 
 
 class UserResponse(BaseModel):
@@ -46,6 +47,7 @@ class UserResponse(BaseModel):
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
     bio: Optional[str] = None
+    birthday: Optional[date] = None
     department: Optional[str] = None
     project: Optional[str] = None
     position: Optional[str] = None
@@ -82,6 +84,7 @@ class MemberEntry(BaseModel):
     project_name: Optional[str] = None
     position: Optional[str] = None
     manager_id: Optional[uuid.UUID] = None
+    birthday: Optional[date] = None
     is_self: bool = False
 
     model_config = {"from_attributes": True}
@@ -108,6 +111,7 @@ class AdminUserCreate(BaseModel):
     position: Optional[str] = Field(None, max_length=100)
     role: Literal["employee", "manager", "admin"] = "employee"
     manager_id: Optional[uuid.UUID] = None
+    birthday: Optional[date] = None
     is_active: bool = True
     is_verified: bool = True
 
@@ -122,6 +126,7 @@ class AdminUserUpdate(BaseModel):
     position: Optional[str] = Field(None, max_length=100)
     role: Optional[Literal["employee", "manager", "admin"]] = None
     manager_id: Optional[uuid.UUID] = None
+    birthday: Optional[date] = None
     is_active: Optional[bool] = None
     is_verified: Optional[bool] = None
 

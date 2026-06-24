@@ -5,8 +5,8 @@ SQLAlchemy модели Auth Service
 """
 
 import uuid
-from datetime import datetime
-from sqlalchemy import String, Boolean, Integer, DateTime, Text, ForeignKey
+from datetime import datetime, date
+from sqlalchemy import String, Boolean, Integer, DateTime, Text, ForeignKey, Date
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -28,6 +28,7 @@ class User(Base):
     full_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    birthday: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     # Организационная принадлежность
     department: Mapped[str | None] = mapped_column(String(100), nullable=True)

@@ -48,6 +48,7 @@ def _to_entry(user: User, current_user_id: uuid.UUID) -> MemberEntry:
         project_name=user.project,
         position=user.position,
         manager_id=user.manager_id,
+        birthday=user.birthday,
         is_self=(user.id == current_user_id),
     )
 
