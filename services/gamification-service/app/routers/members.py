@@ -29,7 +29,7 @@ from app.models import LeaderboardSnapshot, XPTransaction, xp_required_for_level
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/members", tags=["members"])
+router = APIRouter(prefix="/api/v1/members", tags=["members"])
 
 AUTH_SCHEMA = "auth"
 
@@ -114,7 +114,7 @@ async def list_members(
 
     Первичный источник — leaderboard_snapshots (period='all_time') +
     обогащение данными пользователя из auth.users (department, project, role, manager_id, birthday).
-    Если снапшоты отсутствуют — fallback через агрегацию xp_transactions.
+    Если снапшоты отсутствуют — fallback череy агрегацию xp_transactions.
     """
 
     search_q = search.strip().lower()
