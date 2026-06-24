@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/authStore'
 import { meApi, type PlayerProfile, type Character } from '../api/me'
 import { questsApi, type UserQuest } from '../api/quests'
 import { leaderboardApi, type LeaderboardEntry } from '../api/leaderboard'
-import { CharacterSprite } from '../components/CharacterSprite'
+import { CharacterRenderer, type EquipSlot } from '../components/CharacterRenderer'
 import {
   badgesApi, type Badge,
   describeBadgeCondition, badgeIcon, RARITY_RING,
@@ -52,7 +52,7 @@ function resolveInitials(displayName: string, email?: string | null): string {
 // ────── CharacterCard ──────
 // Карточка персонажа игрока. НЕ дублирует статистику из правых карточек
 // (Уровень / XP / Монеты / Бейджи) — показывает самого персонажа:
-// аватар или спрайт класса, имя, архетип и бонусы-мультипликаторы.
+// динамичный интерактивный SVG-спрайт класса, имя, архетип и бонусы-мультипликаторы.
 const ARCHETYPE_LABEL: Record<string, string> = {
   warrior: '⚔️ Воин', mage: '🔮 Маг', rogue: '🗡️ Разбойник', engineer: '🛠️ Инженер',
 }
@@ -73,6 +73,13 @@ function CharacterCard({ character }: { character: Character | null }) {
   for (const eq of character?.equipment ?? []) equippedBySlot.set(eq.slot, eq)
   const hasEquipment = (character?.equipment?.length ?? 0) > 0
 
+  // Преобразуем equipment для CharacterRenderer
+  const rendererEquipment: EquipSlot[] = (character?.equipment ?? []).map(eq => ({
+    slot: eq.slot,
+    name: eq.cosmetic_item.name,
+    rarity: (eq.cosmetic_item.rarity as EquipSlot['rarity']) ?? 'common',
+  }))
+
   return (
     <div className={`${s.characterCard} ${s.charCardPad}`}>
       {character ? (
@@ -85,12 +92,14 @@ function CharacterCard({ character }: { character: Character | null }) {
           </div>
 
           <div className={s.charSprite}>
-            <CharacterSprite
+            <CharacterRenderer
               className={s.charSpriteBody}
               slug={character.character_type.slug}
               skinColor={character.skin_color}
               hairColor={character.hair_color}
               eyesColor={character.eyes_color}
+              equipment={rendererEquipment}
+              size={220}
             />
           </div>
           {character.character_type.bonus_description && (
@@ -167,7 +176,7 @@ function FallbackCharacterCard({
   displayName: string
 }) {
   const initials = resolveInitials(displayName, user?.email)
-  const labels = ['Квесты', 'Монеты', 'Бейджи', 'В процессе', 'Стрик']
+  const labels = ['Квесты', 'Монеты', 'Бейджи', 'В процессе', 'Стрик']
   return (
     <div className={s.characterCard}>
       <div className={s.charBanner} />
@@ -177,8 +186,8 @@ function FallbackCharacterCard({
       <p className={s.charName}>{displayName !== '—' ? displayName : (user?.username ?? '—')}</p>
       <div className={s.charXpWrap}>
         <div className={s.charXpLabels}>
-          <span>{(user?.xp ?? 0).toLocaleString()} XP</span>
-          <span>LVL {(user?.level ?? 1) + 1}</span>
+          <span>{(user?.xp ?? 0).toLocaleString()} XP</span>
+          <span>LVL {(user?.level ?? 1) + 1}</span>
         </div>
         <div className={s.charXpTrack}>
           <div className={s.charXpFill} style={{ width: '2%' }} />
@@ -221,7 +230,7 @@ function XPBar({ profile }: { profile: PlayerProfile }) {
   return (
     <div className={s.xpSection}>
       <div className={s.xpHeader}>
-        <span className={s.xpTitle}>Прогресс до уровня {profile.level + 1}</span>
+        <span className={s.xpTitle}>Прогресс до уровня {profile.level + 1}</span>
         <span className={s.xpPct}>{percent.toFixed(0)}%</span>
       </div>
       <div
@@ -234,8 +243,8 @@ function XPBar({ profile }: { profile: PlayerProfile }) {
         <div className={s.xpFill} style={{ width: `${percent}%` }} />
       </div>
       <div className={s.xpFooter}>
-        <span>{profile.total_xp.toLocaleString()} XP</span>
-        <span>ещё {profile.xp_to_next_level.toLocaleString()} XP</span>
+        <span>{profile.total_xp.toLocaleString()} XP</span>
+        <span>ещё {profile.xp_to_next_level.toLocaleString()} XP</span>
       </div>
     </div>
   )
@@ -269,10 +278,10 @@ function QuestCard({ q }: { q: UserQuest }) {
       </div>
       <div className={s.questBottom}>
         <span className={s.questProg}>{q.progress}/{q.target}</span>
-        <span className={s.questReward}>+{xpReward} XP</span>
+        <span className={s.questReward}>+{xpReward} XP</span>
         {q.deadline_at && (
           <span className={s.questDeadline}>
-            до {new Date(q.deadline_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+            до {new Date(q.deadline_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
           </span>
         )}
       </div>
@@ -299,14 +308,14 @@ function StreakCard({ days }: { days: number }) {
           <div
             key={i}
             className={`${s.streakDot} ${i < active ? s.streakDotActive : ''}`}
-            title={`День ${i + 1}`}
+            title={`День ${i + 1}`}
           />
         ))}
       </div>
       <p className={s.streakHint}>
         {days >= 7
           ? '🏆 7 дней подряд — отлично!'
-          : `Ещё ${7 - days} ${7 - days === 1 ? 'день' : 'дня'} до недельного рекорда`}
+          : `Ещё ${7 - days} ${7 - days === 1 ? 'день' : 'дня'} до недельного рекорда`}
       </p>
     </div>
   )
@@ -337,10 +346,10 @@ function MiniLeaderboard({
                 : name.slice(0, 2).toUpperCase()}
             </div>
             <span className={s.miniLbName}>
-              {name}{isMe && <span className={s.miniLbYou}> (ты)</span>}
+              {name}{isMe && <span className={s.miniLbYou}> (ты)</span>}
             </span>
-            <span className={s.miniLbXp}>{e.total_xp.toLocaleString()} XP</span>
-            <span className={s.miniLbLvl}>LVL {e.level}</span>
+            <span className={s.miniLbXp}>{e.total_xp.toLocaleString()} XP</span>
+            <span className={s.miniLbLvl}>LVL {e.level}</span>
           </div>
         )
       })}
@@ -476,11 +485,11 @@ export function OverviewPage() {
               : initials}
           </div>
           <div>
-            <h1 className={s.greeting}>Привет, {displayName} 👋</h1>
+            <h1 className={s.greeting}>Привет, {displayName} 👋</h1>
             <p className={s.greetingSub}>
-              Уровень {level}
+              Уровень {level}
               {rank != null && (
-                <> · <span className={s.rankBadge}>#{rank} в рейтинге</span></>
+                <> · <span className={s.rankBadge}>#{rank} в рейтинге</span></>
               )}
             </p>
           </div>
@@ -513,27 +522,27 @@ export function OverviewPage() {
             <div className={s.statsRow}>
               <StatCard
                 icon="⚡" label="Уровень" value={profile.level}
-                sub={`${profile.quests_completed} квестов`} accent
+                sub={`${profile.quests_completed} квестов`} accent
               />
               <StatCard
-                icon="🔮" label="Всего XP" value={profile.total_xp.toLocaleString()}
-                sub={`${profile.quests_in_progress} в процессе`}
+                icon="🔮" label="Всего XP" value={profile.total_xp.toLocaleString()}
+                sub={`${profile.quests_in_progress} в процессе`}
               />
               <StatCard
                 icon="🪙" label="Монеты" value={profile.total_coins.toLocaleString()}
-                sub="на балансе"
+                sub="на балансе"
               />
               <StatCard
                 icon="🏅" label="Бейджи" value={profile.badges_count}
-                sub={rank != null ? `#${rank} в рейтинге` : 'нет позиции'}
+                sub={rank != null ? `#${rank} в рейтинге` : 'нет позиции'}
               />
             </div>
           ) : (
             <div className={s.statsRow}>
               <StatCard icon="⚡" label="Уровень"  value={user?.level ?? 1} sub="игрока" accent />
-              <StatCard icon="🔮" label="Всего XP" value={(user?.xp ?? 0).toLocaleString()} />
-              <StatCard icon="🪙" label="Монеты"   value={(user?.coins ?? 0).toLocaleString()} sub="на балансе" />
-              <StatCard icon="🏅" label="Бейджи"   value="—" sub="нет данных" />
+              <StatCard icon="🔮" label="Всего XP" value={(user?.xp ?? 0).toLocaleString()} />
+              <StatCard icon="🪙" label="Монеты"   value={(user?.coins ?? 0).toLocaleString()} sub="на балансе" />
+              <StatCard icon="🏅" label="Бейджи"   value="—" sub="нет данных" />
             </div>
           )}
 
@@ -554,7 +563,7 @@ export function OverviewPage() {
               </div>
             ) : questsErr ? (
               <div className={s.inlineHint}>
-                ⚠️ Не удалось загрузить квесты — 
+                ⚠️ Не удалось загрузить квесты — 
                 <button
                   className={s.retryBtn}
                   onClick={() => window.location.reload()}
