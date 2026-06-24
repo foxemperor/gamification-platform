@@ -1,7 +1,6 @@
 import asyncio
 from logging.config import fileConfig
 
-from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -40,11 +39,6 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    # Создаём схему если её нет — до того как Alembic попытается
-    # создать alembic_version внутри неё
-    connection.execute(text("CREATE SCHEMA IF NOT EXISTS gamification"))
-    connection.commit()
-
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
