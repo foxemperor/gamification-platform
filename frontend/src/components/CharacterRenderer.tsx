@@ -1,7 +1,7 @@
 /**
  * CharacterRenderer
  * =================
- * Слоевой SVG-рендер персонажа для демо-ветки (issue #12).
+ * Слоевый SVG-рендер персонажа для демо-ветки (issue #12).
  * Работает полностью на фронтенде — никаких бэкенд-запросов.
  *
  * Слои (снизу вверх):
@@ -15,6 +15,10 @@
  *   equipment     — список надетых предметов { slot, name }
  *   onEquipChange — колбэк (slot, itemName | null) при клике по слоту
  *   size          — размер SVG в px (default 220)
+ *
+ * Отображаемые слоты предметов (hair, torso, head, и др.) визуально отличаются
+ * в зависимости от названия (названия используются как детерминисты стиля)
+ * и редкости предмета.
  */
 import { useState } from 'react'
 import s from './CharacterRenderer.module.css'
@@ -51,6 +55,35 @@ const CLASS_PALETTE: Record<string, { armor: string; weapon: string; accent: str
   default: { armor: '#5c677d', weapon: '#adb5bd', accent: '#4cc9f0' },
 }
 
+// Стили причёски в зависимости от названия предмета в слоте hair.
+// Названия причёски мапятся на визуальный стиль (0–3):
+//   0 — короткая/базовая
+//   1 — длинные волосы с чёлкой
+//   2 — коса набоку
+//   3 — эпический/фэнтезийный
+function resolveHairStyle(itemName: string | undefined, rarity: string | undefined): number {
+  if (!itemName) return 0
+  const n = itemName.toLowerCase()
+  if (n.includes('фэнтез') || n.includes('fantasy') || n.includes('epic') || rarity === 'epic' || rarity === 'legendary') return 3
+  if (n.includes('коса') || n.includes('braid') || n.includes('side') || n.includes('бок') || n.includes('wave')) return 2
+  if (n.includes('длин') || n.includes('long') || n.includes('чёлка') || n.includes('bang') || rarity === 'rare') return 1
+  return 0
+}
+
+// Стиль верхней одежды в зависимости от названия предмета.
+//   0 — базовый (простая броня)
+//   1 — легкий китель/роба
+//   2 — бронежилет/плащ (рарный)
+//   3 — эпическая/легендарная броня
+function resolveTorsoStyle(itemName: string | undefined, rarity: string | undefined): number {
+  if (!itemName) return 0
+  const n = itemName.toLowerCase()
+  if (rarity === 'legendary' || n.includes('легенд') || n.includes('dragon') || n.includes('дракон')) return 3
+  if (rarity === 'epic' || n.includes('бронеж') || n.includes('plate') || n.includes('плащ')) return 2
+  if (rarity === 'rare' || n.includes('китель') || n.includes('robe') || n.includes('роба')) return 1
+  return 0
+}
+
 export function CharacterRenderer({
   slug = 'warrior',
   skinColor = '#f4c89a',
@@ -71,12 +104,26 @@ export function CharacterRenderer({
   const hasShield = !!equipped('weapon_secondary')
   const hasCloak  = !!equipped('torso_accessory')
 
+  const hairItem   = equipped('hair')
+  const torsoItem  = equipped('torso')
+  const hairStyle  = resolveHairStyle(hairItem?.name, hairItem?.rarity)
+  const torsoStyle = resolveTorsoStyle(torsoItem?.name, torsoItem?.rarity)
+
   const slotGlow = (slot: string) =>
     hoveredSlot === slot ? 'url(#glow)' : 'none'
 
   const armorColor = hasArmor  ? pal.armor  : '#7c8a9e'
   const weapColor  = hasWeapon ? pal.weapon : '#9ca3af'
   const accentColor = pal.accent
+
+  // Цвет одежды в зависимости от стиля
+  const torsoFill = torsoStyle === 3
+    ? `${pal.armor}` // легендарная: более насыщенный цвет
+    : torsoStyle === 2
+    ? `${pal.armor}dd`
+    : torsoStyle === 1
+    ? `${pal.armor}99`
+    : armorColor
 
   return (
     <div className={`${s.wrap} ${className ?? ''}`}>
@@ -105,9 +152,17 @@ export function CharacterRenderer({
           </linearGradient>
           {/* Armor gradient */}
           <linearGradient id="armorGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"  stopColor={armorColor} />
-            <stop offset="100%" stopColor={`${armorColor}99`} />
+            <stop offset="0%"  stopColor={torsoFill} />
+            <stop offset="100%" stopColor={`${torsoFill}99`} />
           </linearGradient>
+          {/* Legendary armor gradient */}
+          {torsoStyle === 3 && (
+            <linearGradient id="legendGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%"  stopColor={pal.armor} />
+              <stop offset="50%" stopColor={accentColor} />
+              <stop offset="100%" stopColor={pal.armor} />
+            </linearGradient>
+          )}
         </defs>
 
         {/* ── СЛОЙ 0: Тень ── */}
@@ -115,13 +170,10 @@ export function CharacterRenderer({
 
         {/* ── СЛОЙ 1: Ноги ── */}
         <g className={s.layerLegs}>
-          {/* Левая нога */}
           <rect x="38" y="88" width="10" height="26" rx="4"
-            fill={hasArmor ? `${armorColor}cc` : skinColor} />
-          {/* Правая нога */}
+            fill={hasArmor ? `${torsoFill}cc` : skinColor} />
           <rect x="52" y="88" width="10" height="26" rx="4"
-            fill={hasArmor ? `${armorColor}cc` : skinColor} />
-          {/* Ступни */}
+            fill={hasArmor ? `${torsoFill}cc` : skinColor} />
           <rect x="36" y="111" width="13" height="5" rx="3" fill="#3d2c1e" />
           <rect x="51" y="111" width="13" height="5" rx="3" fill="#3d2c1e" />
         </g>
@@ -135,13 +187,46 @@ export function CharacterRenderer({
           style={{ cursor: 'pointer' }}
         >
           <rect x="34" y="58" width="32" height="32" rx="6"
-            fill="url(#armorGrad)" stroke={hasArmor ? accentColor : 'none'} strokeWidth="0.8" />
-          {/* Детали брони */}
-          {hasArmor && (
+            fill={torsoStyle === 3 ? 'url(#legendGrad)' : 'url(#armorGrad)'}
+            stroke={hasArmor ? accentColor : 'none'}
+            strokeWidth={torsoStyle === 3 ? '1.5' : '0.8'} />
+
+          {/* Детали одежды в зависимости от стиля */}
+          {torsoStyle === 0 && hasArmor && (
+            // Базовая броня
             <>
               <rect x="38" y="62" width="24" height="3" rx="1.5" fill={`${accentColor}80`} />
               <circle cx="50" cy="72" r="3" fill={accentColor} opacity="0.7" />
               <rect x="42" y="78" width="16" height="2" rx="1" fill={`${accentColor}60`} />
+            </>
+          )}
+          {torsoStyle === 1 && (
+            // Китель/роба: вертикальные полосы
+            <>
+              <rect x="49" y="59" width="2" height="30" rx="1" fill={`${accentColor}50`} />
+              <rect x="38" y="64" width="24" height="1.5" rx="0.8" fill={`${accentColor}60`} />
+              <rect x="38" y="71" width="24" height="1.5" rx="0.8" fill={`${accentColor}60`} />
+            </>
+          )}
+          {torsoStyle === 2 && (
+            // Бронежилет: пластины
+            <>
+              <rect x="36" y="60" width="8" height="28" rx="2" fill={`${accentColor}40`} />
+              <rect x="56" y="60" width="8" height="28" rx="2" fill={`${accentColor}40`} />
+              <rect x="38" y="63" width="24" height="3" rx="1.5" fill={`${accentColor}90`} />
+              <circle cx="50" cy="72" r="3.5" fill={accentColor} opacity="0.85" />
+              <rect x="42" y="79" width="16" height="2" rx="1" fill={`${accentColor}70`} />
+            </>
+          )}
+          {torsoStyle === 3 && (
+            // Легендарная броня: руны + сложный орнамент
+            <>
+              <path d="M38 62 L62 62 L62 88 L38 88Z" fill="none" stroke={accentColor} strokeWidth="1" />
+              <circle cx="50" cy="72" r="4" fill={accentColor} opacity="0.9" />
+              <circle cx="50" cy="72" r="2" fill="white" opacity="0.7" />
+              <path d="M40 66 L44 62 M56 62 L60 66" stroke={accentColor} strokeWidth="0.8" />
+              <path d="M38 75 L42 73 M58 73 L62 75" stroke={accentColor} strokeWidth="0.8" />
+              <rect x="38" y="84" width="24" height="2" rx="1" fill={accentColor} opacity="0.8" />
             </>
           )}
         </g>
@@ -177,7 +262,6 @@ export function CharacterRenderer({
           style={{ cursor: 'pointer' }}
         >
           {slug === 'mage' ? (
-            /* Посох */
             <g>
               <rect x="18" y="30" width="3" height="60" rx="1.5" fill="#8b5e3c" />
               <circle cx="19.5" cy="28" r="5" fill={weapColor}
@@ -185,13 +269,11 @@ export function CharacterRenderer({
               <circle cx="19.5" cy="28" r="3" fill={`${weapColor}cc`} />
             </g>
           ) : slug === 'archer' ? (
-            /* Лук */
             <g>
               <path d="M18 35 Q10 70 18 105" fill="none" stroke="#8b5e3c" strokeWidth="2" />
               <line x1="18" y1="35" x2="18" y2="105" stroke={weapColor} strokeWidth="0.5" strokeDasharray="3,3" />
             </g>
           ) : (
-            /* Меч */
             <g>
               <rect x="17" y="45" width="4" height="55" rx="2"
                 fill="url(#metalGrad)" />
@@ -221,13 +303,11 @@ export function CharacterRenderer({
 
         {/* ── СЛОЙ 6: Руки ── */}
         <g className={s.layerArms}>
-          {/* Левая рука */}
           <rect x="24" y="60" width="9" height="22" rx="4"
-            fill={hasArmor ? armorColor : skinColor} />
+            fill={hasArmor ? torsoFill : skinColor} />
           <circle cx="28.5" cy="84" r="5" fill={skinColor} />
-          {/* Правая рука */}
           <rect x="67" y="60" width="9" height="22" rx="4"
-            fill={hasArmor ? armorColor : skinColor} />
+            fill={hasArmor ? torsoFill : skinColor} />
           <circle cx="71.5" cy="84" r="5" fill={skinColor} />
         </g>
 
@@ -240,10 +320,8 @@ export function CharacterRenderer({
           onMouseLeave={() => setHoveredSlot(null)}
           style={{ cursor: 'pointer' }}
         >
-          {/* Голова */}
           <ellipse cx="50" cy="38" rx="16" ry="18" fill={skinColor} />
 
-          {/* Глаза */}
           <ellipse cx="44" cy="36" rx="3.5" ry="4" fill="white" />
           <ellipse cx="56" cy="36" rx="3.5" ry="4" fill="white" />
           <circle cx="44" cy="37" r="2" fill={eyesColor} />
@@ -251,10 +329,8 @@ export function CharacterRenderer({
           <circle cx="44.8" cy="36.2" r="0.7" fill="white" />
           <circle cx="56.8" cy="36.2" r="0.7" fill="white" />
 
-          {/* Рот */}
           <path d="M45 44 Q50 47 55 44" fill="none" stroke="#c0796a" strokeWidth="1.2" strokeLinecap="round" />
 
-          {/* Шлем */}
           {hasHelmet && (
             <>
               <path
@@ -263,7 +339,6 @@ export function CharacterRenderer({
                 stroke={accentColor}
                 strokeWidth="1"
               />
-              {/* Забрало */}
               <rect x="40" y="30" width="20" height="8" rx="3"
                 fill={`${armorColor}dd`}
                 stroke={accentColor}
@@ -273,7 +348,8 @@ export function CharacterRenderer({
           )}
         </g>
 
-        {/* ── СЛОЙ 8: Волосы ── */}
+        {/* ── СЛОЙ 8: Волосы ──
+             Теперь в четырёх визуальных стилях, выбираемых по названию/редкости предмета */}
         {!hasHelmet && (
           <g
             filter={slotGlow('hair')}
@@ -281,11 +357,62 @@ export function CharacterRenderer({
             onMouseLeave={() => setHoveredSlot(null)}
             style={{ cursor: 'pointer' }}
           >
-            <path
-              d="M34 34 Q33 18 50 14 Q67 18 66 34 Q62 22 50 21 Q38 22 34 34Z"
-              fill={hairColor}
-            />
-            {slug === 'mage' && (
+            {hairStyle === 0 && (
+              // Короткая/базовая
+              <path
+                d="M34 34 Q33 18 50 14 Q67 18 66 34 Q62 22 50 21 Q38 22 34 34Z"
+                fill={hairColor}
+              />
+            )}
+            {hairStyle === 1 && (
+              // Длинные волосы с чёлкой
+              <>
+                <path
+                  d="M34 34 Q33 18 50 14 Q67 18 66 34 Q62 22 50 21 Q38 22 34 34Z"
+                  fill={hairColor}
+                />
+                {/* Длинные волосы по бокам */}
+                <path d="M34 34 Q30 50 32 75 Q34 85 36 90" fill="none" stroke={hairColor} strokeWidth="3" strokeLinecap="round" />
+                <path d="M66 34 Q70 50 68 75 Q66 85 64 90" fill="none" stroke={hairColor} strokeWidth="3" strokeLinecap="round" />
+                {/* Чёлка */}
+                <path d="M44 21 Q50 18 56 21" fill="none" stroke={hairColor} strokeWidth="2" strokeLinecap="round" />
+                <path d="M46 19 Q50 15 54 19" fill="none" stroke={hairColor} strokeWidth="1.5" strokeLinecap="round" />
+              </>
+            )}
+            {hairStyle === 2 && (
+              // Коса набоку
+              <>
+                <path
+                  d="M34 34 Q33 18 50 14 Q67 18 66 34 Q62 22 50 21 Q38 22 34 34Z"
+                  fill={hairColor}
+                />
+                {/* Коса набоку справа */}
+                <path d="M60 25 Q72 30 74 50 Q75 65 72 80 Q68 90 65 95" fill="none" stroke={hairColor} strokeWidth="3.5" strokeLinecap="round" />
+                <path d="M62 28 Q71 38 70 60 Q69 75 66 85" fill="none" stroke={`${hairColor}aa`} strokeWidth="2" strokeLinecap="round" />
+              </>
+            )}
+            {hairStyle === 3 && (
+              // Эпические/фэнтезийные волосы
+              <>
+                <path
+                  d="M34 34 Q33 18 50 14 Q67 18 66 34 Q62 22 50 21 Q38 22 34 34Z"
+                  fill={hairColor}
+                />
+                {/* Пышные пряди справа */}
+                <path d="M66 28 Q80 20 82 35 Q78 32 72 36 Q82 38 80 52 Q76 46 68 48" fill={hairColor} />
+                {/* Пышные пряди слева */}
+                <path d="M34 28 Q20 20 18 35 Q22 32 28 36 Q18 38 20 52 Q24 46 32 48" fill={hairColor} />
+                {/* Длинные волосы сзади */}
+                <path d="M36 32 Q28 55 30 85 Q32 95 35 105" fill="none" stroke={hairColor} strokeWidth="4" strokeLinecap="round" />
+                <path d="M64 32 Q72 55 70 85 Q68 95 65 105" fill="none" stroke={hairColor} strokeWidth="4" strokeLinecap="round" />
+                {/* Цветные акценты */}
+                <circle cx="50" cy="15" r="2" fill={accentColor} opacity="0.9" />
+                <circle cx="43" cy="17" r="1.2" fill={accentColor} opacity="0.7" />
+                <circle cx="57" cy="17" r="1.2" fill={accentColor} opacity="0.7" />
+              </>
+            )}
+            {/* Стиль мага: дополнительный вихор */}
+            {slug === 'mage' && hairStyle < 3 && (
               <path d="M50 14 Q55 5 60 10 Q58 14 55 15Z" fill={hairColor} />
             )}
           </g>
@@ -299,9 +426,7 @@ export function CharacterRenderer({
             onMouseLeave={() => setHoveredSlot(null)}
             style={{ cursor: 'pointer' }}
           >
-            {/* Корона / очки — выбираем по rariry */}
             {equipped('head_accessory')?.rarity === 'legendary' ? (
-              /* Корона */
               <g>
                 <rect x="38" y="16" width="24" height="5" rx="1" fill="#f59e0b" />
                 <polygon points="38,16 41,9 44,16" fill="#f59e0b" />
@@ -310,7 +435,6 @@ export function CharacterRenderer({
                 <circle cx="50" cy="11" r="2" fill="#ef4444" />
               </g>
             ) : (
-              /* Очки */
               <g>
                 <circle cx="44" cy="36" r="5" fill="none" stroke="#f59e0b" strokeWidth="1.2" />
                 <circle cx="56" cy="36" r="5" fill="none" stroke="#f59e0b" strokeWidth="1.2" />
