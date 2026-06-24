@@ -1,0 +1,401 @@
+/* ═══════════════════════════════════════════════════════════
+   MembersPage.module.css
+   Токены: --bg, --surface, --surface-alt, --surface-high,
+   --surface-dynamic, --border, --primary, --primary-dim,
+   --primary-glow, --text, --text-muted, --text-faint,
+   --font-d, --font-b, --shadow-card, --reward
+═══════════════════════════════════════════════════════════ */
+
+/* ──── Page layout ──── */
+.page {
+  padding: 32px;
+  max-width: 1200px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .page { padding: 16px; gap: 16px; }
+}
+
+/* ──── Header ──── */
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pageTitle {
+  font-family: var(--font-d);
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+
+.pageSub {
+  font-family: var(--font-b);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ──── Toolbar (tabs + search) ──── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.tab {
+  font-size: 0.875rem;
+  font-family: var(--font-b);
+  padding: 6px 16px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  line-height: 1.4;
+  transition: background 180ms ease, color 180ms ease;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--text);
+  background: var(--surface-alt);
+}
+
+.tabActive {
+  background: var(--primary);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.tabActive:hover {
+  opacity: 0.9;
+  color: var(--bg);
+}
+
+/* Search */
+.searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 220px;
+  max-width: 380px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  font-size: 0.85rem;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.searchInput {
+  width: 100%;
+  font-size: 0.875rem;
+  font-family: var(--font-b);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 36px 8px 34px;
+  outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.searchInput::placeholder { color: var(--text-faint); }
+
+.searchInput:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-dim, rgba(34,211,238,.15));
+}
+
+.searchClear {
+  position: absolute;
+  right: 10px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 140ms ease;
+}
+
+.searchClear:hover { color: var(--text); }
+
+@media (max-width: 600px) {
+  .toolbar       { flex-direction: column; align-items: stretch; }
+  .searchWrap    { max-width: 100%; }
+  .tabs          { overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+}
+
+/* ──── Grid ──── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 480px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+/* ──── Member card ──── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  box-shadow: var(--shadow-card);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  border-color: var(--primary);
+}
+
+.cardSelf {
+  background: var(--primary-dim, rgba(34,211,238,.06));
+  border-color: var(--primary);
+}
+
+/* Avatar + level badge */
+.cardAvatarWrap {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.cardAvatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--primary-dim, rgba(34,211,238,.15));
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.125rem;
+  font-family: var(--font-d);
+  border: 2px solid var(--border);
+}
+
+.cardSelf .cardAvatar {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-dim, rgba(34,211,238,.20));
+}
+
+/* Level badge (float bottom-right of avatar) */
+.levelBadge {
+  position: absolute;
+  bottom: -4px;
+  right: -6px;
+  min-width: 22px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-b);
+  border: 1.5px solid var(--bg);
+  line-height: 1;
+}
+
+.levelDefault {
+  background: var(--surface-high);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.levelSilver {
+  background: var(--surface-high);
+  color: var(--text-muted);
+  border-color: rgba(156,163,175,.5);
+  box-shadow: 0 0 0 1px rgba(156,163,175,.3);
+}
+
+.levelGold {
+  background: rgba(251,191,36,.15);
+  color: var(--reward, #FBBF24);
+  border-color: rgba(251,191,36,.4);
+  box-shadow: 0 0 6px rgba(251,191,36,.25);
+}
+
+/* Card body */
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.cardName {
+  font-family: var(--font-b);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  line-height: 1.3;
+}
+
+.selfTag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: var(--primary);
+  color: var(--bg);
+  padding: 1px 6px;
+  border-radius: 999px;
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+
+.cardRole {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-b);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.roleIcon { font-size: 0.7rem; opacity: 0.7; }
+
+/* Chips: project + department */
+.cardChips {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.6;
+}
+
+.chipIcon { font-size: 0.65rem; flex-shrink: 0; opacity: 0.7; }
+
+/* ──── Empty state ──── */
+.emptyWrap {
+  grid-column: 1 / -1;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 72px 32px;
+  gap: 8px;
+}
+
+.emptyIcon  { font-size: 2.5rem; }
+.emptyTitle {
+  font-family: var(--font-d);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.emptyHint {
+  font-family: var(--font-b);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  max-width: 38ch;
+}
+
+/* ──── Skeleton ──── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skel {
+  background: linear-gradient(
+    90deg,
+    var(--surface-alt)  25%,
+    var(--surface-high) 50%,
+    var(--surface-alt)  75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.skelAvatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skelName {
+  width: 100px;
+  height: 14px;
+  margin: 4px auto 0;
+}
+
+.skelMeta {
+  width: 80px;
+  height: 10px;
+  margin: 0 auto;
+}

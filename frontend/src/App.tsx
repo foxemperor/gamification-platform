@@ -6,6 +6,7 @@ import { LeaderboardPage }     from './pages/LeaderboardPage'
 import { AchievementsPage }    from './pages/AchievementsPage'
 import { InventoryPage }       from './pages/InventoryPage'
 import { SettingsPage }        from './pages/SettingsPage'
+import { MembersPage }         from './pages/MembersPage'
 import { AdminUsersPage }      from './pages/admin/AdminUsersPage'
 import { AdminOverviewPage }   from './pages/admin/AdminOverviewPage'
 import { AdminQuestsPage }     from './pages/admin/AdminQuestsPage'
@@ -93,7 +94,7 @@ export default function App() {
           <Route path="/leaderboard"   element={<LeaderboardPage />} />
           <Route path="/achievements"  element={<AchievementsPage />} />
           <Route path="/inventory"     element={<InventoryPage />} />
-          <Route path="/members"       element={<ComingSoon title="Участники" />} />
+          <Route path="/members"       element={<MembersPage />} />
           <Route path="/events"        element={<ComingSoon title="События" />} />
           <Route path="/settings"      element={<SettingsPage />} />
 
