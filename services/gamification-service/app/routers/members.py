@@ -15,6 +15,7 @@ Gamification Service — эндпоинты участников (members)
 """
 
 import logging
+from datetime import date
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Query
@@ -51,6 +52,7 @@ class MemberEntry(BaseModel):
     project_name: Optional[str] = None
     manager_id: Optional[str] = None
     is_self: bool = False
+    birthday: Optional[date] = None
 
     model_config = {"from_attributes": True}
 
@@ -111,7 +113,7 @@ async def list_members(
     Возвращает список участников платформы.
 
     Первичный источник — leaderboard_snapshots (period='all_time') +
-    обогащение данными пользователя из auth.users (department, project, role, manager_id).
+    обогащение данными пользователя из auth.users (department, project, role, manager_id, birthday).
     Если снапшоты отсутствуют — fallback через агрегацию xp_transactions.
     """
 
@@ -133,10 +135,11 @@ async def list_members(
         snapshot_user_ids = [str(s.user_id) for s in snapshots]
 
         # Запрашиваем дополнительные поля из auth.users
+        # Индексы: 0=id, 1=role, 2=department, 3=project_name, 4=manager_id, 5=avatar_url, 6=birthday
         auth_rows = await db.execute(
             text(
                 f"SELECT id::text, role, department, project AS project_name, "
-                f"manager_id::text, avatar_url "
+                f"manager_id::text, avatar_url, birthday "
                 f"FROM {AUTH_SCHEMA}.users "
                 f"WHERE id::text = ANY(:ids)"
             ),
@@ -161,6 +164,7 @@ async def list_members(
                 project_name=auth[3] if auth else None,
                 manager_id=auth[4] if auth else None,
                 is_self=(uid == current_user_id),
+                birthday=auth[6] if auth else None,
             )
 
             # Фильтрация по поисковому запросу
@@ -193,10 +197,12 @@ async def list_members(
     xp_rows = xp_agg.all()
 
     fallback_user_ids = [str(r.user_id) for r in xp_rows]
+    # Индексы: 0=id, 1=username, 2=full_name, 3=role, 4=department,
+    #          5=project_name, 6=manager_id, 7=avatar_url, 8=birthday
     auth_rows = await db.execute(
         text(
             f"SELECT id::text, username, full_name, role, department, "
-            f"project AS project_name, manager_id::text, avatar_url "
+            f"project AS project_name, manager_id::text, avatar_url, birthday "
             f"FROM {AUTH_SCHEMA}.users "
             f"WHERE id::text = ANY(:ids)"
         ),
@@ -222,6 +228,7 @@ async def list_members(
             project_name=auth[5] if auth else None,
             manager_id=auth[6] if auth else None,
             is_self=(uid == current_user_id),
+            birthday=auth[8] if auth else None,
         )
 
         if search_q:
