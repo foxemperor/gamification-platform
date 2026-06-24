@@ -1,33 +1,33 @@
 /**
  * events.ts
- * Агрегирует три источника событий для календаря:
- *  1. Сроки сдачи квестов (deadline_at из /quests/my)
- *  2. Дни рождения сотрудников — СТАТИЧЕСКИЙ список (demo)
- *  3. Российские праздничные выходные — статический список на 2025–2027
+ * Aggregates three event sources for the calendar:
+ *  1. Quest deadlines (deadline_at from /quests/my)
+ *  2. Employee birthdays — STATIC list (demo), with project info
+ *  3. Russian public holidays — static list for 2025–2027
  */
 import { api } from './axios'
 import { isAbortError } from './quests'
 export { isAbortError }
 
-// ─── Типы ───────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 export type CalEventKind = 'deadline' | 'birthday' | 'holiday'
 
 export interface CalEvent {
   id: string
   kind: CalEventKind
-  /** ISO-дата YYYY-MM-DD */
+  /** ISO date YYYY-MM-DD */
   date: string
   title: string
-  /** Дополнительная подпись (имя квеста, имя сотрудника, …) */
+  /** Subtitle (quest name, employee name, …) */
   sub?: string
-  /** Только для deadline: процент прогресса */
+  /** deadline only: progress percent */
   progress?: number
-  /** Только для deadline: квест уже просрочен */
+  /** deadline only: quest is overdue */
   overdue?: boolean
 }
 
-// ─── Российские нерабочие дни 2025–2027 ─────────────────────────────────────
+// ─── Russian public holidays 2025–2027 ───────────────────────────────────────
 
 const RU_HOLIDAYS: { date: string; title: string }[] = [
   // 2025
@@ -77,41 +77,42 @@ const RU_HOLIDAYS: { date: string; title: string }[] = [
   { date: '2027-11-05', title: 'День народного единства (перенос)' },
 ]
 
-// ─── Дни рождения сотрудников — СТАТИКА (demo-ветка) ────────────────────────
-// Источник: services/auth-service/app/seed.py
-// Формат MM-DD — привязывается к текущему и следующему году в рантайме
+// ─── Employee birthdays — STATIC (demo branch) ───────────────────────────────
+// Source: services/auth-service/app/seed.py
+// Format MM-DD — resolved to current and next year at runtime.
+// Russian display names + project tag shown in the calendar.
 
-const STATIC_BIRTHDAYS: { mmdd: string; name: string }[] = [
-  { mmdd: '03-15', name: 'Alice Ivanova' },
-  { mmdd: '07-22', name: 'Bob Petrov' },
-  { mmdd: '11-08', name: 'Carol Sidorova' },
-  { mmdd: '02-28', name: 'Dave Kozlov' },
-  { mmdd: '09-05', name: 'Eve Morozova' },
-  { mmdd: '06-17', name: 'Frank Volkov' },
-  { mmdd: '12-03', name: 'Mike Novikov' },
-  { mmdd: '04-20', name: 'Nina Popova' },
-  { mmdd: '08-11', name: 'Oscar Lebedev' },
-  { mmdd: '01-14', name: 'Roman Kuznetsov' },
-  { mmdd: '05-30', name: 'Ivan Sokolov' },
-  { mmdd: '10-25', name: 'Julia Smirnova' },
-  { mmdd: '03-07', name: 'Kevin Orlov' },
-  { mmdd: '07-16', name: 'Sara Fedorova' },
-  { mmdd: '02-19', name: 'Laura Zhukova' },
-  { mmdd: '09-12', name: 'Tom Vasiliev' },
-  { mmdd: '11-01', name: 'Polina Sorokina' },
-  { mmdd: '06-08', name: 'Grace Titova' },
-  { mmdd: '04-03', name: 'Henry Belov' },
-  { mmdd: '08-14', name: 'Dev User' },
+const STATIC_BIRTHDAYS: { mmdd: string; name: string; project: string }[] = [
+  { mmdd: '03-15', name: 'Алиса Иванова',    project: 'Веб-платформа' },
+  { mmdd: '07-22', name: 'Борис Петров',      project: 'Мобильное приложение' },
+  { mmdd: '11-08', name: 'Карина Сидорова',  project: 'Аналитика' },
+  { mmdd: '02-28', name: 'Денис Козлов',      project: 'DevOps' },
+  { mmdd: '09-05', name: 'Ева Морозова',      project: 'Веб-платформа' },
+  { mmdd: '06-17', name: 'Фёдор Волков',      project: 'Мобильное приложение' },
+  { mmdd: '12-03', name: 'Михаил Новиков',    project: 'Backend' },
+  { mmdd: '04-20', name: 'Нина Попова',       project: 'Дизайн' },
+  { mmdd: '08-11', name: 'Олег Лебедев',      project: 'Аналитика' },
+  { mmdd: '01-14', name: 'Роман Кузнецов',    project: 'Backend' },
+  { mmdd: '05-30', name: 'Иван Соколов',      project: 'DevOps' },
+  { mmdd: '10-25', name: 'Юлия Смирнова',     project: 'Дизайн' },
+  { mmdd: '03-07', name: 'Кирилл Орлов',      project: 'Веб-платформа' },
+  { mmdd: '07-16', name: 'Сара Фёдорова',     project: 'Мобильное приложение' },
+  { mmdd: '02-19', name: 'Лора Жукова',       project: 'HR' },
+  { mmdd: '09-12', name: 'Тимур Васильев',    project: 'Backend' },
+  { mmdd: '11-01', name: 'Полина Сорокина',   project: 'HR' },
+  { mmdd: '06-08', name: 'Галина Титова',     project: 'Аналитика' },
+  { mmdd: '04-03', name: 'Геннадий Белов',    project: 'DevOps' },
+  { mmdd: '08-14', name: 'Dev User',           project: 'Веб-платформа' },
 ]
 
-// ─── Вспомогательные ────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Преобразует ISO-дату в строку YYYY-MM-DD */
+/** Converts ISO date to YYYY-MM-DD string */
 export function toDateKey(iso: string): string {
   return iso.slice(0, 10)
 }
 
-// ─── Ответы API ─────────────────────────────────────────────────────────────
+// ─── API response types ──────────────────────────────────────────────────────
 
 interface MyQuestDeadline {
   id: string
@@ -121,7 +122,7 @@ interface MyQuestDeadline {
   status: string
 }
 
-// ─── Основная функция загрузки ───────────────────────────────────────────────
+// ─── Main loader ─────────────────────────────────────────────────────────────
 
 export async function fetchCalendarEvents(
   signal?: AbortSignal,
@@ -136,7 +137,7 @@ export async function fetchCalendarEvents(
 
   const events: CalEvent[] = []
 
-  // 1. Сроки сдачи квестов
+  // 1. Quest deadlines
   if (questsRes[0].status === 'fulfilled') {
     for (const uq of questsRes[0].value) {
       if (!uq.deadline_at || uq.status === 'completed' || uq.status === 'failed') continue
@@ -153,7 +154,7 @@ export async function fetchCalendarEvents(
     }
   }
 
-  // 2. Дни рождения — статический список, показываем в текущем и следующем году
+  // 2. Birthdays — static list, shown for current and next year
   for (const b of STATIC_BIRTHDAYS) {
     for (const y of [year, year + 1]) {
       events.push({
@@ -161,12 +162,12 @@ export async function fetchCalendarEvents(
         kind: 'birthday',
         date: `${y}-${b.mmdd}`,
         title: `🎂 ${b.name}`,
-        sub: 'День рождения',
+        sub: `День рождения · Проект: ${b.project}`,
       })
     }
   }
 
-  // 3. Праздничные выходные (статика)
+  // 3. Public holidays (static)
   for (const h of RU_HOLIDAYS) {
     events.push({
       id: `holiday-${h.date}`,
