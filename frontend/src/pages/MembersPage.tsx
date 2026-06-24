@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   membersApi,
   isAbortError,
@@ -53,6 +53,67 @@ function levelColor(level: number): string {
   if (level >= 30) return s.levelGold
   if (level >= 15) return s.levelSilver
   return s.levelDefault
+}
+
+/**
+ * Клиентская фильтрация по scope.
+ * Данные всегда загружаются с scope='all', затем фильтруются локально —
+ * это исключает лишние сетевые запросы при переключении вкладок.
+ *
+ * Логика:
+ *   project    — совпадает project_name с текущим пользователем
+ *   department — совпадает department
+ *   team       — тот же manager_id (или сам менеджер является is_self)
+ *   all        — без фильтра
+ */
+function applyScope(
+  items: MemberEntry[],
+  scope: MemberScope,
+): MemberEntry[] {
+  if (scope === 'all') return items
+
+  const self = items.find(m => m.is_self)
+  if (!self) return items   // нет данных о себе — показываем всех
+
+  if (scope === 'project') {
+    if (!self.project_name) return items
+    return items.filter(m => m.project_name === self.project_name)
+  }
+
+  if (scope === 'department') {
+    if (!self.department) return items
+    return items.filter(m => m.department === self.department)
+  }
+
+  if (scope === 'team') {
+    // «команда» = все, у кого тот же manager_id, что и у меня;
+    // плюс сам менеджер (если manager_id === его user_id)
+    const myManagerId = self.manager_id
+    if (!myManagerId) return [self]   // нет менеджера — только я
+    return items.filter(
+      m => m.manager_id === myManagerId || m.user_id === myManagerId
+    )
+  }
+
+  return items
+}
+
+/**
+ * Клиентская фильтрация по поисковой строке.
+ * Ищет по: full_name, username, project_name, department.
+ */
+function applySearch(items: MemberEntry[], q: string): MemberEntry[] {
+  const needle = q.trim().toLowerCase()
+  if (!needle) return items
+  return items.filter(m => {
+    const haystack = [
+      m.full_name ?? '',
+      m.username,
+      m.project_name ?? '',
+      m.department ?? '',
+    ].join(' ').toLowerCase()
+    return haystack.includes(needle)
+  })
 }
 
 // ─── Аватар ──────────────────────────────────────────────────────────────────
@@ -148,10 +209,10 @@ function EmptyState({ scope, hasSearch }: { scope: MemberScope; hasSearch: boole
     )
   }
   const msgs: Record<MemberScope, { icon: string; title: string; hint: string }> = {
-    all:        { icon: '👥', title: 'Участников пока нет', hint: 'Пригласите коллег — они появятся здесь' },
-    project:    { icon: '📁', title: 'В проекте пока никого нет', hint: 'Участники проекта появятся здесь после назначения' },
-    department: { icon: '🏢', title: 'Отдел пока пустой', hint: 'Сотрудники вашего отдела появятся здесь' },
-    team:       { icon: '🤝', title: 'Команда не сформирована', hint: 'Участники команды привязываются к менеджеру' },
+    all:        { icon: '👥', title: 'Участников пока нет',         hint: 'Пригласите коллег — они появятся здесь' },
+    project:    { icon: '📁', title: 'В проекте пока никого нет',   hint: 'Участники проекта появятся здесь после назначения' },
+    department: { icon: '🏢', title: 'Отдел пока пустой',           hint: 'Сотрудники вашего отдела появятся здесь' },
+    team:       { icon: '🤝', title: 'Команда не сформирована',     hint: 'Участники команды привязываются к менеджеру' },
   }
   const m = msgs[scope]
   return (
@@ -168,52 +229,56 @@ function EmptyState({ scope, hasSearch }: { scope: MemberScope; hasSearch: boole
 export function MembersPage() {
   const currentUserId = useAuthStore(st => st.user?.id)
 
-  const [scope, setScope]     = useState<MemberScope>('all')
-  const [search, setSearch]   = useState('')
-  const [members, setMembers] = useState<MemberEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [total, setTotal]     = useState(0)
-
-  // debounce поиска
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [scope, setScope]         = useState<MemberScope>('all')
+  const [search, setSearch]       = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  // allMembers — сырые данные с API (всегда scope='all')
+  const [allMembers, setAllMembers] = useState<MemberEntry[]>([])
+  const [loading, setLoading]     = useState(true)
 
+  // ── Debounce поиска (300 мс) ──────────────────────────────────────────────
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleSearch = (v: string) => {
     setSearch(v)
     if (searchTimer.current) clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => setDebouncedSearch(v), 300)
   }
 
-  const load = useCallback((sc: MemberScope, q: string) => {
-    setLoading(true)
+  // ── Единственный сетевой запрос: загружаем ВСЕХ один раз ─────────────────
+  // Перезапрашиваем только при изменении currentUserId (смена аккаунта).
+  // Scope и search обрабатываются клиентски — без лишних запросов и мерцания.
+  useEffect(() => {
+    let cancelled = false
     const ctrl = new AbortController()
+
+    setLoading(true)
     membersApi
-      .getMembers(sc, q, 200, ctrl.signal)
+      .getMembers('all', '', 500, ctrl.signal)
       .then(res => {
-        if (ctrl.signal.aborted) return
-        // маркируем себя
+        if (cancelled) return
         const items = res.items.map(m => ({
           ...m,
           is_self: m.user_id === currentUserId,
         }))
-        setMembers(items)
-        setTotal(res.total)
+        setAllMembers(items)
       })
       .catch(err => {
-        if (isAbortError(err) || ctrl.signal.aborted) return
-        setMembers([])
-        setTotal(0)
+        if (isAbortError(err) || cancelled) return
+        setAllMembers([])
       })
-      .finally(() => { if (!ctrl.signal.aborted) setLoading(false) })
-    return ctrl
-  }, [currentUserId])
+      .finally(() => { if (!cancelled) setLoading(false) })
 
-  useEffect(() => {
-    const ctrl = load(scope, debouncedSearch)
-    return () => ctrl.abort()
-  }, [scope, debouncedSearch, load])
+    return () => {
+      cancelled = true
+      ctrl.abort()
+    }
+  }, [currentUserId]) // <-- намеренно НЕТ scope/debouncedSearch
 
-  const hasSearch = debouncedSearch.trim().length > 0
+  // ── Производные данные (вычисляются без setState → нет мерцания) ──────────
+  const scopedMembers  = applyScope(allMembers, scope)
+  const visibleMembers = applySearch(scopedMembers, debouncedSearch)
+  const total          = visibleMembers.length
+  const hasSearch      = debouncedSearch.trim().length > 0
 
   return (
     <div className={s.page}>
@@ -223,7 +288,13 @@ export function MembersPage() {
           <h1 className={s.pageTitle}>Участники</h1>
           {!loading && (
             <p className={s.pageSub}>
-              {total} {total === 1 ? 'участник' : total >= 2 && total <= 4 ? 'участника' : 'участников'}
+              {total}
+              {' '}
+              {total === 1
+                ? 'участник'
+                : total >= 2 && total <= 4
+                  ? 'участника'
+                  : 'участников'}
               {scope !== 'all' && ` · ${SCOPE_HINTS[scope]}`}
             </p>
           )}
@@ -232,7 +303,7 @@ export function MembersPage() {
 
       {/* Панель фильтров и поиска */}
       <div className={s.toolbar}>
-        {/* Вкладки */}
+        {/* Вкладки scope */}
         <div className={s.tabs}>
           {(Object.keys(SCOPE_LABELS) as MemberScope[]).map(sc => (
             <button
@@ -273,8 +344,8 @@ export function MembersPage() {
       <div className={s.grid}>
         {loading ? (
           <SkeletonCards />
-        ) : members.length > 0 ? (
-          members.map(m => <MemberCard key={m.user_id} member={m} />)
+        ) : visibleMembers.length > 0 ? (
+          visibleMembers.map(m => <MemberCard key={m.user_id} member={m} />)
         ) : (
           <div className={s.emptyWrap}>
             <EmptyState scope={scope} hasSearch={hasSearch} />
