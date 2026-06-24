@@ -185,6 +185,7 @@ class PlayerProfileResponse(BaseModel):
     username: str
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
+    bio: Optional[str] = None          # краткое bio пользователя из auth.users
     total_xp: int
     level: int
     xp_to_next_level: int
