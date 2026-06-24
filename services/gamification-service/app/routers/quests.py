@@ -97,7 +97,7 @@ async def _award_coins(
 
     Авторитетный баланс монет хранится в auth.users.coins (тот же столбец,
     что показывает сайдбар и эндпоинт профиля). auth- и gamification-сервисы
-    делят одну физическую БД gamification_db в разных схемах, поэтому мы
+    делят одну физическую БД gamification_db, но в разных схемах, поэтому мы
     обновляем баланс напрямую UPDATE-ом в схему auth — без HTTP-вызова
     к auth-service. Параллельно пишем CoinTransaction в схему gamification
     как audit-лог (история начислений).
@@ -474,7 +474,7 @@ async def recalculate_rewards(
         user_coins = 0
         user_quests_processed = 0
 
-        # Получаем уже начисленные XP source_id’с для этого пользователя
+        # Получаем уже начисленные XP source_id'с для этого пользователя
         xp_done = await db.execute(
             select(XPTransaction.source_id)
             .where(XPTransaction.user_id == uid)
@@ -632,7 +632,7 @@ async def player_profile(
         .where(XPTransaction.user_id == user_id)
     ) or 0
 
-    # ─────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────
     # Данные учётной записи берём напрямую из таблицы auth.users
     # auth-service. Auth- и gamification-сервисы делят одну физическую
     # БД gamification_db, но в разных схемах: auth-service кладёт свои
@@ -640,10 +640,10 @@ async def player_profile(
     # а gamification-service — в схему "gamification".
     # Так монеты, имя и аватар — единый источник истины с сайдбаром,
     # без рассинхрона.
-    # ─────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────
     account = (await db.execute(
         text(
-            "SELECT full_name, username, coins, avatar_url "
+            "SELECT full_name, username, coins, avatar_url, bio "
             "FROM auth.users WHERE id = :uid"
         ),
         {"uid": user_id},
@@ -654,6 +654,7 @@ async def player_profile(
     # Баланс монет — авторитетный из users.coins (тот же, что в сайдбаре).
     total_coins = (account["coins"] if account else 0) or 0
     account_avatar_url: Optional[str] = account["avatar_url"] if account else None
+    account_bio: Optional[str] = account["bio"] if account else None
 
     quests_completed = await db.scalar(
         select(func.count(UserQuest.id))
@@ -700,6 +701,7 @@ async def player_profile(
         username=account_username or username or "",
         full_name=account_full_name,
         avatar_url=account_avatar_url,
+        bio=account_bio,
         total_xp=total_xp,
         level=level,
         xp_to_next_level=xp_for_next - xp_in_level,
