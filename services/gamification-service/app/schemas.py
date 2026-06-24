@@ -62,7 +62,7 @@ class CharacterCreateRequest(BaseModel):
 
 
 class CharacterColorsRequest(BaseModel):
-    """Обновление цветов персонажа. Все поля опциональны."""
+    """\u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 \u0446\u0432\u0435\u0442\u043e\u0432 \u043f\u0435\u0440\u0441\u043e\u043d\u0430\u0436\u0430. \u0412\u0441\u0435 \u043f\u043e\u043b\u044f \u043e\u043f\u0446\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u044b."""
     skin_color: Optional[str] = None
     hair_color: Optional[str] = None
     eyes_color: Optional[str] = None
@@ -128,7 +128,23 @@ class BadgeResponse(BaseModel):
     name: str
     description: Optional[str] = None
     icon_url: Optional[str] = None
+    rarity: Optional[str] = None
+    condition_type: Optional[str] = None
+    condition_value: Optional[int] = None
+    xp_bonus: int = 0
     is_earned: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class UserBadgeResponse(BaseModel):
+    id: str
+    user_id: str
+    badge_id: str
+    earned_at: datetime
+    is_new: bool = True
+    is_revoked: bool = False
+    badge: BadgeResponse
 
     model_config = {"from_attributes": True}
 
@@ -167,16 +183,113 @@ class PlayerProfileResponse(BaseModel):
 # Квесты
 # ──────────────────────────────────────────────
 
+class QuestCreate(BaseModel):
+    title: str = Field(..., max_length=200)
+    description: Optional[str] = None
+    quest_type: str = Field(default="personal")
+    difficulty: str = Field(default="medium")
+    xp_reward: int = Field(default=150, ge=0)
+    coins_reward: int = Field(default=10, ge=0)
+    time_limit_hours: Optional[int] = None
+    integration_trigger: Optional[str] = None
+    integration_target: Optional[int] = None
+
+
+class QuestUpdate(BaseModel):
+    title: Optional[str] = Field(None, max_length=200)
+    description: Optional[str] = None
+    quest_type: Optional[str] = None
+    difficulty: Optional[str] = None
+    status: Optional[str] = None
+    xp_reward: Optional[int] = Field(None, ge=0)
+    coins_reward: Optional[int] = Field(None, ge=0)
+    time_limit_hours: Optional[int] = None
+    integration_trigger: Optional[str] = None
+    integration_target: Optional[int] = None
+
+
 class QuestResponse(BaseModel):
     id: str
     title: str
     description: Optional[str] = None
-    xp_reward: int
-    coin_reward: int
+    quest_type: str
+    difficulty: str
     status: str
+    xp_reward: int
+    coins_reward: int
+    time_limit_hours: Optional[int] = None
+    integration_trigger: Optional[str] = None
+    integration_target: Optional[int] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class QuestListResponse(BaseModel):
+    items: List[QuestResponse]
+    total: int
+    page: int
+    per_page: int
+    pages: int
+
+
+class UserQuestResponse(BaseModel):
+    id: str
+    user_id: str
+    quest_id: str
+    status: str
+    progress: int
+    target: int
+    is_viewed: bool
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    deadline_at: Optional[datetime] = None
+    quest: QuestResponse
+
+    model_config = {"from_attributes": True}
+
+
+class AcceptQuestResponse(BaseModel):
+    user_quest_id: str
+    quest_id: str
+    message: str
+    deadline_at: Optional[datetime] = None
+
+
+class CompleteQuestResponse(BaseModel):
+    user_quest_id: str
+    quest_title: str
+    xp_earned: int
+    coins_earned: int
+    new_level: Optional[int] = None
+    level_up: bool
+    badges_earned: List[str] = []
+    message: str
+
+
+# ──────────────────────────────────────────────
+# XP-история
+# ──────────────────────────────────────────────
+
+class XPTransactionResponse(BaseModel):
+    id: str
+    user_id: str
+    amount: int
+    source: str
+    source_id: Optional[str] = None
+    description: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class XPHistoryResponse(BaseModel):
+    items: List[XPTransactionResponse]
+    total: int
+    total_xp_earned: int
+    total_xp_spent: int
+    page: int
+    per_page: int
 
 
 # ──────────────────────────────────────────────
