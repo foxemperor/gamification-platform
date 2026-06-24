@@ -6,10 +6,12 @@ export interface User {
   email: string
   full_name: string | null
   avatar_url: string | null
+  bio: string | null
   role: string
   department: string | null
   project: string | null
   position: string | null
+  birthday: string | null   // ISO date «YYYY-MM-DD» from API
   xp: number
   level: number
   coins: number
