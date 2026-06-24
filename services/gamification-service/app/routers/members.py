@@ -29,7 +29,7 @@ from app.models import LeaderboardSnapshot, XPTransaction, xp_required_for_level
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/members", tags=["members"])
+router = APIRouter(prefix="/members", tags=["members"])
 
 AUTH_SCHEMA = "auth"
 
