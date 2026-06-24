@@ -26,6 +26,7 @@ from app.schemas import (
     CosmeticItemResponse, UnlockedCosmeticResponse,
     CharacterCreateRequest, CharacterEquipRequest,
     CosmeticCatalogItemResponse,
+    CharacterColorsRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,34 @@ async def get_my_character(
     return await _get_character_or_404(user_id, db)
 
 
+@router.patch(
+    "/me/colors",
+    response_model=CharacterResponse,
+    summary="Изменить цвета персонажа",
+)
+async def update_character_colors(
+    payload: CharacterColorsRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Обновляет цвет кожи, волос и глаз персонажа.
+    Все поля опциональны: передавайте только те, что нужно изменить.
+    """
+    character = await _get_character_or_404(user_id, db)
+
+    if payload.skin_color is not None:
+        character.skin_color = payload.skin_color
+    if payload.hair_color is not None:
+        character.hair_color = payload.hair_color
+    if payload.eyes_color is not None:
+        character.eyes_color = payload.eyes_color
+
+    await db.commit()
+    logger.info(f"✅ Цвета персонажа обновлены для user_id={user_id}")
+    return await _get_character_or_404(user_id, db)
+
+
 @router.post(
     "/create",
     response_model=CharacterResponse,
@@ -84,7 +113,6 @@ async def create_character(
     db: AsyncSession = Depends(get_db),
 ):
     """Создаёт персонажа для пользователя. Один пользователь — один персонаж."""
-    # Проверяем что персонаж ещё не создан
     existing = await db.scalar(
         select(Character).where(Character.user_id == user_id)
     )
@@ -94,7 +122,6 @@ async def create_character(
             detail="Персонаж уже существует. Используйте PATCH /equipment для изменения внешности.",
         )
 
-    # Ищем архетип по slug
     char_type = await db.scalar(
         select(CharacterType).where(CharacterType.slug == payload.character_type_slug)
     )
@@ -136,7 +163,6 @@ async def equip_item(
     """
     character = await _get_character_or_404(user_id, db)
 
-    # --- Снятие предмета ---
     if payload.cosmetic_item_id is None:
         existing_slot = await db.scalar(
             select(CharacterEquipment)
@@ -150,21 +176,18 @@ async def equip_item(
             await db.commit()
         return await _get_character_or_404(user_id, db)
 
-    # --- Надевание предмета ---
     cosmetic = await db.scalar(
         select(CosmeticItem).where(CosmeticItem.id == payload.cosmetic_item_id)
     )
     if not cosmetic:
         raise HTTPException(status_code=404, detail="Косметический предмет не найден.")
 
-    # Предмет должен слот совпадать
     if cosmetic.slot != payload.slot:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Предмет находится в слоте '{cosmetic.slot}', а не '{payload.slot}'.",
         )
 
-    # Предметы не open требуют разблокировки
     if cosmetic.visibility != CosmeticVisibility.OPEN:
         unlocked = await db.scalar(
             select(UnlockedCosmetic).where(
@@ -178,7 +201,6 @@ async def equip_item(
                 detail="Предмет не разблокирован.",
             )
 
-    # Upsert слота
     existing_slot = await db.scalar(
         select(CharacterEquipment)
         .where(
@@ -258,10 +280,6 @@ async def list_my_unlocked_cosmetics(
 async def _unlock_requirement_text(
     db: AsyncSession, item: CosmeticItem
 ) -> str | None:
-    """Человекочитаемое условие разблокировки предмета.
-
-    Возвращает None для открытых (OPEN) предметов — у них нет условия.
-    """
     if item.visibility == CosmeticVisibility.OPEN or item.unlock_type == UnlockType.NONE:
         return None
     if item.unlock_type == UnlockType.LEVEL and item.unlock_value:
@@ -269,7 +287,6 @@ async def _unlock_requirement_text(
     if item.unlock_type == UnlockType.QUEST and item.unlock_value:
         return f"Выполни {item.unlock_value} квестов"
     if item.unlock_type == UnlockType.ACHIEVEMENT:
-        # unlock_ref указывает на конкретный бейдж — подставим его название.
         if item.unlock_ref:
             badge = await db.scalar(select(Badge).where(Badge.id == item.unlock_ref))
             if badge:
@@ -289,29 +306,17 @@ async def get_inventory(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Возвращает весь видимый каталог косметики с вычисленными для текущего
-    пользователя флагами is_unlocked / is_equipped и текстом условия
-    разблокировки. Это единственный источник данных для вкладки «Инвентарь»:
-    фронт не дублирует логику доступности предметов.
-
-    Открытыми (доступными) считаются предметы с visibility=OPEN, а также
-    те, что присутствуют в unlocked_cosmetics пользователя.
-    """
-    # Все видимые предметы (кроме скрытых).
     items = (await db.execute(
         select(CosmeticItem)
         .where(CosmeticItem.visibility != CosmeticVisibility.HIDDEN)
         .order_by(CosmeticItem.slot, CosmeticItem.name)
     )).scalars().all()
 
-    # Множество разблокированных предметов пользователя.
     unlocked_ids = set((await db.execute(
         select(UnlockedCosmetic.cosmetic_item_id)
         .where(UnlockedCosmetic.user_id == user_id)
     )).scalars().all())
 
-    # Множество надетых предметов (по персонажу пользователя).
     equipped_ids: set[str] = set()
     character = await db.scalar(select(Character).where(Character.user_id == user_id))
     if character:

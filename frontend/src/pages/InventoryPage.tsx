@@ -5,7 +5,7 @@ import { meApi, type Character, type CosmeticCatalogItem } from '../api/me'
 import { CharacterRenderer, type EquipSlot } from '../components/CharacterRenderer'
 import s from './InventoryPage.module.css'
 
-// ────── Справочники слотов и редкости ──────
+// ────── Справочники ──────
 const SLOT_LABEL: Record<string, string> = {
   hair: 'Причёска',
   head: 'Головной убор',
@@ -21,7 +21,7 @@ const SLOT_LABEL: Record<string, string> = {
 
 const SLOT_ICON: Record<string, string> = {
   hair: '💇', head: '🎩', head_accessory: '👓', eyes: '👁️',
-  face_expression: '😀', torso: '👕', torso_accessory: '🎀',
+  face_expression: '😀', torso: '👕', torso_accessory: '🎠',
   legs: '👖', weapon_main: '🗡️', weapon_secondary: '🛡️',
 }
 
@@ -118,6 +118,13 @@ export function InventoryPage() {
   const [filter,    setFilter]    = useState<'all' | 'unlocked' | 'locked'>('all')
   const [error,     setError]     = useState(false)
 
+  // ── Редактор цветов ──
+  const [skin, setSkin]         = useState('#F5C5A3')
+  const [hair, setHair]         = useState('#2C1810')
+  const [eyes, setEyes]         = useState('#4A90D9')
+  const [colorsDirty, setColorsDirty] = useState(false)
+  const [savingColors, setSavingColors] = useState(false)
+
   const abortRef = useRef<AbortController | null>(null)
 
   const reload = useCallback((sig?: AbortSignal) => {
@@ -130,6 +137,13 @@ export function InventoryPage() {
         if (sig?.aborted) return
         setItems(inv)
         setCharacter(ch)
+        // Синхронизируем локальные цвета с данными персонажа
+        if (ch) {
+          setSkin(ch.skin_color ?? '#F5C5A3')
+          setHair(ch.hair_color ?? '#2C1810')
+          setEyes(ch.eyes_color ?? '#4A90D9')
+          setColorsDirty(false)
+        }
         setError(false)
       })
       .catch(err => {
@@ -174,6 +188,23 @@ export function InventoryPage() {
       setError(true)
     } finally {
       setBusySlot(null)
+    }
+  }
+
+  const saveColors = async () => {
+    setSavingColors(true)
+    try {
+      const updated = await meApi.updateCharacterColors({
+        skin_color: skin,
+        hair_color: hair,
+        eyes_color: eyes,
+      })
+      setCharacter(updated)
+      setColorsDirty(false)
+    } catch {
+      setError(true)
+    } finally {
+      setSavingColors(false)
     }
   }
 
@@ -238,92 +269,102 @@ export function InventoryPage() {
           ⚠️ Не удалось загрузить инвентарь —{' '}
           <button className={s.retryBtn} onClick={() => reload()}>повторить</button>
         </div>
-      ) : (
-        <div className={s.layout}>
-
-          {/* Превью персонажа — теперь CharacterRenderer */}
-          {character && (
-            <aside className={s.preview}>
-              {/* SVG-персонаж со слоями экипировки */}
-              <div className={s.previewSprite}>
-                <CharacterRenderer
-                  slug={character.character_type.slug}
-                  skinColor={character.skin_color}
-                  hairColor={character.hair_color}
-                  eyesColor={character.eyes_color}
-                  equipment={rendererEquipment}
-                  size={200}
-                />
-              </div>
-
-              <p className={s.previewName}>{character.character_type.name}</p>
-              <p className={s.previewLevel}>LVL {character.level}</p>
-
-              <div className={s.previewEquip}>
-                <p className={s.previewEquipTitle}>Надето</p>
-                {(character.equipment?.length ?? 0) > 0 ? (
-                  <ul className={s.previewEquipList}>
-                    {character.equipment.map(eq => (
-                      <li key={eq.id} className={s.previewEquipItem}>
-                        <span>{SLOT_ICON[eq.slot] ?? '✨'}</span>
-                        <span className={s.previewEquipName}>{eq.cosmetic_item.name}</span>
-                        <span className={s.previewEquipSlot}>{SLOT_LABEL[eq.slot] ?? eq.slot}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={s.previewEmpty}>Слоты пусты</p>
-                )}
-              </div>
-            </aside>
-          )}
-
-          {/* Каталог предметов */}
-          <div className={s.catalog}>
-
-            <div className={s.filterRow}>
-              {(['all', 'unlocked', 'locked'] as const).map(f => (
-                <button
-                  key={f}
-                  className={`${s.filterBtn} ${filter === f ? s.filterBtnActive : ''}`}
-                  onClick={() => setFilter(f)}
-                >
-                  {f === 'all'      && `Все (${totalCount})`}
-                  {f === 'unlocked' && `Доступны (${unlockedCount})`}
-                  {f === 'locked'   && `Закрыты (${totalCount - unlockedCount})`}
-                </button>
-              ))}
+      ) : character ? (
+        <>
+          {/* ── Превью + редактор цветов ── */}
+          <div className={s.charPanel}>
+            <div className={s.charPreviewWrap}>
+              <CharacterRenderer
+                slug={character.character_type.slug}
+                skinColor={skin}
+                hairColor={hair}
+                eyesColor={eyes}
+                equipment={rendererEquipment}
+                size={220}
+              />
             </div>
 
-            {grouped.length === 0 ? (
-              <div className={s.empty}>
-                <span className={s.emptyIcon}>🎒</span>
-                <p>В этой категории пока нет предметов</p>
+            <div className={s.colorEditor}>
+              <p className={s.colorEditorTitle}>🎨 Цвета персонажа</p>
+              <div className={s.colorFields}>
+                <label className={s.colorField}>
+                  <span className={s.colorLabel}>🧖 Кожа</span>
+                  <input
+                    type="color"
+                    className={s.colorInput}
+                    value={skin}
+                    onChange={e => { setSkin(e.target.value); setColorsDirty(true) }}
+                  />
+                </label>
+                <label className={s.colorField}>
+                  <span className={s.colorLabel}>💇 Волосы</span>
+                  <input
+                    type="color"
+                    className={s.colorInput}
+                    value={hair}
+                    onChange={e => { setHair(e.target.value); setColorsDirty(true) }}
+                  />
+                </label>
+                <label className={s.colorField}>
+                  <span className={s.colorLabel}>👁️ Глаза</span>
+                  <input
+                    type="color"
+                    className={s.colorInput}
+                    value={eyes}
+                    onChange={e => { setEyes(e.target.value); setColorsDirty(true) }}
+                  />
+                </label>
               </div>
-            ) : (
-              grouped.map(({ slot, list }) => (
-                <section key={slot} className={s.slotSection}>
-                  <h2 className={s.slotTitle}>
-                    <span className={s.slotTitleIcon}>{SLOT_ICON[slot] ?? '✨'}</span>
-                    {SLOT_LABEL[slot] ?? slot}
-                  </h2>
-                  <div className={s.itemsGrid}>
-                    {list.map(item => (
-                      <ItemCard
-                        key={item.id}
-                        item={item}
-                        busy={busySlot === item.slot}
-                        onEquip={equip}
-                        onUnequip={unequip}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))
-            )}
+              {colorsDirty && (
+                <button
+                  className={s.saveColorsBtn}
+                  onClick={saveColors}
+                  disabled={savingColors}
+                >
+                  {savingColors ? 'Сохранение…' : '✅ Сохранить цвета'}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+
+          {/* ── Фильтры ── */}
+          <div className={s.filters}>
+            {(['all', 'unlocked', 'locked'] as const).map(f => (
+              <button
+                key={f}
+                className={`${s.filterBtn} ${filter === f ? s.filterBtnActive : ''}`}
+                onClick={() => setFilter(f)}
+              >
+                {f === 'all' ? 'Все' : f === 'unlocked' ? 'Открытые' : 'Закрытые'}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Сетка предметов по слотам ── */}
+          {grouped.map(({ slot, list }) => (
+            <div key={slot} className={s.slotGroup}>
+              <h2 className={s.slotTitle}>
+                {SLOT_ICON[slot]} {SLOT_LABEL[slot] ?? slot}
+              </h2>
+              <div className={s.itemGrid}>
+                {list.map(item => (
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    busy={busySlot === item.slot}
+                    onEquip={equip}
+                    onUnequip={unequip}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {grouped.length === 0 && (
+            <p className={s.emptyMsg}>Предметы не найдены</p>
+          )}
+        </>
+      ) : null}
     </div>
   )
 }
