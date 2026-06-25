@@ -60,9 +60,31 @@ export const questsApi = {
   getById: (questId: string, signal?: AbortSignal) =>
     api.get<Quest>(`/quests/${questId}`, { signal }).then(r => r.data),
 
-  /** Квесты текущего пользователя */
-  getMy: (signal?: AbortSignal) =>
-    api.get<UserQuest[]>('/quests/my', { signal }).then(r => r.data),
+  /**
+   * Квесты текущего пользователя.
+   * Первый аргумент — опциональный объект с фильтрами (status, limit),
+   * либо AbortSignal для обратной совместимости.
+   */
+  getMy: (
+    paramsOrSignal?: { status?: UserQuestStatus; limit?: number } | AbortSignal,
+    signal?: AbortSignal,
+  ) => {
+    let params: Record<string, unknown> | undefined
+    let sig: AbortSignal | undefined
+
+    if (paramsOrSignal instanceof AbortSignal) {
+      sig = paramsOrSignal
+    } else if (paramsOrSignal) {
+      params = paramsOrSignal as Record<string, unknown>
+      sig = signal
+    } else {
+      sig = signal
+    }
+
+    return api
+      .get<UserQuest[]>('/quests/my', { params, signal: sig })
+      .then(r => r.data)
+  },
 
   /** Принять квест */
   accept: (questId: string, signal?: AbortSignal) =>
