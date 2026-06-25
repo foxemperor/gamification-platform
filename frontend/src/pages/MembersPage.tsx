@@ -113,8 +113,6 @@ function applySearch(items: MemberEntry[], q: string): MemberEntry[] {
 
 /**
  * Сортировка по роли (manager первый), затем по имени.
- * Применяется только для scope='team', чтобы не перемешивать порядок
- * рейтинга для других scope.
  */
 function sortByRole(items: MemberEntry[]): MemberEntry[] {
   return [...items].sort((a, b) => {
@@ -232,7 +230,7 @@ function EmptyState({ scope, hasSearch }: { scope: MemberScope; hasSearch: boole
   )
 }
 
-// ─── Отрендер списка с разделителями групп ──────────────────────────────────────
+// ─── Список с разделителями групп ────────────────────────────────────────────
 
 interface GroupedListProps {
   members: MemberEntry[]
@@ -259,29 +257,28 @@ function GroupedList({ members, showGroups }: GroupedListProps) {
     if (last && last.key === key) {
       last.items.push(m)
     } else {
-      groups.push({
-        key,
-        label: ROLE_GROUP_LABELS[key] ?? key,
-        items: [m],
-      })
+      groups.push({ key, label: ROLE_GROUP_LABELS[key] ?? key, items: [m] })
     }
   }
 
   return (
     <>
       {groups.map(g => (
-        <>
-          <div key={`divider-${g.key}`} className={s.groupDivider}>
+        // key на Fragment — React корректно отслеживает группы
+        <React.Fragment key={g.key}>
+          <div className={s.groupDivider}>
             {g.label} &middot; {g.items.length}
           </div>
           {g.items.map(m => <MemberRow key={m.user_id} member={m} />)}
-        </>
+        </React.Fragment>
       ))}
     </>
   )
 }
 
 // ─── Страница ────────────────────────────────────────────────────────────────
+
+import React from 'react'
 
 export function MembersPage() {
   const currentUserId = useAuthStore(st => st.user?.id)
@@ -292,7 +289,6 @@ export function MembersPage() {
   const [allMembers, setAllMembers]           = useState<MemberEntry[]>([])
   const [loading, setLoading]                 = useState(true)
 
-  // Debounce поиска
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleSearch = (v: string) => {
     setSearch(v)
@@ -300,7 +296,6 @@ export function MembersPage() {
     searchTimer.current = setTimeout(() => setDebouncedSearch(v), 300)
   }
 
-  // Единственный сетевой запрос — загружаем всех один раз
   useEffect(() => {
     let cancelled = false
     const ctrl = new AbortController()
@@ -317,9 +312,7 @@ export function MembersPage() {
     return () => { cancelled = true; ctrl.abort() }
   }, [currentUserId])
 
-  // Производные — чистые функции, нет setState
   const scopedMembers  = applyScope(allMembers, scope)
-  // Сортировка по роли — только для вкладки «Команда»
   const sortedMembers  = scope === 'team' ? sortByRole(scopedMembers) : scopedMembers
   const visibleMembers = applySearch(sortedMembers, debouncedSearch)
   const total          = visibleMembers.length
@@ -327,7 +320,6 @@ export function MembersPage() {
 
   return (
     <div className={s.page}>
-      {/* Шапка */}
       <div className={s.pageHeader}>
         <div>
           <h1 className={s.pageTitle}>Участники</h1>
@@ -341,7 +333,6 @@ export function MembersPage() {
         </div>
       </div>
 
-      {/* Панель фильтров и поиска */}
       <div className={s.toolbar}>
         <div className={s.tabs}>
           {(Object.keys(SCOPE_LABELS) as MemberScope[]).map(sc => (
@@ -378,7 +369,6 @@ export function MembersPage() {
         </div>
       </div>
 
-      {/* Список */}
       <div className={s.grid}>
         {loading ? (
           <SkeletonCards />
