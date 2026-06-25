@@ -5,6 +5,7 @@ import { SidebarUser } from './SidebarUser'
 import { SidebarXP } from './SidebarXP'
 import { SidebarTheme } from './SidebarTheme'
 import { useAuthStore } from '../../store/authStore'
+import { useReviewStore } from '../../store/reviewStore'
 import { api } from '../../api/axios'
 import styles from './Sidebar.module.css'
 
@@ -27,21 +28,16 @@ const NAV_ACCOUNT: NavItemDef[] = [
   { to: '/settings', icon: '⚙️', label: 'Настройки' },
 ]
 
-const NAV_ADMIN: NavItemDef[] = [
-  { to: '/admin',            icon: '🛡️', label: 'Обзор' },
-  { to: '/admin/users',      icon: '👤', label: 'Пользователи' },
-  { to: '/admin/quests',     icon: '📜', label: 'Квесты' },
-  { to: '/admin/badges',     icon: '🏅', label: 'Бейджи' },
-  { to: '/admin/xp',         icon: '✨', label: 'XP' },
-  { to: '/admin/monitoring', icon: '📡', label: 'Мониторинг' },
-]
-
 export function Sidebar() {
   const [mini, setMini] = useState<boolean>(() => {
     try { return localStorage.getItem(STORAGE_KEY) === 'true' } catch { return false }
   })
-  const user = useAuthStore(s => s.user)
-  const isAdmin = user?.is_superuser || user?.role === 'admin'
+  const user    = useAuthStore(s => s.user)
+  const isAdmin = user?.is_superuser || user?.role === 'admin' || user?.role === 'manager'
+
+  const pendingCount = useReviewStore(s =>
+    s.submissions.filter(sub => sub.status === 'pending_review').length
+  )
 
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, String(mini)) } catch {}
@@ -73,6 +69,16 @@ export function Sidebar() {
     { to: '/shop',         icon: '🛒', label: 'Магазин' },
   ]
 
+  const NAV_ADMIN: NavItemDef[] = [
+    { to: '/admin',            icon: '🛡️', label: 'Обзор' },
+    { to: '/admin/users',      icon: '👤', label: 'Пользователи' },
+    { to: '/admin/review',     icon: '🔍', label: 'Проверка', badge: pendingCount || undefined, badgeVariant: 'warn' },
+    { to: '/admin/quests',     icon: '📜', label: 'Квесты' },
+    { to: '/admin/badges',     icon: '🏅', label: 'Бейджи' },
+    { to: '/admin/xp',         icon: '✨', label: 'XP' },
+    { to: '/admin/monitoring', icon: '📡', label: 'Мониторинг' },
+  ]
+
   const cls = [styles.sidebar, mini ? styles.mini : ''].filter(Boolean).join(' ')
 
   return (
@@ -97,7 +103,7 @@ export function Sidebar() {
         </NavSection>
 
         {isAdmin && (
-          <NavSection label="Админ" mini={mini}>
+          <NavSection label="Менеджер" mini={mini}>
             {NAV_ADMIN.map(item => <NavItem key={item.to} {...item} mini={mini} />)}
           </NavSection>
         )}

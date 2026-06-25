@@ -15,6 +15,7 @@ import { AdminQuestsPage }     from './pages/admin/AdminQuestsPage'
 import { AdminBadgesPage }     from './pages/admin/AdminBadgesPage'
 import { AdminXPPage }         from './pages/admin/AdminXPPage'
 import { AdminMonitoringPage } from './pages/admin/AdminMonitoringPage'
+import { AdminReviewPage }     from './pages/admin/AdminReviewPage'
 import { AppLayout }           from './layouts/AppLayout'
 import { ProtectedRoute }      from './components/ProtectedRoute'
 import { AdminRoute }          from './components/AdminRoute'
@@ -86,28 +87,26 @@ export default function App() {
   return (
     <ToastProvider>
       <Routes>
-        {/* Публичные */}
         <Route path="/auth" element={<AuthPage />} />
 
-        {/* Защищённые */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          <Route index                 element={<OverviewPage />} />
-          <Route path="/quests"        element={<QuestsPage />} />
-          <Route path="/leaderboard"   element={<LeaderboardPage />} />
-          <Route path="/achievements"  element={<AchievementsPage />} />
-          <Route path="/inventory"     element={<InventoryPage />} />
-          <Route path="/shop"          element={<ShopPage />} />
-          <Route path="/members"       element={<MembersPage />} />
-          <Route path="/events"        element={<EventsPage />} />
-          <Route path="/settings"      element={<SettingsPage />} />
+          <Route index                   element={<OverviewPage />} />
+          <Route path="/quests"          element={<QuestsPage />} />
+          <Route path="/leaderboard"     element={<LeaderboardPage />} />
+          <Route path="/achievements"    element={<AchievementsPage />} />
+          <Route path="/inventory"       element={<InventoryPage />} />
+          <Route path="/shop"            element={<ShopPage />} />
+          <Route path="/members"         element={<MembersPage />} />
+          <Route path="/events"          element={<EventsPage />} />
+          <Route path="/settings"        element={<SettingsPage />} />
 
-          {/* Админ-панель */}
           <Route path="/admin"             element={<AdminRoute><AdminOverviewPage /></AdminRoute>} />
           <Route path="/admin/users"       element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
           <Route path="/admin/quests"      element={<AdminRoute><AdminQuestsPage /></AdminRoute>} />
           <Route path="/admin/badges"      element={<AdminRoute><AdminBadgesPage /></AdminRoute>} />
           <Route path="/admin/xp"          element={<AdminRoute><AdminXPPage /></AdminRoute>} />
           <Route path="/admin/monitoring"  element={<AdminRoute><AdminMonitoringPage /></AdminRoute>} />
+          <Route path="/admin/review"      element={<AdminRoute><AdminReviewPage /></AdminRoute>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
